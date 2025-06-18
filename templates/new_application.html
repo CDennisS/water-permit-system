@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+
+{% block title %}New Application - Water Permit Management System{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header bg-white">
+        <h5 class="mb-0">
+            <i class="fas fa-plus-circle me-2"></i>
+            New Permit Application
+        </h5>
+    </div>
+    <div class="card-body">
+        <form method="POST" action="{{ url_for('new_application') }}" enctype="multipart/form-data">
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label for="applicant_name" class="form-label">Applicant Name</label>
+                    <input type="text" class="form-control" id="applicant_name" name="applicant_name" required>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label for="physical_address" class="form-label">Physical Address</label>
+                    <input type="text" class="form-control" id="physical_address" name="physical_address" required>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label for="account_number" class="form-label">Account Number</label>
+                    <input type="text" class="form-control" id="account_number" name="account_number">
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label for="cellular" class="form-label">Cellular Number</label>
+                    <input type="tel" class="form-control" id="cellular" name="cellular" required>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label for="num_boreholes" class="form-label">Number of Drilled Boreholes</label>
+                    <input type="number" class="form-control" id="num_boreholes" name="num_boreholes" required>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label for="land_size" class="form-label">Size of Land/Property (ha)</label>
+                    <input type="number" step="0.01" class="form-control" id="land_size" name="land_size" required>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label for="gps_x" class="form-label">GPS X (Latitude)</label>
+                    <input type="number" step="0.000001" class="form-control" id="gps_x" name="gps_x" required>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label for="gps_y" class="form-label">GPS Y (Longitude)</label>
+                    <input type="number" step="0.000001" class="form-control" id="gps_y" name="gps_y" required>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label for="water_source" class="form-label">Water Source</label>
+                    <select class="form-select" id="water_source" name="water_source" required>
+                        <option value="">Select Water Source</option>
+                        <option value="Ground Water">Ground Water</option>
+                        <option value="Surface Water">Surface Water (Dam, River, Lake)</option>
+                    </select>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label for="permit_type" class="form-label">Permit Type</label>
+                    <select class="form-select" id="permit_type" name="permit_type" required>
+                        <option value="">Select Permit Type</option>
+                        <option value="Urban">Urban</option>
+                        <option value="Bulk Water">Bulk Water</option>
+                        <option value="Irrigation">Irrigation</option>
+                        <option value="Institution">Institution</option>
+                        <option value="Industrial">Industrial</option>
+                        <option value="Surface Water">Surface Water (Storage and Flow)</option>
+                        <option value="Tempering">Tempering</option>
+                    </select>
+                </div>
+            </div>
+
+            <div id="bulk_water_allocation" class="row" style="display: none;">
+                <div class="col-md-6 mb-3">
+                    <label for="water_allocation" class="form-label">Water Allocation (ML)</label>
+                    <input type="number" step="0.01" class="form-control" id="water_allocation" name="water_allocation">
+                </div>
+            </div>
+
+            <div class="mb-4">
+                <label class="form-label">Required Documents</label>
+                <div class="card">
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label class="form-label">Standard Documents (PDF)</label>
+                            <input type="file" class="form-control" name="documents" accept=".pdf" multiple required>
+                            <small class="text-muted">Upload application form, proof of residence, and receipt as a single PDF</small>
+                        </div>
+                        <div id="additional_docs" style="display: none;">
+                            <div class="mb-3">
+                                <label class="form-label">Capacity Test (PDF)</label>
+                                <input type="file" class="form-control" name="capacity_test" accept=".pdf">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Water Quality Test (PDF)</label>
+                                <input type="file" class="form-control" name="water_quality" accept=".pdf">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label for="comments" class="form-label">Comments</label>
+                <textarea class="form-control" id="comments" name="comments" rows="3"></textarea>
+            </div>
+
+            <div class="d-flex justify-content-end gap-2">
+                <a href="{{ url_for('dashboard') }}" class="btn btn-outline-secondary">
+                    <i class="fas fa-times me-2"></i>
+                    Cancel
+                </a>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save me-2"></i>
+                    Save Application
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.getElementById('permit_type').addEventListener('change', function() {
+    const bulkWaterAllocation = document.getElementById('bulk_water_allocation');
+    const additionalDocs = document.getElementById('additional_docs');
+    
+    if (this.value === 'Bulk Water') {
+        bulkWaterAllocation.style.display = 'flex';
+        additionalDocs.style.display = 'block';
+    } else {
+        bulkWaterAllocation.style.display = 'none';
+        additionalDocs.style.display = 'none';
+    }
+});
+</script>
+{% endblock %} 

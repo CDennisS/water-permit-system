@@ -1,0 +1,262 @@
+{% extends "base.html" %}
+
+{% block title %}Activity Logs - Water Permit Management System{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Page Heading -->
+    <div class="d-sm-flex align-items-center justify-content-between mb-4">
+        <h1 class="h3 mb-0 text-gray-800">Activity Logs</h1>
+        <div>
+            <a href="{{ url_for('activity_logs_stats') }}" class="btn btn-info mr-2">
+                <i class="fas fa-chart-bar fa-sm"></i> View Statistics
+            </a>
+            <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#filterModal">
+                <i class="fas fa-filter fa-sm"></i> Filter Logs
+            </button>
+            <div class="btn-group ml-2">
+                <button type="button" class="btn btn-success dropdown-toggle" data-toggle="dropdown">
+                    <i class="fas fa-download fa-sm"></i> Export
+                </button>
+                <div class="dropdown-menu">
+                    <a class="dropdown-item" href="#" onclick="exportLogs('csv')">
+                        <i class="fas fa-file-csv fa-sm"></i> Export as CSV
+                    </a>
+                    <a class="dropdown-item" href="#" onclick="exportLogs('excel')">
+                        <i class="fas fa-file-excel fa-sm"></i> Export as Excel
+                    </a>
+                    <a class="dropdown-item" href="#" onclick="exportLogs('json')">
+                        <i class="fas fa-file-code fa-sm"></i> Export as JSON
+                    </a>
+                    <div class="dropdown-divider"></div>
+                    <a class="dropdown-item" href="#" onclick="exportLogs('csv', true)">
+                        <i class="fas fa-file-csv fa-sm"></i> Export with Statistics (CSV)
+                    </a>
+                    <a class="dropdown-item" href="#" onclick="exportLogs('excel', true)">
+                        <i class="fas fa-file-excel fa-sm"></i> Export with Statistics (Excel)
+                    </a>
+                    <a class="dropdown-item" href="#" onclick="exportLogs('json', true)">
+                        <i class="fas fa-file-code fa-sm"></i> Export with Statistics (JSON)
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Activity Logs Table -->
+    <div class="card shadow mb-4">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered" width="100%" cellspacing="0">
+                    <thead>
+                        <tr>
+                            <th>Timestamp</th>
+                            <th>Application</th>
+                            <th>User</th>
+                            <th>Role</th>
+                            <th>Action</th>
+                            <th>Details</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for log in logs %}
+                        <tr>
+                            <td>{{ log.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                            <td>
+                                <a href="{{ url_for('view_application', application_id=log.application.id) }}">
+                                    {{ log.application.permit_number }}
+                                </a>
+                            </td>
+                            <td>{{ log.user.username }}</td>
+                            <td>
+                                <span class="badge badge-{{ {
+                                    'Permitting Officer': 'primary',
+                                    'Upper Manyame Chairperson': 'success',
+                                    'Manyame Catchment Manager': 'info',
+                                    'Manyame Catchment Chairperson': 'warning',
+                                    'ICT': 'secondary',
+                                    'Permit Supervisor': 'dark'
+                                }[log.user.role] }}">
+                                    {{ log.user.role }}
+                                </span>
+                            </td>
+                            <td>
+                                <span class="badge badge-{{ {
+                                    'New Application': 'primary',
+                                    'Application Submitted': 'success',
+                                    'Application Approved': 'info',
+                                    'Application Rejected': 'danger',
+                                    'Comment Added': 'warning',
+                                    'Document Uploaded': 'secondary'
+                                }[log.action] }}">
+                                    {{ log.action }}
+                                </span>
+                            </td>
+                            <td>{{ log.details }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination -->
+            {% if pagination.pages > 1 %}
+            <nav aria-label="Page navigation">
+                <ul class="pagination justify-content-center">
+                    {% if pagination.has_prev %}
+                    <li class="page-item">
+                        <a class="page-link" href="{{ url_for('activity_logs', page=pagination.prev_num, **request.args) }}">
+                            Previous
+                        </a>
+                    </li>
+                    {% endif %}
+
+                    {% for page in pagination.iter_pages() %}
+                        {% if page %}
+                            <li class="page-item {{ 'active' if page == pagination.page else '' }}">
+                                <a class="page-link" href="{{ url_for('activity_logs', page=page, **request.args) }}">
+                                    {{ page }}
+                                </a>
+                            </li>
+                        {% else %}
+                            <li class="page-item disabled">
+                                <span class="page-link">...</span>
+                            </li>
+                        {% endif %}
+                    {% endfor %}
+
+                    {% if pagination.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="{{ url_for('activity_logs', page=pagination.next_num, **request.args) }}">
+                            Next
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Filter Modal -->
+<div class="modal fade" id="filterModal" tabindex="-1" role="dialog" aria-labelledby="filterModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="filterModalLabel">Filter Activity Logs</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <form method="GET">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label>Date Range</label>
+                        <div class="input-group">
+                            <input type="date" class="form-control" name="start_date" 
+                                   value="{{ request.args.get('start_date', '') }}">
+                            <div class="input-group-append">
+                                <span class="input-group-text">to</span>
+                            </div>
+                            <input type="date" class="form-control" name="end_date"
+                                   value="{{ request.args.get('end_date', '') }}">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Action Type</label>
+                        <select class="form-control" name="action">
+                            <option value="">All Actions</option>
+                            <option value="New Application" {{ 'selected' if request.args.get('action') == 'New Application' }}>
+                                New Application
+                            </option>
+                            <option value="Application Submitted" {{ 'selected' if request.args.get('action') == 'Application Submitted' }}>
+                                Application Submitted
+                            </option>
+                            <option value="Application Approved" {{ 'selected' if request.args.get('action') == 'Application Approved' }}>
+                                Application Approved
+                            </option>
+                            <option value="Application Rejected" {{ 'selected' if request.args.get('action') == 'Application Rejected' }}>
+                                Application Rejected
+                            </option>
+                            <option value="Comment Added" {{ 'selected' if request.args.get('action') == 'Comment Added' }}>
+                                Comment Added
+                            </option>
+                            <option value="Document Uploaded" {{ 'selected' if request.args.get('action') == 'Document Uploaded' }}>
+                                Document Uploaded
+                            </option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>User Role</label>
+                        <select class="form-control" name="role">
+                            <option value="">All Roles</option>
+                            <option value="Permitting Officer" {{ 'selected' if request.args.get('role') == 'Permitting Officer' }}>
+                                Permitting Officer
+                            </option>
+                            <option value="Upper Manyame Chairperson" {{ 'selected' if request.args.get('role') == 'Upper Manyame Chairperson' }}>
+                                Upper Manyame Chairperson
+                            </option>
+                            <option value="Manyame Catchment Manager" {{ 'selected' if request.args.get('role') == 'Manyame Catchment Manager' }}>
+                                Manyame Catchment Manager
+                            </option>
+                            <option value="Manyame Catchment Chairperson" {{ 'selected' if request.args.get('role') == 'Manyame Catchment Chairperson' }}>
+                                Manyame Catchment Chairperson
+                            </option>
+                            <option value="ICT" {{ 'selected' if request.args.get('role') == 'ICT' }}>
+                                ICT
+                            </option>
+                            <option value="Permit Supervisor" {{ 'selected' if request.args.get('role') == 'Permit Supervisor' }}>
+                                Permit Supervisor
+                            </option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Application Status</label>
+                        <select class="form-control" name="status">
+                            <option value="">All Statuses</option>
+                            <option value="Unsubmitted" {{ 'selected' if request.args.get('status') == 'Unsubmitted' }}>
+                                Unsubmitted
+                            </option>
+                            <option value="Submitted" {{ 'selected' if request.args.get('status') == 'Submitted' }}>
+                                Submitted
+                            </option>
+                            <option value="Under Review" {{ 'selected' if request.args.get('status') == 'Under Review' }}>
+                                Under Review
+                            </option>
+                            <option value="Approved" {{ 'selected' if request.args.get('status') == 'Approved' }}>
+                                Approved
+                            </option>
+                            <option value="Rejected" {{ 'selected' if request.args.get('status') == 'Rejected' }}>
+                                Rejected
+                            </option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <a href="{{ url_for('activity_logs') }}" class="btn btn-secondary">Clear Filters</a>
+                    <button type="submit" class="btn btn-primary">Apply Filters</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function exportLogs(format, includeStats = false) {
+    const currentUrl = new URL(window.location.href);
+    const params = new URLSearchParams(currentUrl.search);
+    
+    // Add export format and statistics flag
+    params.set('format', format);
+    if (includeStats) {
+        params.set('include_stats', 'true');
+    }
+    
+    // Redirect to export URL
+    window.location.href = "{{ url_for('export_logs', format='') }}" + format + "?" + params.toString();
+}
+</script>
+{% endblock %} 

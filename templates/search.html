@@ -1,0 +1,209 @@
+{% extends "base.html" %}
+
+{% block title %}Search Applications - Water Permit Management System{% endblock %}
+
+{% block extra_css %}
+<style>
+    .filter-section {
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+    .search-results {
+        margin-top: 20px;
+    }
+    .result-card {
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        padding: 15px;
+        margin-bottom: 15px;
+        transition: all 0.3s ease;
+    }
+    .result-card:hover {
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        transform: translateY(-2px);
+    }
+    .badge {
+        font-size: 0.9em;
+        padding: 5px 10px;
+        border-radius: 15px;
+    }
+    .export-buttons {
+        margin-bottom: 20px;
+    }
+    .sort-dropdown {
+        min-width: 150px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="mb-0">Advanced Search</h4>
+                </div>
+                <div class="card-body">
+                    <form method="GET" action="{{ url_for('search') }}" class="filter-section">
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="q">Search Query</label>
+                                    <input type="text" class="form-control" id="q" name="q" value="{{ query }}" placeholder="Search by name, address, account number...">
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="status">Status</label>
+                                    <select class="form-control" id="status" name="status">
+                                        <option value="">All Statuses</option>
+                                        {% for status in statuses %}
+                                        <option value="{{ status }}" {% if status == selected_status %}selected{% endif %}>{{ status }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="permit_type">Permit Type</label>
+                                    <select class="form-control" id="permit_type" name="permit_type">
+                                        <option value="">All Types</option>
+                                        {% for type in permit_types %}
+                                        <option value="{{ type }}" {% if type == selected_permit_type %}selected{% endif %}>{{ type }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row mt-3">
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="water_source">Water Source</label>
+                                    <select class="form-control" id="water_source" name="water_source">
+                                        <option value="">All Sources</option>
+                                        {% for source in water_sources %}
+                                        <option value="{{ source }}" {% if source == selected_water_source %}selected{% endif %}>{{ source }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="date_from">Date From</label>
+                                    <input type="date" class="form-control" id="date_from" name="date_from" value="{{ date_from }}">
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="date_to">Date To</label>
+                                    <input type="date" class="form-control" id="date_to" name="date_to" value="{{ date_to }}">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row mt-3">
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="sort_by">Sort By</label>
+                                    <select class="form-control sort-dropdown" id="sort_by" name="sort_by">
+                                        <option value="created_at" {% if sort_by == 'created_at' %}selected{% endif %}>Created Date</option>
+                                        <option value="applicant_name" {% if sort_by == 'applicant_name' %}selected{% endif %}>Applicant Name</option>
+                                        <option value="status" {% if sort_by == 'status' %}selected{% endif %}>Status</option>
+                                        <option value="permit_type" {% if sort_by == 'permit_type' %}selected{% endif %}>Permit Type</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="sort_order">Sort Order</label>
+                                    <select class="form-control" id="sort_order" name="sort_order">
+                                        <option value="desc" {% if sort_order == 'desc' %}selected{% endif %}>Descending</option>
+                                        <option value="asc" {% if sort_order == 'asc' %}selected{% endif %}>Ascending</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-4 d-flex align-items-end">
+                                <button type="submit" class="btn btn-primary">Search</button>
+                                <a href="{{ url_for('search') }}" class="btn btn-secondary ml-2">Clear Filters</a>
+                            </div>
+                        </div>
+                    </form>
+
+                    {% if applications %}
+                    <div class="export-buttons">
+                        <div class="btn-group">
+                            <button type="button" class="btn btn-success dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                                Export
+                            </button>
+                            <div class="dropdown-menu">
+                                <a class="dropdown-item" href="{{ url_for('export_data', format='csv', **request.args) }}">Export as CSV</a>
+                                <a class="dropdown-item" href="{{ url_for('export_data', format='excel', **request.args) }}">Export as Excel</a>
+                                <a class="dropdown-item" href="{{ url_for('export_data', format='json', **request.args) }}">Export as JSON</a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="search-results">
+                        {% for application in applications %}
+                        <div class="result-card">
+                            <div class="row">
+                                <div class="col-md-8">
+                                    <h5>
+                                        <a href="{{ url_for('view_application', id=application.id) }}">
+                                            {{ application.applicant_name }}
+                                        </a>
+                                        <span class="badge badge-{{ application.status|lower }} ml-2">{{ application.status }}</span>
+                                    </h5>
+                                    <p class="mb-1">
+                                        <strong>Account Number:</strong> {{ application.account_number }}<br>
+                                        <strong>Permit Type:</strong> {{ application.permit_type }}<br>
+                                        <strong>Water Source:</strong> {{ application.water_source }}<br>
+                                        <strong>Created:</strong> {{ application.created_at.strftime('%Y-%m-%d %H:%M') }}
+                                    </p>
+                                </div>
+                                <div class="col-md-4 text-right">
+                                    <a href="{{ url_for('view_application', id=application.id) }}" class="btn btn-sm btn-info">View Details</a>
+                                    {% if application.status == 'Approved' %}
+                                    <a href="{{ url_for('print_permit', application_id=application.id) }}" class="btn btn-sm btn-success">Print Permit</a>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="alert alert-info">
+                        No applications found matching your search criteria.
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        // Initialize select2 for better dropdown experience
+        $('select').select2({
+            theme: 'bootstrap4'
+        });
+        
+        // Date range picker
+        $('#date_from, #date_to').daterangepicker({
+            singleDatePicker: true,
+            showDropdowns: true,
+            autoUpdateInput: false
+        });
+        
+        // Handle date selection
+        $('#date_from, #date_to').on('apply.daterangepicker', function(ev, picker) {
+            $(this).val(picker.startDate.format('YYYY-MM-DD'));
+        });
+    });
+</script>
+{% endblock %} 

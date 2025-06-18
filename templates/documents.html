@@ -1,0 +1,248 @@
+{% extends "base.html" %}
+
+{% block title %}Documents - {{ application.applicant_name }} - Water Permit Management System{% endblock %}
+
+{% block extra_css %}
+<style>
+    .document-category {
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+    .document-card {
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        padding: 15px;
+        margin-bottom: 15px;
+        transition: all 0.3s ease;
+    }
+    .document-card:hover {
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        transform: translateY(-2px);
+    }
+    .document-icon {
+        font-size: 2em;
+        margin-right: 10px;
+    }
+    .document-info {
+        margin-left: 10px;
+    }
+    .document-actions {
+        margin-top: 10px;
+    }
+    .upload-section {
+        background-color: #fff;
+        border: 2px dashed #dee2e6;
+        border-radius: 8px;
+        padding: 20px;
+        text-align: center;
+        margin-bottom: 20px;
+        transition: all 0.3s ease;
+    }
+    .upload-section:hover {
+        border-color: #007bff;
+    }
+    .file-preview {
+        max-width: 200px;
+        max-height: 200px;
+        margin: 10px auto;
+    }
+    .progress {
+        display: none;
+        margin-top: 10px;
+    }
+    .document-status {
+        font-size: 0.9em;
+        padding: 3px 8px;
+        border-radius: 12px;
+    }
+    .document-status.verified {
+        background-color: #28a745;
+        color: white;
+    }
+    .document-status.pending {
+        background-color: #ffc107;
+        color: black;
+    }
+    .document-status.rejected {
+        background-color: #dc3545;
+        color: white;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0">Documents - {{ application.applicant_name }}</h4>
+                    <a href="{{ url_for('view_application', id=application.id) }}" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left"></i> Back to Application
+                    </a>
+                </div>
+                <div class="card-body">
+                    {% if application.status == 'Unsubmitted' or current_user.role in ['ICT', 'Permit Supervisor'] %}
+                    <!-- Upload Section -->
+                    <div class="upload-section">
+                        <form id="uploadForm" action="{{ url_for('upload_document', application_id=application.id) }}" method="POST" enctype="multipart/form-data">
+                            <div class="form-group">
+                                <label for="document_type">Document Type</label>
+                                <select class="form-control" id="document_type" name="document_type" required>
+                                    <option value="">Select Document Type</option>
+                                    {% for category, doc_types in document_categories.items() %}
+                                    <optgroup label="{{ category }}">
+                                        {% for doc_type in doc_types %}
+                                        <option value="{{ doc_type }}">{{ doc_type }}</option>
+                                        {% endfor %}
+                                    </optgroup>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="document">Select File</label>
+                                <input type="file" class="form-control-file" id="document" name="document" required>
+                                <small class="form-text text-muted">
+                                    Allowed file types: PDF, JPG, PNG, DOC, DOCX (Max size: 10MB)
+                                </small>
+                            </div>
+                            <div id="preview" class="file-preview"></div>
+                            <div class="progress">
+                                <div class="progress-bar" role="progressbar" style="width: 0%"></div>
+                            </div>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-upload"></i> Upload Document
+                            </button>
+                        </form>
+                    </div>
+                    {% endif %}
+
+                    <!-- Document Categories -->
+                    {% for category, documents in documents_by_category.items() %}
+                    <div class="document-category">
+                        <h5>{{ category }}</h5>
+                        {% if documents %}
+                            {% for document in documents %}
+                            <div class="document-card">
+                                <div class="row">
+                                    <div class="col-md-8">
+                                        <div class="d-flex align-items-center">
+                                            <div class="document-icon">
+                                                {% if document.file_path.endswith('.pdf') %}
+                                                <i class="fas fa-file-pdf text-danger"></i>
+                                                {% elif document.file_path.endswith(('.jpg', '.jpeg', '.png')) %}
+                                                <i class="fas fa-file-image text-primary"></i>
+                                                {% elif document.file_path.endswith(('.doc', '.docx')) %}
+                                                <i class="fas fa-file-word text-info"></i>
+                                                {% else %}
+                                                <i class="fas fa-file text-secondary"></i>
+                                                {% endif %}
+                                            </div>
+                                            <div class="document-info">
+                                                <h6 class="mb-1">{{ document.original_filename }}</h6>
+                                                <p class="mb-1">
+                                                    <small class="text-muted">
+                                                        Uploaded by {{ document.uploaded_by_user.username }} on {{ document.uploaded_at.strftime('%Y-%m-%d %H:%M') }}<br>
+                                                        Size: {{ (document.file_size / 1024)|round|int }} KB
+                                                    </small>
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4 text-right">
+                                        <div class="document-actions">
+                                            <a href="{{ url_for('view_document', document_id=document.id) }}" class="btn btn-sm btn-info" target="_blank">
+                                                <i class="fas fa-eye"></i> View
+                                            </a>
+                                            <a href="{{ url_for('document_history', document_id=document.id) }}" class="btn btn-sm btn-secondary">
+                                                <i class="fas fa-history"></i> History
+                                            </a>
+                                            {% if application.status == 'Unsubmitted' or current_user.role in ['ICT', 'Permit Supervisor'] %}
+                                            <form action="{{ url_for('delete_document', document_id=document.id) }}" method="POST" class="d-inline">
+                                                <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Are you sure you want to delete this document?')">
+                                                    <i class="fas fa-trash"></i> Delete
+                                                </button>
+                                            </form>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        {% else %}
+                            <div class="alert alert-info">
+                                No documents in this category.
+                            </div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        // Initialize select2 for document type dropdown
+        $('#document_type').select2({
+            theme: 'bootstrap4'
+        });
+        
+        // File preview
+        $('#document').change(function() {
+            const file = this.files[0];
+            const preview = $('#preview');
+            preview.empty();
+            
+            if (file) {
+                if (file.type.startsWith('image/')) {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        preview.html(`<img src="${e.target.result}" class="img-fluid">`);
+                    }
+                    reader.readAsDataURL(file);
+                } else {
+                    const icon = file.type.includes('pdf') ? 'pdf' :
+                               file.type.includes('word') ? 'word' : 'file';
+                    preview.html(`<i class="fas fa-file-${icon} fa-3x"></i>`);
+                }
+            }
+        });
+        
+        // File upload progress
+        $('#uploadForm').submit(function(e) {
+            const form = $(this);
+            const progress = $('.progress');
+            const progressBar = $('.progress-bar');
+            
+            form.ajaxSubmit({
+                beforeSend: function() {
+                    progress.show();
+                    progressBar.width('0%');
+                },
+                uploadProgress: function(event, position, total, percentComplete) {
+                    progressBar.width(percentComplete + '%');
+                },
+                success: function() {
+                    progressBar.width('100%');
+                    setTimeout(function() {
+                        window.location.reload();
+                    }, 1000);
+                },
+                error: function() {
+                    progressBar.width('0%');
+                    progress.hide();
+                    alert('Error uploading file. Please try again.');
+                }
+            });
+            
+            e.preventDefault();
+        });
+    });
+</script>
+{% endblock %} 
