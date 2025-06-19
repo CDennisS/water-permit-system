@@ -32,60 +32,60 @@ A comprehensive web application for managing water permits, built with Flask and
 ## Installation
 
 1. Clone the repository:
-```bash
+\`\`\`bash
 git clone https://github.com/yourusername/water-permit-system.git
 cd water-permit-system
-```
+\`\`\`
 
 2. Create and activate virtual environment:
-```bash
+\`\`\`bash
 python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
-```
+\`\`\`
 
 3. Install dependencies:
-```bash
+\`\`\`bash
 pip install -r requirements.txt
-```
+\`\`\`
 
 4. Set up environment variables:
-```bash
+\`\`\`bash
 cp .env.example .env
 # Edit .env with your configuration
-```
+\`\`\`
 
 5. Initialize the database:
-```bash
+\`\`\`bash
 python seed.py
-```
+\`\`\`
 
 ## Development
 
 1. Run the development server:
-```bash
+\`\`\`bash
 flask run
-```
+\`\`\`
 
 2. Run tests:
-```bash
+\`\`\`bash
 python -m pytest
-```
+\`\`\`
 
 ## Deployment
 
 1. Install Vercel CLI:
-```bash
+\`\`\`bash
 npm install -g vercel
-```
+\`\`\`
 
 2. Deploy to Vercel:
-```bash
+\`\`\`bash
 ./deploy.sh
-```
+\`\`\`
 
 ## Project Structure
 
-```
+\`\`\`
 water-permit-system/
 ├── app/
 │   ├── __init__.py
@@ -99,7 +99,7 @@ water-permit-system/
 ├── requirements.txt
 ├── seed.py
 └── vercel.json
-```
+\`\`\`
 
 ## Contributing
 
@@ -115,4 +115,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Support
 
-For support, email support@waterpermit.gov.zw or create an issue in the repository. 
+For support, email support@waterpermit.gov.zw or create an issue in the repository.
