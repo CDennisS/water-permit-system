@@ -1,0 +1,38 @@
+{
+  "environment_variables": {
+    "required": [
+      {
+        "key": "SECRET_KEY",
+        "value": "umscc-permit-system-secret-key-2025-production",
+        "description": "Flask session secret key"
+      },
+      {
+        "key": "DATABASE_URL",
+        "value": "sqlite:///permit_system.db",
+        "description": "Database connection string"
+      },
+      {
+        "key": "FLASK_ENV",
+        "value": "production",
+        "description": "Flask environment"
+      }
+    ],
+    "optional": [
+      {
+        "key": "AWS_ACCESS_KEY_ID",
+        "value": "",
+        "description": "AWS S3 access key for file storage"
+      },
+      {
+        "key": "AWS_SECRET_ACCESS_KEY",
+        "value": "",
+        "description": "AWS S3 secret key"
+      },
+      {
+        "key": "AWS_S3_BUCKET_NAME",
+        "value": "umscc-documents",
+        "description": "S3 bucket for document storage"
+      }
+    ]
+  }
+}
