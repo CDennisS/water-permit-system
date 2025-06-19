@@ -1,67 +1,50 @@
 {
-    "version": 2,
-    "builds": [
-        {
-            "src": "app.py",
-            "use": "@vercel/python",
-            "config": {
-                "maxLambdaSize": "50mb",
-                "runtime": "python3.9"
-            }
-        }
-    ],
-    "routes": [
-        {
-            "src": "/static/(.*)",
-            "dest": "/static/$1",
-            "headers": {
-                "cache-control": "public, max-age=31536000, immutable",
-                "x-frame-options": "DENY",
-                "x-content-type-options": "nosniff",
-                "x-xss-protection": "1; mode=block",
-                "strict-transport-security": "max-age=31536000; includeSubDomains"
-            }
-        },
-        {
-            "src": "/api/(.*)",
-            "dest": "app.py",
-            "headers": {
-                "access-control-allow-origin": "*",
-                "access-control-allow-methods": "GET, POST, PUT, DELETE, OPTIONS",
-                "access-control-allow-headers": "X-Requested-With, Content-Type, Accept"
-            }
-        },
-        {
-            "src": "/(.*)",
-            "dest": "app.py",
-            "headers": {
-                "x-frame-options": "DENY",
-                "x-content-type-options": "nosniff",
-                "x-xss-protection": "1; mode=block",
-                "strict-transport-security": "max-age=31536000; includeSubDomains"
-            }
-        }
-    ],
-    "env": {
-        "FLASK_ENV": "production",
-        "FLASK_APP": "app.py",
-        "PYTHONPATH": ".",
-        "AWS_REGION": "us-east-1",
-        "LOG_LEVEL": "INFO"
-    },
-    "build": {
-        "env": {
-            "PYTHONPATH": "."
-        }
-    },
-    "functions": {
-        "app.py": {
-            "memory": 1024,
-            "maxDuration": 10
-        }
-    },
-    "github": {
-        "silent": true,
-        "autoAlias": true
+  "version": 2,
+  "builds": [
+    {
+      "src": "package.json",
+      "use": "@vercel/next"
     }
-} 
+  ],
+  "routes": [
+    {
+      "src": "/api/health",
+      "dest": "/api/health"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/$1"
+    }
+  ],
+  "env": {
+    "NODE_ENV": "production"
+  },
+  "functions": {
+    "app/api/*/route.ts": {
+      "maxDuration": 30
+    }
+  },
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        },
+        {
+          "key": "Permissions-Policy",
+          "value": "camera=(), microphone=(), geolocation=()"
+        }
+      ]
+    }
+  ]
+}

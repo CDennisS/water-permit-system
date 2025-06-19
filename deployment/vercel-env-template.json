@@ -1,0 +1,54 @@
+{
+  "environmentVariables": [
+    {
+      "key": "NEXT_PUBLIC_SUPABASE_URL",
+      "value": "https://your-project.supabase.co",
+      "target": ["production", "preview", "development"]
+    },
+    {
+      "key": "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+      "value": "your-anon-key-here",
+      "target": ["production", "preview", "development"]
+    },
+    {
+      "key": "SUPABASE_SERVICE_ROLE_KEY",
+      "value": "your-service-role-key-here",
+      "target": ["production", "preview", "development"]
+    },
+    {
+      "key": "JWT_SECRET",
+      "value": "your-super-secret-jwt-key-minimum-32-characters-long",
+      "target": ["production", "preview", "development"]
+    },
+    {
+      "key": "BLOB_READ_WRITE_TOKEN",
+      "value": "your-vercel-blob-token",
+      "target": ["production", "preview", "development"]
+    },
+    {
+      "key": "NEXT_PUBLIC_APP_URL",
+      "value": "https://your-app-name.vercel.app",
+      "target": ["production", "preview", "development"]
+    },
+    {
+      "key": "LOG_LEVEL",
+      "value": "info",
+      "target": ["production", "preview", "development"]
+    },
+    {
+      "key": "ENABLE_MONITORING",
+      "value": "true",
+      "target": ["production", "preview", "development"]
+    },
+    {
+      "key": "RATE_LIMIT_WINDOW_MS",
+      "value": "900000",
+      "target": ["production", "preview", "development"]
+    },
+    {
+      "key": "RATE_LIMIT_MAX_REQUESTS",
+      "value": "100",
+      "target": ["production", "preview", "development"]
+    }
+  ]
+}

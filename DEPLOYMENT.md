@@ -1,129 +1,195 @@
-# Deployment Guide for Vercel
+# UMSCC Permit Management System - Deployment Guide
 
-This guide will help you deploy the Water Permit Management System to Vercel.
+## 🚀 Production Deployment Steps
 
-## Prerequisites
+### Phase 1: Prerequisites ✅ COMPLETED
+- [x] Database schema created
+- [x] Default users seeded
+- [x] Code fixes applied (JWT, Email)
 
-1. A Vercel account
-2. A PostgreSQL database (recommended: Neon or similar)
-3. A cloud storage service for file uploads (recommended: AWS S3 or similar)
+### Phase 2: Environment Setup
 
-## Step 1: Database Setup
+#### 2.1 Supabase Configuration
+1. **Create Supabase Project**
+   - Go to [supabase.com](https://supabase.com)
+   - Create new project: "UMSCC Permit Management"
+   - Note down the project URL and API keys
 
-1. Create a PostgreSQL database using your preferred provider
-2. Get the database connection string
-3. Note down the connection string for later use
+2. **Database Setup** ✅ COMPLETED
+   - Tables created successfully
+   - Default users seeded
+   - Indexes and triggers configured
 
-## Step 2: File Storage Setup
+#### 2.2 Vercel Blob Storage
+1. **Setup File Storage**
+   - Go to Vercel Dashboard
+   - Navigate to Storage tab
+   - Create new Blob store: "umscc-documents"
+   - Copy the read/write token
 
-1. Create an S3 bucket or similar cloud storage
-2. Configure CORS settings
-3. Note down the access credentials
+#### 2.3 Email Configuration
+1. **SMTP Setup Options**
+   
+   **Option A: Gmail (Recommended for testing)**
+   \`\`\`
+   SMTP_HOST=smtp.gmail.com
+   SMTP_PORT=587
+   SMTP_SECURE=false
+   SMTP_USER=your-gmail@gmail.com
+   SMTP_PASSWORD=your-app-password
+   \`\`\`
+   
+   **Option B: Professional Email Service**
+   \`\`\`
+   SMTP_HOST=mail.umscc.co.zw
+   SMTP_PORT=587
+   SMTP_SECURE=false
+   SMTP_USER=noreply@umscc.co.zw
+   SMTP_PASSWORD=your-password
+   \`\`\`
 
-## Step 3: Vercel Deployment
+### Phase 3: Vercel Deployment
 
-1. Install Vercel CLI:
-```bash
-npm install -g vercel
-```
+#### 3.1 Environment Variables
+Set these in Vercel Dashboard → Settings → Environment Variables:
 
-2. Login to Vercel:
-```bash
-vercel login
-```
+\`\`\`bash
+# Database
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 
-3. Set up environment variables in Vercel:
-```bash
-vercel env add SECRET_KEY
-vercel env add DATABASE_URL
-vercel env add AWS_ACCESS_KEY_ID
-vercel env add AWS_SECRET_ACCESS_KEY
-vercel env add AWS_BUCKET_NAME
-vercel env add AWS_REGION
-```
+# Authentication
+JWT_SECRET=your-super-secret-jwt-key-minimum-32-characters
 
-4. Deploy the application:
-```bash
-vercel
-```
+# Email
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=your-email@gmail.com
+SMTP_PASSWORD=your-app-password
+SMTP_FROM=noreply@umscc.co.zw
 
-## Step 4: Post-Deployment
+# File Storage
+BLOB_READ_WRITE_TOKEN=your-vercel-blob-token
 
-1. Initialize the database:
-```bash
-vercel run python seed.py
-```
+# Application
+NEXT_PUBLIC_APP_URL=https://your-app.vercel.app
+NODE_ENV=production
+LOG_LEVEL=info
+ENABLE_MONITORING=true
 
-2. Verify the deployment:
-   - Check if the application is accessible
-   - Test user login
-   - Test file uploads
-   - Test database operations
+# Security
+RATE_LIMIT_WINDOW_MS=900000
+RATE_LIMIT_MAX_REQUESTS=100
+\`\`\`
 
-## Environment Variables
+#### 3.2 Deploy to Vercel
+1. **Connect Repository**
+   - Link your GitHub repository to Vercel
+   - Configure build settings (auto-detected)
 
-Required environment variables:
+2. **Deploy**
+   - Push code to main branch
+   - Vercel will automatically deploy
+   - Monitor build logs for any issues
 
-- `SECRET_KEY`: A secure random string for session encryption
-- `DATABASE_URL`: PostgreSQL connection string
-- `AWS_ACCESS_KEY_ID`: AWS access key for S3
-- `AWS_SECRET_ACCESS_KEY`: AWS secret key for S3
-- `AWS_BUCKET_NAME`: S3 bucket name
-- `AWS_REGION`: AWS region for S3
+### Phase 4: Post-Deployment Testing
 
-## Troubleshooting
+#### 4.1 Health Check
+Visit: `https://your-app.vercel.app/api/health`
 
-1. Database Connection Issues:
-   - Verify the DATABASE_URL format
-   - Check if the database is accessible
-   - Ensure proper network access
+Expected response:
+\`\`\`json
+{
+  "status": "healthy",
+  "services": [
+    {"service": "Database", "status": "healthy"},
+    {"service": "Email", "status": "healthy"},
+    {"service": "File Storage", "status": "healthy"}
+  ]
+}
+\`\`\`
 
-2. File Upload Issues:
-   - Verify S3 credentials
-   - Check CORS configuration
-   - Ensure proper bucket permissions
+#### 4.2 User Login Testing
+Test each user type:
+- **Permitting Officer**: `admin` / `admin123`
+- **Chairperson**: `chairperson` / `admin123`
+- **Catchment Manager**: `manager` / `admin123`
+- **Catchment Chairperson**: `catchment_chair` / `admin123`
+- **Permit Supervisor**: `supervisor` / `admin123`
+- **ICT**: `umsccict2025` / `umsccict2025`
 
-3. Application Errors:
-   - Check Vercel logs
-   - Verify environment variables
-   - Test locally with production settings
+### Phase 5: Production Readiness
 
-## Monitoring
+#### 5.1 Security Checklist
+- [x] HTTPS enabled (automatic with Vercel)
+- [x] Security headers configured
+- [x] Rate limiting implemented
+- [x] Input validation active
+- [x] SQL injection protection
+- [x] XSS protection
 
-1. Set up monitoring in Vercel:
-   - Enable error tracking
-   - Set up performance monitoring
-   - Configure alerts
+#### 5.2 Performance Optimization
+- [x] Database indexes created
+- [x] File compression enabled
+- [x] CDN configured (Vercel Edge Network)
+- [x] Caching strategies implemented
 
-2. Regular maintenance:
-   - Monitor database size
-   - Check storage usage
-   - Review error logs
+#### 5.3 Monitoring Setup
+- [x] Error tracking configured
+- [x] Performance monitoring active
+- [x] Health checks available
+- [x] Activity logging enabled
 
-## Security Considerations
+## 🎯 Go-Live Checklist
 
-1. Keep environment variables secure
-2. Regularly rotate credentials
-3. Monitor for suspicious activities
-4. Keep dependencies updated
-5. Enable HTTPS (automatic with Vercel)
+### Before Go-Live
+- [ ] All environment variables configured
+- [ ] Health check returns "healthy"
+- [ ] All user types can login
+- [ ] File upload/download working
+- [ ] Email notifications sending
+- [ ] PDF generation working
+- [ ] Print functionality tested
 
-## Backup Strategy
+### Go-Live Actions
+1. **Announce System Availability**
+   - Send email to all stakeholders
+   - Provide login credentials
+   - Share user manual/training materials
 
-1. Database backups:
-   - Set up automated backups
-   - Store backups securely
-   - Test restore procedures
+2. **Monitor Initial Usage**
+   - Watch error logs closely
+   - Monitor performance metrics
+   - Be ready for quick fixes
 
-2. File backups:
-   - Enable versioning in S3
-   - Set up cross-region replication
-   - Regular backup testing
+3. **User Support**
+   - Have technical support available
+   - Monitor user feedback
+   - Document any issues
 
-## Support
+## 📞 Support Information
 
-For deployment issues:
-1. Check Vercel documentation
-2. Review application logs
-3. Contact system administrator
-4. Create an issue in the repository 
+**Technical Support:**
+- Email: ict@umscc.co.zw
+- System Health: https://your-app.vercel.app/api/health
+- Admin Panel: ICT user has full system access
+
+**Default Login Credentials:**
+- See Phase 4.2 above for all user credentials
+- **IMPORTANT**: Change default passwords after first login
+
+## 🔄 Maintenance
+
+### Regular Tasks
+- Monitor system health daily
+- Review activity logs weekly
+- Update user passwords quarterly
+- Backup database monthly
+- Review and update security settings
+
+### Updates
+- Code updates deployed automatically via GitHub
+- Database migrations require manual execution
+- Environment variable changes require Vercel dashboard access
