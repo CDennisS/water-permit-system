@@ -12,6 +12,7 @@ import type { PermitApplication, User } from "@/types"
 import { db } from "@/lib/database"
 import { PermitPrinter } from "./permit-printer"
 import { CommentsPrinter } from "./comments-printer"
+import { AdvancedFilters, type FilterState } from "./advanced-filters"
 
 interface ApplicationsTableProps {
   user: User
@@ -32,13 +33,38 @@ export function ApplicationsTable({
   const [statusFilter, setStatusFilter] = useState("all")
   const [isLoading, setIsLoading] = useState(true)
 
+  const [advancedFilters, setAdvancedFilters] = useState<FilterState>({
+    searchTerm: "",
+    searchField: "all",
+    dateRange: "all",
+    startDate: "",
+    endDate: "",
+    dateField: "created",
+    status: "all",
+    stage: "all",
+    permitType: "all",
+    waterSource: "all",
+    landSizeMin: "",
+    landSizeMax: "",
+    waterAllocationMin: "",
+    waterAllocationMax: "",
+    numberOfBoreholes: "all",
+    gpsLatMin: "",
+    gpsLatMax: "",
+    gpsLngMin: "",
+    gpsLngMax: "",
+    hasComments: "all",
+    hasDocuments: "all",
+    intendedUse: "",
+  })
+
   useEffect(() => {
     loadApplications()
   }, [user])
 
   useEffect(() => {
     filterApplications()
-  }, [applications, searchTerm, statusFilter])
+  }, [applications, searchTerm, statusFilter, advancedFilters])
 
   const loadApplications = async () => {
     try {
@@ -54,19 +80,139 @@ export function ApplicationsTable({
   const filterApplications = () => {
     let filtered = [...applications]
 
-    // Filter by search term
-    if (searchTerm) {
-      filtered = filtered.filter(
-        (app) =>
-          app.applicantName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          app.applicationId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          app.permitType.toLowerCase().includes(searchTerm.toLowerCase()),
+    // Apply advanced search
+    if (advancedFilters.searchTerm) {
+      const searchTerm = advancedFilters.searchTerm.toLowerCase()
+      filtered = filtered.filter((app) => {
+        switch (advancedFilters.searchField) {
+          case "applicant":
+            return app.applicantName.toLowerCase().includes(searchTerm)
+          case "application_id":
+            return app.applicationId.toLowerCase().includes(searchTerm)
+          case "address":
+            return app.physicalAddress.toLowerCase().includes(searchTerm)
+          case "phone":
+            return app.cellularNumber.includes(searchTerm)
+          default:
+            return (
+              app.applicantName.toLowerCase().includes(searchTerm) ||
+              app.applicationId.toLowerCase().includes(searchTerm) ||
+              app.physicalAddress.toLowerCase().includes(searchTerm) ||
+              app.cellularNumber.includes(searchTerm)
+            )
+        }
+      })
+    }
+
+    // Apply status filter
+    if (advancedFilters.status !== "all") {
+      filtered = filtered.filter((app) => app.status === advancedFilters.status)
+    }
+
+    // Apply permit type filter
+    if (advancedFilters.permitType !== "all") {
+      filtered = filtered.filter((app) => app.permitType === advancedFilters.permitType)
+    }
+
+    // Apply stage filter
+    if (advancedFilters.stage !== "all") {
+      filtered = filtered.filter((app) => app.currentStage.toString() === advancedFilters.stage)
+    }
+
+    // Apply water source filter
+    if (advancedFilters.waterSource !== "all") {
+      filtered = filtered.filter((app) => app.waterSource === advancedFilters.waterSource)
+    }
+
+    // Apply land size range
+    if (advancedFilters.landSizeMin) {
+      filtered = filtered.filter((app) => app.landSize >= Number.parseFloat(advancedFilters.landSizeMin))
+    }
+    if (advancedFilters.landSizeMax) {
+      filtered = filtered.filter((app) => app.landSize <= Number.parseFloat(advancedFilters.landSizeMax))
+    }
+
+    // Apply water allocation range
+    if (advancedFilters.waterAllocationMin) {
+      filtered = filtered.filter((app) => app.waterAllocation >= Number.parseFloat(advancedFilters.waterAllocationMin))
+    }
+    if (advancedFilters.waterAllocationMax) {
+      filtered = filtered.filter((app) => app.waterAllocation <= Number.parseFloat(advancedFilters.waterAllocationMax))
+    }
+
+    // Apply date range filtering
+    if (advancedFilters.startDate) {
+      const startDate = new Date(advancedFilters.startDate)
+      filtered = filtered.filter((app) => {
+        const compareDate =
+          advancedFilters.dateField === "created"
+            ? app.createdAt
+            : advancedFilters.dateField === "submitted"
+              ? app.submittedAt
+              : advancedFilters.dateField === "approved"
+                ? app.approvedAt
+                : app.updatedAt
+        return compareDate && compareDate >= startDate
+      })
+    }
+
+    if (advancedFilters.endDate) {
+      const endDate = new Date(advancedFilters.endDate)
+      filtered = filtered.filter((app) => {
+        const compareDate =
+          advancedFilters.dateField === "created"
+            ? app.createdAt
+            : advancedFilters.dateField === "submitted"
+              ? app.submittedAt
+              : advancedFilters.dateField === "approved"
+                ? app.approvedAt
+                : app.updatedAt
+        return compareDate && compareDate <= endDate
+      })
+    }
+
+    // Apply GPS coordinate filters
+    if (advancedFilters.gpsLatMin) {
+      filtered = filtered.filter((app) => app.gpsLatitude >= Number.parseFloat(advancedFilters.gpsLatMin))
+    }
+    if (advancedFilters.gpsLatMax) {
+      filtered = filtered.filter((app) => app.gpsLatitude <= Number.parseFloat(advancedFilters.gpsLatMax))
+    }
+    if (advancedFilters.gpsLngMin) {
+      filtered = filtered.filter((app) => app.gpsLongitude >= Number.parseFloat(advancedFilters.gpsLngMin))
+    }
+    if (advancedFilters.gpsLngMax) {
+      filtered = filtered.filter((app) => app.gpsLongitude <= Number.parseFloat(advancedFilters.gpsLngMax))
+    }
+
+    // Apply comments filter
+    if (advancedFilters.hasComments !== "all") {
+      const hasComments = advancedFilters.hasComments === "yes"
+      filtered = filtered.filter((app) => app.workflowComments.length > 0 === hasComments)
+    }
+
+    // Apply documents filter
+    if (advancedFilters.hasDocuments !== "all") {
+      const hasDocuments = advancedFilters.hasDocuments === "yes"
+      filtered = filtered.filter((app) => app.documents.length > 0 === hasDocuments)
+    }
+
+    // Apply intended use filter
+    if (advancedFilters.intendedUse) {
+      filtered = filtered.filter((app) =>
+        app.intendedUse.toLowerCase().includes(advancedFilters.intendedUse.toLowerCase()),
       )
     }
 
-    // Filter by status
-    if (statusFilter !== "all") {
-      filtered = filtered.filter((app) => app.status === statusFilter)
+    // Apply number of boreholes filter
+    if (advancedFilters.numberOfBoreholes !== "all") {
+      if (advancedFilters.numberOfBoreholes === "5+") {
+        filtered = filtered.filter((app) => app.numberOfBoreholes >= 5)
+      } else {
+        filtered = filtered.filter(
+          (app) => app.numberOfBoreholes === Number.parseInt(advancedFilters.numberOfBoreholes),
+        )
+      }
     }
 
     // Filter based on user role and workflow stage
@@ -261,6 +407,38 @@ export function ApplicationsTable({
         </div>
       </div>
 
+      {/* Advanced Filters */}
+      <AdvancedFilters
+        onFiltersChange={setAdvancedFilters}
+        currentFilters={advancedFilters}
+        onClearFilters={() =>
+          setAdvancedFilters({
+            searchTerm: "",
+            searchField: "all",
+            dateRange: "all",
+            startDate: "",
+            endDate: "",
+            dateField: "created",
+            status: "all",
+            stage: "all",
+            permitType: "all",
+            waterSource: "all",
+            landSizeMin: "",
+            landSizeMax: "",
+            waterAllocationMin: "",
+            waterAllocationMax: "",
+            numberOfBoreholes: "all",
+            gpsLatMin: "",
+            gpsLatMax: "",
+            gpsLngMin: "",
+            gpsLngMax: "",
+            hasComments: "all",
+            hasDocuments: "all",
+            intendedUse: "",
+          })
+        }
+      />
+
       {/* Applications Table */}
       <Card>
         <CardHeader>
@@ -316,6 +494,12 @@ export function ApplicationsTable({
                       )}
 
                       {canPrint(application) && <PermitPrinter application={application} />}
+
+                      {application.status === "approved" && canPrint(application) && (
+                        <Badge variant="outline" className="bg-green-50 text-green-700 ml-2">
+                          Ready to Print
+                        </Badge>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>

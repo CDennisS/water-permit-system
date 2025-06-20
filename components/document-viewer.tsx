@@ -17,9 +17,16 @@ interface DocumentViewerProps {
   application: PermitApplication
   canUpload?: boolean
   canDelete?: boolean
+  isOwner?: boolean // Add this new prop
 }
 
-export function DocumentViewer({ user, application, canUpload = false, canDelete = false }: DocumentViewerProps) {
+export function DocumentViewer({
+  user,
+  application,
+  canUpload = false,
+  canDelete = false,
+  isOwner = false, // Add this parameter
+}: DocumentViewerProps) {
   const [documents, setDocuments] = useState<Document[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false)
@@ -69,7 +76,8 @@ export function DocumentViewer({ user, application, canUpload = false, canDelete
   }
 
   const handleDeleteDocument = async (documentId: string, fileName: string) => {
-    if (!confirm(`Are you sure you want to delete ${fileName}?`)) return
+    const confirmMessage = `Are you sure you want to delete "${fileName}"?\n\nThis action cannot be undone.`
+    if (!confirm(confirmMessage)) return
 
     try {
       await db.deleteDocument(documentId)
@@ -81,8 +89,12 @@ export function DocumentViewer({ user, application, canUpload = false, canDelete
         applicationId: application.id,
       })
       loadDocuments()
+
+      // Show success message (you could use a toast notification here)
+      alert(`Document "${fileName}" has been successfully deleted.`)
     } catch (error) {
       console.error("Failed to delete document:", error)
+      alert("Failed to delete document. Please try again.")
     }
   }
 
@@ -233,13 +245,13 @@ export function DocumentViewer({ user, application, canUpload = false, canDelete
                       <Button variant="ghost" size="sm" title="Preview document">
                         <Eye className="h-4 w-4" />
                       </Button>
-                      {canDelete && (
+                      {(canDelete || (isOwner && user.userType === "permitting_officer")) && (
                         <Button
                           variant="ghost"
                           size="sm"
                           onClick={() => handleDeleteDocument(document.id, document.fileName)}
                           title="Delete document"
-                          className="text-red-600 hover:text-red-800"
+                          className="text-red-600 hover:text-red-800 hover:bg-red-50"
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>

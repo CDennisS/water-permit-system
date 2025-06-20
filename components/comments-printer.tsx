@@ -40,11 +40,10 @@ export function CommentsPrinter({ application, user, disabled = false }: Comment
   }
 
   const canPrint = (application: PermitApplication) => {
-    // Allow printing comments for rejected applications or any application with comments
-    // Restrict to Permitting Officers and Permit Administrators
+    // Allow printing comments for any application that has comments
+    // Permitting Officers can print all comments for documentation purposes
     return (
-      (application.status === "rejected" || application.workflowComments.length > 0) &&
-      ["permitting_officer", "permit_supervisor"].includes(user.userType)
+      application.workflowComments.length > 0 && ["permitting_officer", "permit_supervisor"].includes(user.userType)
     )
   }
 
@@ -191,15 +190,29 @@ export function CommentsPrinter({ application, user, disabled = false }: Comment
   }
 
   const handleDownload = () => {
-    // Generate a text version of the comments for download
     let content = `APPLICATION COMMENTS REPORT\n`
     content += `Upper Manyame Sub Catchment Council\n`
-    content += `${"=".repeat(50)}\n\n`
+    content += `${"=".repeat(60)}\n\n`
 
+    // Enhanced applicant details
+    content += `APPLICANT DETAILS:\n`
+    content += `${"-".repeat(30)}\n`
     content += `Application ID: ${application.applicationId}\n`
     content += `Applicant Name: ${application.applicantName}\n`
+    content += `Physical Address: ${application.physicalAddress}\n`
+    content += `Postal Address: ${application.postalAddress || "N/A"}\n`
+    content += `Customer Account: ${application.customerAccountNumber || "N/A"}\n`
+    content += `Cellular Number: ${application.cellularNumber || "N/A"}\n`
+    content += `Permit Type: ${application.permitType.replace("_", " ").toUpperCase()}\n`
+    content += `Water Source: ${application.waterSource.toUpperCase()}\n`
+    content += `Intended Use: ${application.intendedUse}\n`
+    content += `Number of Boreholes: ${application.numberOfBoreholes}\n`
+    content += `Land Size: ${application.landSize} hectares\n`
+    content += `Water Allocation: ${application.waterAllocation.toLocaleString()} m³/annum\n`
+    content += `GPS Coordinates: Lat ${application.gpsLatitude}, Long ${application.gpsLongitude}\n`
     content += `Status: ${application.status.toUpperCase()}\n`
-    content += `Generated: ${new Date().toLocaleString()}\n\n`
+    content += `Created: ${application.createdAt.toLocaleString()}\n`
+    content += `Report Generated: ${new Date().toLocaleString()}\n\n`
 
     if (application.status === "rejected") {
       content += `*** APPLICATION REJECTED ***\n\n`
@@ -276,8 +289,50 @@ export function CommentsPrinter({ application, user, disabled = false }: Comment
                     <div>{application.applicantName}</div>
                   </div>
                   <div className="info-item">
+                    <div className="info-label">Physical Address:</div>
+                    <div>{application.physicalAddress}</div>
+                  </div>
+                  <div className="info-item">
+                    <div className="info-label">Postal Address:</div>
+                    <div>{application.postalAddress || "N/A"}</div>
+                  </div>
+                  <div className="info-item">
+                    <div className="info-label">Customer Account:</div>
+                    <div>{application.customerAccountNumber || "N/A"}</div>
+                  </div>
+                  <div className="info-item">
+                    <div className="info-label">Cellular Number:</div>
+                    <div>{application.cellularNumber || "N/A"}</div>
+                  </div>
+                  <div className="info-item">
                     <div className="info-label">Permit Type:</div>
                     <div className="capitalize">{application.permitType.replace("_", " ")}</div>
+                  </div>
+                  <div className="info-item">
+                    <div className="info-label">Water Source:</div>
+                    <div className="capitalize">{application.waterSource}</div>
+                  </div>
+                  <div className="info-item">
+                    <div className="info-label">Intended Use:</div>
+                    <div>{application.intendedUse}</div>
+                  </div>
+                  <div className="info-item">
+                    <div className="info-label">Number of Boreholes:</div>
+                    <div>{application.numberOfBoreholes}</div>
+                  </div>
+                  <div className="info-item">
+                    <div className="info-label">Land Size:</div>
+                    <div>{application.landSize} hectares</div>
+                  </div>
+                  <div className="info-item">
+                    <div className="info-label">Water Allocation:</div>
+                    <div>{application.waterAllocation.toLocaleString()} m³/annum</div>
+                  </div>
+                  <div className="info-item">
+                    <div className="info-label">GPS Coordinates:</div>
+                    <div>
+                      Lat: {application.gpsLatitude}, Long: {application.gpsLongitude}
+                    </div>
                   </div>
                   <div className="info-item">
                     <div className="info-label">Status:</div>
