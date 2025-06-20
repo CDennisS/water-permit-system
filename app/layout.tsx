@@ -1,7 +1,7 @@
 import type React from "react"
-import AuthSessionProvider from "@/components/auth-session-provider"
 import type { Metadata } from "next"
 import "./globals.css"
+import AuthSessionProvider from "@/components/auth-session-provider"
 
 export const metadata: Metadata = {
   title: "v0 App",
