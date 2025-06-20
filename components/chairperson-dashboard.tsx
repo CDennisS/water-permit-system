@@ -20,6 +20,7 @@ import {
   AlertTriangle,
   CheckSquare,
   FolderOpen,
+  MessageSquare,
 } from "lucide-react"
 import type { PermitApplication, User as UserType } from "@/types"
 import { db } from "@/lib/database"
@@ -193,6 +194,18 @@ export function ChairpersonDashboard({ user }: ChairpersonDashboardProps) {
             <Progress value={progress.percentage} className="h-2 bg-white/20" />
           </div>
         )}
+        {applications.length > 0 && (
+          <div className="mt-4 bg-white/10 rounded-lg p-3">
+            <div className="flex items-center justify-between text-sm">
+              <span>Review Completion Status:</span>
+              <span className="font-medium">
+                {allReviewed
+                  ? "✅ All Applications Reviewed - Ready for Batch Submission"
+                  : `📋 ${progress.total - progress.reviewed} applications remaining`}
+              </span>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Quick Stats */}
@@ -273,10 +286,10 @@ export function ChairpersonDashboard({ user }: ChairpersonDashboardProps) {
           {applications.map((application) => (
             <Card
               key={application.id}
-              className={`transition-all duration-200 hover:shadow-lg ${
+              className={`transition-all duration-200 hover:shadow-lg cursor-pointer transform hover:scale-[1.02] ${
                 reviewedApplications[application.id]
-                  ? "border-green-300 bg-green-50"
-                  : "border-gray-200 hover:border-blue-300"
+                  ? "border-green-300 bg-gradient-to-br from-green-50 to-green-100 shadow-md"
+                  : "border-gray-200 hover:border-blue-300 bg-white hover:bg-blue-50"
               }`}
             >
               <CardHeader className="pb-3">
@@ -425,16 +438,21 @@ export function ChairpersonDashboard({ user }: ChairpersonDashboardProps) {
 
           {selectedApplication && (
             <div className="space-y-6">
-              {/* Upper Manyame Sub Catchment Council Comments Section */}
+              {/* Upper Manyame Sub Catchment Council Comments Section - Enhanced */}
               {selectedApplication.comments && (
                 <Card className="border-blue-200 bg-blue-50">
                   <CardHeader>
-                    <CardTitle className="text-lg text-blue-800">
+                    <CardTitle className="text-lg text-blue-800 flex items-center">
+                      <MessageSquare className="h-5 w-5 mr-2" />
                       Upper Manyame Sub Catchment Council Comments
                     </CardTitle>
+                    <p className="text-sm text-blue-600">Comments from the Permitting Officer for this application</p>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-sm text-blue-700">{selectedApplication.comments}</p>
+                    <div className="bg-white rounded-lg p-4 border-l-4 border-blue-500">
+                      <p className="text-sm text-blue-700 font-medium">Permitting Officer Comments:</p>
+                      <p className="text-sm text-gray-700 mt-2">{selectedApplication.comments}</p>
+                    </div>
                   </CardContent>
                 </Card>
               )}
