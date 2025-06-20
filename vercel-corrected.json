@@ -15,7 +15,9 @@
       "src": "/static/(.*)",
       "dest": "/static/$1",
       "headers": {
-        "cache-control": "public, max-age=31536000, immutable"
+        "cache-control": "public, max-age=31536000, immutable",
+        "x-frame-options": "DENY",
+        "x-content-type-options": "nosniff"
       }
     },
     {
@@ -26,7 +28,13 @@
   "env": {
     "FLASK_ENV": "production",
     "FLASK_APP": "app.py",
-    "SECRET_KEY": "umscc-permit-system-secret-key-2025",
-    "DATABASE_URL": "sqlite:///permit_system.db"
+    "SECRET_KEY": "umscc-permit-system-secret-key-2025-production",
+    "DATABASE_URL": "sqlite:///permit_system.db",
+    "LOG_LEVEL": "info"
+  },
+  "build": {
+    "env": {
+      "PYTHONPATH": "."
+    }
   }
 }
