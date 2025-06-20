@@ -1,0 +1,6 @@
+{
+  "build": {
+    // run pnpm without the frozen-lockfile flag
+    "installCommand": "pnpm install --no-frozen-lockfile"
+  }
+}
