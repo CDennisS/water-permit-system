@@ -1,0 +1,7 @@
+{
+  // Instruct Vercel to install dependencies
+  // without enforcing a frozen lockfile. This
+  // regenerates pnpm-lock.yaml automatically
+  // during each build.
+  "installCommand": "pnpm install --no-frozen-lockfile"
+}
