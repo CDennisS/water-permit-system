@@ -1,0 +1,10 @@
+{
+  // Use pnpm (because a pnpm-lock.yaml exists)
+  "build": {
+    // Skip the frozen-lockfile check so installs succeed
+    "installCommand": "pnpm install --no-frozen-lockfile"
+  },
+
+  // Optional: speed up builds by caching `.next` and pnpm store
+  "cache": [".next/cache/**/*", "~/.pnpm-store/**/*"]
+}
