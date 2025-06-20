@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#007bff">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <title>{% block title %}UMSCC Permit System{% endblock %}</title>
+    
+    <!-- Optimized CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css" rel="stylesheet">
+    
+    <style>
+        /* Mobile-first optimizations */
+        body { font-size: 14px; }
+        .container-fluid { padding: 0.5rem; }
+        .card { margin-bottom: 1rem; border-radius: 8px; }
+        .btn { padding: 0.5rem 1rem; margin-bottom: 0.5rem; }
+        .table-responsive { font-size: 0.9rem; }
+        
+        /* Touch-friendly buttons */
+        .btn-touch { min-height: 44px; min-width: 44px; }
+        
+        /* Responsive navigation */
+        @media (max-width: 768px) {
+            .navbar-brand { font-size: 1rem; }
+            .nav-link { padding: 0.5rem; }
+        }
+    </style>
+</head>
+<body>
+    <!-- Mobile-optimized navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="{{ url_for('auth.index') }}">
+                <i class="bi bi-droplet"></i> UMSCC
+            </a>
+            {% if current_user.is_authenticated %}
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link" href="{{ url_for('applications.dashboard') }}">
+                    <i class="bi bi-house"></i> Dashboard
+                </a>
+                <a class="nav-link" href="{{ url_for('auth.logout') }}">
+                    <i class="bi bi-box-arrow-right"></i> Logout
+                </a>
+            </div>
+            {% endif %}
+        </div>
+    </nav>
+
+    <!-- Main content -->
+    <main class="container-fluid py-2">
+        {% with messages = get_flashed_messages() %}
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert alert-info alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+        
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Optimized JavaScript -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>
