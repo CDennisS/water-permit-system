@@ -1,552 +1,295 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Progress } from "@/components/ui/progress"
-import {
-  CheckCircle,
-  Clock,
-  FileText,
-  MapPin,
-  Droplets,
-  Send,
-  Eye,
-  ArrowRight,
-  AlertTriangle,
-  CheckSquare,
-  FolderOpen,
-  MessageSquare,
-} from "lucide-react"
-import type { PermitApplication, User as UserType } from "@/types"
+import { Button } from "@/components/ui/button"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { FileText, Users, CheckCircle, Clock, AlertTriangle } from "lucide-react"
+import type { User, PermitApplication } from "@/types"
 import { db } from "@/lib/database"
-import { ApplicationDetails } from "./application-details"
-import { EnhancedDocumentViewer } from "./enhanced-document-viewer"
+import { StrictViewOnlyApplicationDetails } from "./strict-view-only-application-details"
+import { MessagingSystem } from "./messaging-system"
+import { ActivityLogs } from "./activity-logs"
+import { UnreadMessageNotification } from "./unread-message-notification"
 
 interface ChairpersonDashboardProps {
-  user: UserType
-}
-
-interface ReviewState {
-  [applicationId: string]: boolean
+  user: User
 }
 
 export function ChairpersonDashboard({ user }: ChairpersonDashboardProps) {
   const [applications, setApplications] = useState<PermitApplication[]>([])
-  const [reviewedApplications, setReviewedApplications] = useState<ReviewState>({})
   const [selectedApplication, setSelectedApplication] = useState<PermitApplication | null>(null)
-  const [isDetailViewOpen, setIsDetailViewOpen] = useState(false)
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [showBatchConfirmation, setShowBatchConfirmation] = useState(false)
-  const [isLoading, setIsLoading] = useState(true)
+  const [activeView, setActiveView] = useState("overview")
+  const [unreadMessageCount, setUnreadMessageCount] = useState(0)
+  const [stats, setStats] = useState({
+    totalApplications: 0,
+    pendingReview: 0,
+    reviewedThisMonth: 0,
+    approvalRate: 0,
+  })
 
   useEffect(() => {
-    loadApplications()
-  }, [])
+    loadDashboardData()
+    loadUnreadMessages()
 
-  const loadApplications = async () => {
+    // Set up polling for unread messages
+    const messageInterval = setInterval(loadUnreadMessages, 30000)
+    return () => clearInterval(messageInterval)
+  }, [user.id])
+
+  const loadDashboardData = async () => {
     try {
-      const apps = await db.getApplications()
-      // Filter for applications submitted to chairperson (stage 2)
-      const chairpersonApps = apps.filter((app) => app.status === "submitted" && app.currentStage === 2)
-      setApplications(chairpersonApps)
-    } catch (error) {
-      console.error("Failed to load applications:", error)
-    } finally {
-      setIsLoading(false)
-    }
-  }
+      const allApplications = await db.getApplications()
 
-  const handleReviewToggle = async (applicationId: string, reviewed: boolean) => {
-    setReviewedApplications((prev) => ({
-      ...prev,
-      [applicationId]: reviewed,
-    }))
+      // Filter applications that are at stage 2 (chairperson review) or have been reviewed
+      const relevantApplications = allApplications.filter(
+        (app) => app.currentStage === 2 || (app.currentStage > 2 && app.status !== "unsubmitted"),
+      )
 
-    // Auto-save review status
-    await db.addLog({
-      userId: user.id,
-      userType: user.userType,
-      action: reviewed ? "Marked as Reviewed" : "Unmarked Review",
-      details: `${reviewed ? "Marked" : "Unmarked"} application ${applicationId} as reviewed`,
-      applicationId: applicationId,
-    })
-  }
+      setApplications(relevantApplications)
 
-  const handleViewApplication = (application: PermitApplication) => {
-    setSelectedApplication(application)
-    setIsDetailViewOpen(true)
-  }
+      // Calculate statistics
+      const pendingReview = relevantApplications.filter(
+        (app) => app.currentStage === 2 && app.status === "submitted",
+      ).length
 
-  const handleSubmitSingleApplication = async (application: PermitApplication) => {
-    if (!reviewedApplications[application.id]) {
-      alert("Please mark this application as reviewed before submitting.")
-      return
-    }
+      const thisMonth = new Date()
+      thisMonth.setDate(1)
+      thisMonth.setHours(0, 0, 0, 0)
 
-    setIsSubmitting(true)
-    try {
-      await db.updateApplication(application.id, {
-        currentStage: 3,
-        status: "under_review",
+      const reviewedThisMonth = relevantApplications.filter(
+        (app) => app.updatedAt >= thisMonth && app.currentStage > 2,
+      ).length
+
+      const totalReviewed = relevantApplications.filter((app) => app.currentStage > 2).length
+      const approvedApps = relevantApplications.filter((app) => app.status === "approved").length
+
+      setStats({
+        totalApplications: relevantApplications.length,
+        pendingReview,
+        reviewedThisMonth,
+        approvalRate: totalReviewed > 0 ? Math.round((approvedApps / totalReviewed) * 100) : 0,
       })
-
-      await db.addLog({
-        userId: user.id,
-        userType: user.userType,
-        action: "Advanced Application",
-        details: `Advanced application ${application.applicationId} to Manyame Catchment Manager`,
-        applicationId: application.id,
-      })
-
-      // Remove from current list
-      setApplications((prev) => prev.filter((app) => app.id !== application.id))
-
-      // Navigate to next unreviewed application
-      const remainingApps = applications.filter((app) => app.id !== application.id)
-      const nextUnreviewed = remainingApps.find((app) => !reviewedApplications[app.id])
-
-      if (nextUnreviewed) {
-        setSelectedApplication(nextUnreviewed)
-      } else {
-        setIsDetailViewOpen(false)
-        setSelectedApplication(null)
-      }
-
-      alert(`Application ${application.applicationId} has been submitted to the Manyame Catchment Manager.`)
     } catch (error) {
-      console.error("Failed to submit application:", error)
-      alert("Failed to submit application. Please try again.")
-    } finally {
-      setIsSubmitting(false)
+      console.error("Failed to load dashboard data:", error)
     }
   }
 
-  const handleBatchSubmit = async () => {
-    const reviewedApps = applications.filter((app) => reviewedApplications[app.id])
-
-    setIsSubmitting(true)
+  const loadUnreadMessages = async () => {
     try {
-      for (const app of reviewedApps) {
-        await db.updateApplication(app.id, {
-          currentStage: 3,
-          status: "under_review",
-        })
+      const publicMsgs = await db.getMessages(user.id, true)
+      const privateMsgs = await db.getMessages(user.id, false)
 
-        await db.addLog({
-          userId: user.id,
-          userType: user.userType,
-          action: "Advanced Application",
-          details: `Advanced application ${app.applicationId} to Manyame Catchment Manager`,
-          applicationId: app.id,
-        })
-      }
+      const unreadPublic = publicMsgs.filter((m) => m.senderId !== user.id && !m.readAt).length
+      const unreadPrivate = privateMsgs.filter((m) => m.senderId !== user.id && !m.readAt).length
 
-      setApplications((prev) => prev.filter((app) => !reviewedApplications[app.id]))
-      setReviewedApplications({})
-      setShowBatchConfirmation(false)
-
-      alert(`Successfully submitted ${reviewedApps.length} applications to the Manyame Catchment Manager.`)
+      setUnreadMessageCount(unreadPublic + unreadPrivate)
     } catch (error) {
-      console.error("Failed to submit applications:", error)
-      alert("Failed to submit applications. Please try again.")
-    } finally {
-      setIsSubmitting(false)
+      console.error("Failed to load unread messages:", error)
     }
   }
 
-  const getReviewProgress = () => {
-    const totalApps = applications.length
-    const reviewedCount = Object.values(reviewedApplications).filter(Boolean).length
-    return {
-      total: totalApps,
-      reviewed: reviewedCount,
-      percentage: totalApps > 0 ? Math.round((reviewedCount / totalApps) * 100) : 0,
-    }
+  const handleViewMessages = () => {
+    setActiveView("messages")
+    setUnreadMessageCount(0)
   }
 
-  const progress = getReviewProgress()
-  const allReviewed = progress.reviewed === progress.total && progress.total > 0
+  const StatCard = ({
+    title,
+    value,
+    icon: Icon,
+    color = "blue",
+  }: {
+    title: string
+    value: number | string
+    icon: any
+    color?: "blue" | "green" | "yellow" | "purple"
+  }) => {
+    const colorClasses = {
+      blue: "bg-blue-100 text-blue-600",
+      green: "bg-green-100 text-green-600",
+      yellow: "bg-yellow-100 text-yellow-600",
+      purple: "bg-purple-100 text-purple-600",
+    }
 
-  if (isLoading) {
-    return <div className="flex justify-center p-8">Loading applications for review...</div>
+    return (
+      <Card>
+        <CardContent className="p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">{title}</p>
+              <p className="text-3xl font-bold">{value}</p>
+            </div>
+            <div className={`p-3 rounded-lg ${colorClasses[color]}`}>
+              <Icon className="h-6 w-6" />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    )
   }
 
   return (
     <div className="space-y-6">
-      {/* Dashboard Header */}
-      <div className="bg-gradient-to-r from-blue-600 to-blue-800 text-white p-6 rounded-lg">
-        <h1 className="text-2xl font-bold mb-2">Upper Manyame Sub Catchment Council Chairperson</h1>
-        <p className="text-blue-100 mb-4">First Review Stage - Applications submitted by Permitting Officers</p>
-
-        {applications.length > 0 && (
-          <div className="bg-white/10 rounded-lg p-4">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium">Review Progress</span>
-              <span className="text-sm">
-                {progress.reviewed} of {progress.total} reviewed
-              </span>
-            </div>
-            <Progress value={progress.percentage} className="h-2 bg-white/20" />
-          </div>
-        )}
-        {applications.length > 0 && (
-          <div className="mt-4 bg-white/10 rounded-lg p-3">
-            <div className="flex items-center justify-between text-sm">
-              <span>Review Completion Status:</span>
-              <span className="font-medium">
-                {allReviewed
-                  ? "✅ All Applications Reviewed - Ready for Batch Submission"
-                  : `📋 ${progress.total - progress.reviewed} applications remaining`}
-              </span>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Quick Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pending Review</CardTitle>
-            <Clock className="h-4 w-4 text-yellow-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-yellow-600">{applications.length}</div>
-            <p className="text-xs text-muted-foreground">Applications awaiting your review</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Reviewed</CardTitle>
-            <CheckCircle className="h-4 w-4 text-green-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">{progress.reviewed}</div>
-            <p className="text-xs text-muted-foreground">Ready for batch submission</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Completion</CardTitle>
-            <CheckSquare className="h-4 w-4 text-blue-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-blue-600">{progress.percentage}%</div>
-            <p className="text-xs text-muted-foreground">Review progress</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Batch Actions */}
-      {applications.length > 0 && (
-        <Card className="border-green-200 bg-green-50">
-          <CardContent className="py-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-4">
-                <div className="flex items-center space-x-2">
-                  <CheckCircle className="h-5 w-5 text-green-600" />
-                  <span className="font-medium text-green-800">
-                    {progress.reviewed} of {progress.total} applications reviewed
-                  </span>
-                </div>
-                {allReviewed && (
-                  <Badge className="bg-green-600 text-white">
-                    All applications reviewed - Ready for batch submission
-                  </Badge>
-                )}
-              </div>
-
-              <div className="flex space-x-2">
-                {progress.reviewed > 0 && (
-                  <Button
-                    onClick={() => setShowBatchConfirmation(true)}
-                    disabled={!allReviewed || isSubmitting}
-                    className="bg-green-600 hover:bg-green-700 text-white"
-                  >
-                    <Send className="h-4 w-4 mr-2" />
-                    Submit All {progress.reviewed} Applications as Batch
-                  </Button>
-                )}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Applications Grid */}
-      {applications.length > 0 ? (
-        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-          {applications.map((application) => (
-            <Card
-              key={application.id}
-              className={`transition-all duration-200 hover:shadow-lg cursor-pointer transform hover:scale-[1.02] ${
-                reviewedApplications[application.id]
-                  ? "border-green-300 bg-gradient-to-br from-green-50 to-green-100 shadow-md"
-                  : "border-gray-200 hover:border-blue-300 bg-white hover:bg-blue-50"
-              }`}
-            >
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle className="text-lg font-bold text-blue-900">{application.applicationId}</CardTitle>
-                    <p className="text-sm text-gray-600 mt-1">{application.applicantName}</p>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Checkbox
-                      id={`review-${application.id}`}
-                      checked={reviewedApplications[application.id] || false}
-                      onCheckedChange={(checked) => handleReviewToggle(application.id, checked as boolean)}
-                      className="h-5 w-5"
-                    />
-                    <label htmlFor={`review-${application.id}`} className="text-sm font-medium cursor-pointer">
-                      Reviewed
-                    </label>
-                  </div>
-                </div>
-              </CardHeader>
-
-              <CardContent className="space-y-3">
-                {/* Application Details */}
-                <div className="space-y-2">
-                  <div className="flex items-center text-sm">
-                    <FileText className="h-4 w-4 mr-2 text-gray-500" />
-                    <span className="font-medium">Permit Type:</span>
-                    <span className="ml-2 capitalize">{application.permitType.replace("_", " ")}</span>
-                  </div>
-
-                  <div className="flex items-center text-sm">
-                    <Droplets className="h-4 w-4 mr-2 text-blue-500" />
-                    <span className="font-medium">Water Allocation:</span>
-                    <span className="ml-2">{application.waterAllocation.toLocaleString()} ML</span>
-                  </div>
-
-                  <div className="flex items-center text-sm">
-                    <MapPin className="h-4 w-4 mr-2 text-gray-500" />
-                    <span className="font-medium">Boreholes:</span>
-                    <span className="ml-2">{application.numberOfBoreholes}</span>
-                  </div>
-
-                  <div className="flex items-center text-sm">
-                    <FolderOpen className="h-4 w-4 mr-2 text-gray-500" />
-                    <span className="font-medium">Documents:</span>
-                    <span className="ml-2">{application.documents.length} uploaded</span>
-                  </div>
-                </div>
-
-                {/* Submission Info */}
-                <div className="pt-2 border-t border-gray-200">
-                  <p className="text-xs text-gray-500">
-                    Submitted:{" "}
-                    {application.submittedAt?.toLocaleDateString() || application.createdAt.toLocaleDateString()}
-                  </p>
-                  <p className="text-xs text-gray-500">Intended Use: {application.intendedUse}</p>
-                </div>
-
-                {/* Action Buttons */}
-                <div className="flex space-x-2 pt-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleViewApplication(application)}
-                    className="flex-1"
-                  >
-                    <Eye className="h-4 w-4 mr-2" />
-                    Review & View Documents
-                  </Button>
-
-                  {reviewedApplications[application.id] && (
-                    <Button
-                      size="sm"
-                      onClick={() => handleSubmitSingleApplication(application)}
-                      disabled={isSubmitting}
-                      className="bg-green-600 hover:bg-green-700 text-white"
-                    >
-                      <Send className="h-4 w-4 mr-2" />
-                      Submit
-                    </Button>
-                  )}
-                </div>
-
-                {/* Review Status Indicator */}
-                {reviewedApplications[application.id] && (
-                  <div className="flex items-center justify-center py-2 bg-green-100 rounded-md">
-                    <CheckCircle className="h-4 w-4 text-green-600 mr-2" />
-                    <span className="text-sm font-medium text-green-800">Reviewed - Ready to Submit</span>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          ))}
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Chairperson Dashboard</h1>
+          <p className="text-gray-600 mt-1">Upper Manyame Sub Catchment Council</p>
         </div>
-      ) : (
-        <Card>
-          <CardContent className="py-12 text-center">
-            <CheckCircle className="mx-auto h-16 w-16 text-green-500 mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No Applications Pending Review</h3>
-            <p className="text-gray-600">
-              All submitted applications have been processed. New applications will appear here when submitted by
-              Permitting Officers.
-            </p>
-          </CardContent>
-        </Card>
+        <Badge variant="secondary" className="px-3 py-1">
+          <Users className="h-4 w-4 mr-1" />
+          Chairperson Access
+        </Badge>
+      </div>
+
+      {/* Unread Messages Notification */}
+      {unreadMessageCount > 0 && (
+        <UnreadMessageNotification
+          unreadCount={unreadMessageCount}
+          onViewMessages={handleViewMessages}
+          className="mb-6"
+        />
       )}
 
-      {/* Application Detail Modal */}
-      <Dialog open={isDetailViewOpen} onOpenChange={setIsDetailViewOpen}>
-        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center justify-between">
-              <span>Application Review - {selectedApplication?.applicationId}</span>
-              <div className="flex items-center space-x-4">
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id={`modal-review-${selectedApplication?.id}`}
-                    checked={selectedApplication ? reviewedApplications[selectedApplication.id] || false : false}
-                    onCheckedChange={(checked) =>
-                      selectedApplication && handleReviewToggle(selectedApplication.id, checked as boolean)
-                    }
-                    className="h-5 w-5"
-                  />
-                  <label
-                    htmlFor={`modal-review-${selectedApplication?.id}`}
-                    className="text-sm font-medium cursor-pointer"
-                  >
-                    Mark as Reviewed
-                  </label>
-                </div>
+      {/* Navigation Tabs */}
+      <Tabs value={activeView} onValueChange={setActiveView} className="w-full">
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="applications">Applications</TabsTrigger>
+          <TabsTrigger value="messages" className="relative">
+            Messages
+            {unreadMessageCount > 0 && (
+              <Badge
+                variant="destructive"
+                className="ml-2 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs"
+              >
+                {unreadMessageCount > 99 ? "99+" : unreadMessageCount}
+              </Badge>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="activity">Activity</TabsTrigger>
+        </TabsList>
 
-                {selectedApplication && reviewedApplications[selectedApplication.id] && (
-                  <Button
-                    onClick={() => selectedApplication && handleSubmitSingleApplication(selectedApplication)}
-                    disabled={isSubmitting}
-                    className="bg-green-600 hover:bg-green-700 text-white"
-                  >
-                    <Send className="h-4 w-4 mr-2" />
-                    Submit Application
-                  </Button>
-                )}
-              </div>
-            </DialogTitle>
-          </DialogHeader>
+        {/* Overview Tab */}
+        <TabsContent value="overview" className="space-y-6">
+          {/* Statistics Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <StatCard title="Total Applications" value={stats.totalApplications} icon={FileText} color="blue" />
+            <StatCard title="Pending Review" value={stats.pendingReview} icon={Clock} color="yellow" />
+            <StatCard title="Reviewed This Month" value={stats.reviewedThisMonth} icon={CheckCircle} color="green" />
+            <StatCard title="Approval Rate" value={`${stats.approvalRate}%`} icon={AlertTriangle} color="purple" />
+          </div>
 
-          {selectedApplication && (
-            <div className="space-y-6">
-              {/* Upper Manyame Sub Catchment Council Comments Section - Enhanced */}
-              {selectedApplication.comments && (
-                <Card className="border-blue-200 bg-blue-50">
-                  <CardHeader>
-                    <CardTitle className="text-lg text-blue-800 flex items-center">
-                      <MessageSquare className="h-5 w-5 mr-2" />
-                      Upper Manyame Sub Catchment Council Comments
-                    </CardTitle>
-                    <p className="text-sm text-blue-600">Comments from the Permitting Officer for this application</p>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="bg-white rounded-lg p-4 border-l-4 border-blue-500">
-                      <p className="text-sm text-blue-700 font-medium">Permitting Officer Comments:</p>
-                      <p className="text-sm text-gray-700 mt-2">{selectedApplication.comments}</p>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-
-              {/* Application Details (Read-Only) */}
-              <ApplicationDetails user={user} application={selectedApplication} />
-
-              {/* Enhanced Document Viewer */}
-              <EnhancedDocumentViewer user={user} application={selectedApplication} isReadOnly={true} />
-
-              {/* Navigation to Next Application */}
-              {(() => {
-                const currentIndex = applications.findIndex((app) => app.id === selectedApplication.id)
-                const nextUnreviewed = applications.slice(currentIndex + 1).find((app) => !reviewedApplications[app.id])
-
-                return (
-                  nextUnreviewed && (
-                    <Card className="border-orange-200 bg-orange-50">
-                      <CardContent className="py-4">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-sm font-medium text-orange-800">Next Unreviewed Application</p>
-                            <p className="text-sm text-orange-600">
-                              {nextUnreviewed.applicationId} - {nextUnreviewed.applicantName}
-                            </p>
-                          </div>
-                          <Button
-                            variant="outline"
-                            onClick={() => {
-                              setSelectedApplication(nextUnreviewed)
-                            }}
-                            className="border-orange-300 text-orange-700 hover:bg-orange-100"
-                          >
-                            <ArrowRight className="h-4 w-4 mr-2" />
-                            Next Application
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  )
-                )
-              })()}
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {/* Batch Confirmation Modal */}
-      <Dialog open={showBatchConfirmation} onOpenChange={setShowBatchConfirmation}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Confirm Batch Submission</DialogTitle>
-          </DialogHeader>
-
-          <div className="space-y-4">
-            <Alert>
-              <AlertTriangle className="h-4 w-4" />
-              <AlertDescription>
-                You are about to submit {progress.reviewed} reviewed applications as a single batch to the Manyame
-                Catchment Manager for the next stage of processing.
-              </AlertDescription>
-            </Alert>
-
-            <div className="bg-gray-50 rounded-lg p-4">
-              <h4 className="font-medium mb-2">Applications to be submitted in this batch:</h4>
-              <div className="space-y-1 max-h-40 overflow-y-auto">
+          {/* Recent Applications */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Recent Applications Requiring Review</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
                 {applications
-                  .filter((app) => reviewedApplications[app.id])
-                  .map((app) => (
-                    <div key={app.id} className="flex items-center text-sm">
-                      <CheckCircle className="h-4 w-4 text-green-600 mr-2" />
-                      <span>
-                        {app.applicationId} - {app.applicantName}
-                      </span>
+                  .filter((app) => app.currentStage === 2 && app.status === "submitted")
+                  .slice(0, 5)
+                  .map((application) => (
+                    <div
+                      key={application.id}
+                      className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer"
+                      onClick={() => setSelectedApplication(application)}
+                    >
+                      <div className="flex items-center space-x-3">
+                        <FileText className="h-5 w-5 text-gray-500" />
+                        <div>
+                          <p className="font-medium">{application.applicationId}</p>
+                          <p className="text-sm text-gray-600">{application.applicantName}</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <Badge variant="outline" className="mb-1">
+                          {application.permitType.replace("_", " ").toUpperCase()}
+                        </Badge>
+                        <p className="text-xs text-gray-500">{application.createdAt.toLocaleDateString()}</p>
+                      </div>
                     </div>
                   ))}
+                {applications.filter((app) => app.currentStage === 2 && app.status === "submitted").length === 0 && (
+                  <p className="text-center text-gray-500 py-8">No applications pending review</p>
+                )}
               </div>
-            </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-            <div className="flex justify-end space-x-2">
-              <Button variant="outline" onClick={() => setShowBatchConfirmation(false)}>
-                Cancel
-              </Button>
-              <Button
-                onClick={handleBatchSubmit}
-                disabled={isSubmitting}
-                className="bg-green-600 hover:bg-green-700 text-white"
-              >
-                {isSubmitting ? "Submitting..." : `Submit Batch of ${progress.reviewed} Applications`}
-              </Button>
+        {/* Applications Tab */}
+        <TabsContent value="applications" className="space-y-6">
+          {selectedApplication ? (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-semibold">Application Details</h2>
+                <Button variant="outline" onClick={() => setSelectedApplication(null)}>
+                  ← Back to List
+                </Button>
+              </div>
+              <StrictViewOnlyApplicationDetails user={user} application={selectedApplication} />
             </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+          ) : (
+            <Card>
+              <CardHeader>
+                <CardTitle>All Applications</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {applications.map((application) => (
+                    <div
+                      key={application.id}
+                      className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50 cursor-pointer"
+                      onClick={() => setSelectedApplication(application)}
+                    >
+                      <div className="flex items-center space-x-3">
+                        <FileText className="h-5 w-5 text-gray-500" />
+                        <div>
+                          <p className="font-medium">{application.applicationId}</p>
+                          <p className="text-sm text-gray-600">{application.applicantName}</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="flex items-center space-x-2 mb-1">
+                          <Badge
+                            className={
+                              application.status === "approved"
+                                ? "bg-green-100 text-green-800"
+                                : application.status === "rejected"
+                                  ? "bg-red-100 text-red-800"
+                                  : application.status === "submitted"
+                                    ? "bg-blue-100 text-blue-800"
+                                    : "bg-gray-100 text-gray-800"
+                            }
+                          >
+                            {application.status.toUpperCase()}
+                          </Badge>
+                          <Badge variant="outline">Stage {application.currentStage}</Badge>
+                        </div>
+                        <p className="text-xs text-gray-500">{application.createdAt.toLocaleDateString()}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+
+        {/* Messages Tab */}
+        <TabsContent value="messages">
+          <MessagingSystem user={user} />
+        </TabsContent>
+
+        {/* Activity Tab */}
+        <TabsContent value="activity">
+          <ActivityLogs user={user} />
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }

@@ -12,6 +12,8 @@ import { DashboardApplications } from "@/components/dashboard-applications"
 import { ChairpersonDashboard } from "@/components/chairperson-dashboard"
 import { PermitSupervisorDashboard } from "@/components/permit-supervisor-dashboard"
 import { ICTDashboard } from "@/components/ict-dashboard"
+import { CatchmentManagerDashboard } from "@/components/catchment-manager-dashboard"
+import { CatchmentChairpersonDashboard } from "@/components/catchment-chairperson-dashboard"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import type { User, PermitApplication } from "@/types"
@@ -80,6 +82,10 @@ export default function Home() {
     setCurrentView(v)
     if (v === "messages") setUnreadMessageCount(0)
   }
+  const handleMessagesClick = () => {
+    setCurrentView("messages")
+    setUnreadMessageCount(0)
+  }
 
   /* ------------------------ tab configuration ------------------------ */
   const baseTabs = [
@@ -101,7 +107,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <DashboardHeader user={user} onLogout={handleLogout} />
+      <DashboardHeader user={user} onLogout={handleLogout} onMessagesClick={handleMessagesClick} />
 
       <main className="p-6">
         <div className="mx-auto max-w-7xl">
@@ -127,6 +133,10 @@ export default function Home() {
               {/* Specialized Dashboards */}
               {user.userType === "chairperson" ? (
                 <ChairpersonDashboard user={user} />
+              ) : user.userType === "catchment_manager" ? (
+                <CatchmentManagerDashboard user={user} />
+              ) : user.userType === "catchment_chairperson" ? (
+                <CatchmentChairpersonDashboard user={user} />
               ) : user.userType === "permit_supervisor" ? (
                 <PermitSupervisorDashboard
                   user={user}
