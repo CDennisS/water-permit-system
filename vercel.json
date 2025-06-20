@@ -23,12 +23,6 @@
       "dest": "/app.py"
     }
   ],
-  "functions": {
-    "app.py": {
-      "memory": 1024,
-      "maxDuration": 10
-    }
-  },
   "env": {
     "FLASK_ENV": "production",
     "SECRET_KEY": "umscc-permit-system-secret-key-2025-production",
