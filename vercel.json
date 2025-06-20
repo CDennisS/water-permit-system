@@ -3,5 +3,5 @@
   // without enforcing a frozen lockfile. This
   // regenerates pnpm-lock.yaml automatically
   // during each build.
-  "installCommand": "pnpm install --no-frozen-lockfile"
+  "installCommand": "pnpm install --no-frozen-lockfile --no-optional"
 }
