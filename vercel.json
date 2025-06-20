@@ -13,10 +13,7 @@
   "routes": [
     {
       "src": "/static/(.*)",
-      "dest": "/static/$1",
-      "headers": {
-        "cache-control": "public, max-age=31536000, immutable"
-      }
+      "dest": "/static/$1"
     },
     {
       "src": "/(.*)",
@@ -25,8 +22,6 @@
   ],
   "env": {
     "FLASK_ENV": "production",
-    "FLASK_APP": "app.py",
-    "SECRET_KEY": "umscc-permit-system-secret-key-2025",
-    "DATABASE_URL": "sqlite:///permit_system.db"
+    "SECRET_KEY": "umscc-permit-system-secret-key-2025"
   }
 }

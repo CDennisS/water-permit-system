@@ -1,169 +1,67 @@
 {% extends "base.html" %}
 
-{% block title %}View Application - Water Permit Management System{% endblock %}
-
 {% block content %}
-<div class="card mb-4">
-    <div class="card-header bg-white d-flex justify-content-between align-items-center">
-        <h5 class="mb-0">
-            <i class="fas fa-file-alt me-2"></i>
-            Application Details
-        </h5>
-        {% if application.status == 'Unsubmitted' and current_user.role == 'Permitting Officer' %}
-        <a href="#" class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#editModal">
-            <i class="fas fa-edit me-1"></i> Edit
-        </a>
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">Application Details</h5>
+        {% if current_user.role == 'Manyame Catchment Chairperson' and application.status != 'Approved' %}
+        <form method="POST" action="{{ url_for('approve_application', id=application.id) }}" class="d-inline">
+            <button type="submit" class="btn btn-success">
+                <i class="bi bi-check-circle"></i> Approve
+            </button>
+        </form>
         {% endif %}
     </div>
     <div class="card-body">
         <dl class="row">
-            <dt class="col-sm-4">Permit Number</dt>
-            <dd class="col-sm-8">{{ application.permit_number }}</dd>
-            <dt class="col-sm-4">Applicant Name</dt>
-            <dd class="col-sm-8">{{ application.applicant_name }}</dd>
-            <dt class="col-sm-4">Physical Address</dt>
-            <dd class="col-sm-8">{{ application.physical_address }}</dd>
-            <dt class="col-sm-4">Account Number</dt>
-            <dd class="col-sm-8">{{ application.account_number }}</dd>
-            <dt class="col-sm-4">Cellular</dt>
-            <dd class="col-sm-8">{{ application.cellular }}</dd>
-            <dt class="col-sm-4">Number of Boreholes</dt>
-            <dd class="col-sm-8">{{ application.num_boreholes }}</dd>
-            <dt class="col-sm-4">Land Size (ha)</dt>
-            <dd class="col-sm-8">{{ application.land_size }}</dd>
-            <dt class="col-sm-4">GPS X (Latitude)</dt>
-            <dd class="col-sm-8">{{ application.gps_x }}</dd>
-            <dt class="col-sm-4">GPS Y (Longitude)</dt>
-            <dd class="col-sm-8">{{ application.gps_y }}</dd>
-            <dt class="col-sm-4">Water Source</dt>
-            <dd class="col-sm-8">{{ application.water_source }}</dd>
-            <dt class="col-sm-4">Permit Type</dt>
-            <dd class="col-sm-8">{{ application.permit_type }}</dd>
-            <dt class="col-sm-4">Water Allocation (ML)</dt>
-            <dd class="col-sm-8">{{ application.water_allocation }}</dd>
-            <dt class="col-sm-4">Status</dt>
-            <dd class="col-sm-8">
+            <dt class="col-sm-3">Permit Number</dt>
+            <dd class="col-sm-9">{{ application.permit_number }}</dd>
+            
+            <dt class="col-sm-3">Applicant Name</dt>
+            <dd class="col-sm-9">{{ application.applicant_name }}</dd>
+            
+            <dt class="col-sm-3">Physical Address</dt>
+            <dd class="col-sm-9">{{ application.physical_address }}</dd>
+            
+            <dt class="col-sm-3">Cellular</dt>
+            <dd class="col-sm-9">{{ application.cellular }}</dd>
+            
+            <dt class="col-sm-3">Permit Type</dt>
+            <dd class="col-sm-9">{{ application.permit_type }}</dd>
+            
+            <dt class="col-sm-3">Water Source</dt>
+            <dd class="col-sm-9">{{ application.water_source }}</dd>
+            
+            <dt class="col-sm-3">Status</dt>
+            <dd class="col-sm-9">
                 <span class="badge bg-{{ {
                     'Unsubmitted': 'warning',
                     'Submitted': 'info',
-                    'Chairperson Reviewed': 'primary',
-                    'Manager Reviewed': 'primary',
                     'Approved': 'success',
                     'Rejected': 'danger'
                 }[application.status] }}">
                     {{ application.status }}
                 </span>
             </dd>
-            <dt class="col-sm-4">Submitted At</dt>
-            <dd class="col-sm-8">{{ application.submitted_at.strftime('%Y-%m-%d') if application.submitted_at else 'N/A' }}</dd>
-            <dt class="col-sm-4">Valid Until</dt>
-            <dd class="col-sm-8">{{ application.valid_until.strftime('%Y-%m-%d') if application.valid_until else 'N/A' }}</dd>
+            
+            <dt class="col-sm-3">Created</dt>
+            <dd class="col-sm-9">{{ application.created_at.strftime('%Y-%m-%d %H:%M') }}</dd>
+            
+            {% if application.approved_at %}
+            <dt class="col-sm-3">Approved</dt>
+            <dd class="col-sm-9">{{ application.approved_at.strftime('%Y-%m-%d %H:%M') }}</dd>
+            {% endif %}
+            
+            {% if application.valid_until %}
+            <dt class="col-sm-3">Valid Until</dt>
+            <dd class="col-sm-9">{{ application.valid_until.strftime('%Y-%m-%d') }}</dd>
+            {% endif %}
         </dl>
-    </div>
-</div>
-
-<div class="card mb-4">
-    <div class="card-header bg-white">
-        <h5 class="mb-0">
-            <i class="fas fa-paperclip me-2"></i>
-            Uploaded Documents
-        </h5>
-    </div>
-    <div class="card-body">
-        {% if application.documents %}
-        <ul class="list-group">
-            {% for doc in application.documents %}
-            <li class="list-group-item d-flex justify-content-between align-items-center">
-                {{ doc.document_type }}
-                <a href="/{{ doc.file_path }}" target="_blank" class="btn btn-sm btn-outline-primary">
-                    <i class="fas fa-eye"></i> View
-                </a>
-            </li>
-            {% endfor %}
-        </ul>
-        {% else %}
-        <p class="text-muted">No documents uploaded.</p>
-        {% endif %}
-    </div>
-</div>
-
-<div class="card mb-4">
-    <div class="card-header bg-white">
-        <h5 class="mb-0">
-            <i class="fas fa-comments me-2"></i>
-            Comments & Workflow
-        </h5>
-    </div>
-    <div class="card-body">
-        {% if application.comments %}
-        <ul class="list-group mb-3">
-            {% for comment in application.comments %}
-            <li class="list-group-item">
-                <strong>{{ comment.user.username }} ({{ comment.user.role }})</strong> <span class="text-muted">{{ comment.created_at.strftime('%Y-%m-%d %H:%M') }}</span><br>
-                {{ comment.content }}
-            </li>
-            {% endfor %}
-        </ul>
-        {% endif %}
-        <form method="POST" action="{{ url_for('add_comment', id=application.id) }}">
-            <div class="input-group">
-                <input type="text" class="form-control" name="comment" placeholder="Add a comment..." required>
-                <button class="btn btn-primary" type="submit">
-                    <i class="fas fa-paper-plane"></i>
-                </button>
-            </div>
-        </form>
-    </div>
-</div>
-
-<div class="d-flex gap-2">
-    {% if application.status == 'Unsubmitted' and current_user.role == 'Permitting Officer' %}
-    <form method="POST" action="{{ url_for('submit_application', id=application.id) }}">
-        <button type="submit" class="btn btn-success">
-            <i class="fas fa-paper-plane me-1"></i> Submit Application
-        </button>
-    </form>
-    {% endif %}
-    {% if current_user.role == 'Manyame Catchment Chairperson' and application.status == 'Manager Reviewed' %}
-    <form method="POST" action="{{ url_for('approve_application', id=application.id) }}" class="d-inline">
-        <button type="submit" class="btn btn-success">
-            <i class="fas fa-check me-1"></i> Approve
-        </button>
-    </form>
-    <form method="POST" action="{{ url_for('reject_application', id=application.id) }}" class="d-inline">
-        <input type="text" name="rejection_reason" placeholder="Rejection reason" required class="form-control d-inline w-auto me-2">
-        <button type="submit" class="btn btn-danger">
-            <i class="fas fa-times me-1"></i> Reject
-        </button>
-    </form>
-    {% endif %}
-    <a href="{{ url_for('dashboard') }}" class="btn btn-outline-secondary">
-        <i class="fas fa-arrow-left me-1"></i> Back to Dashboard
-    </a>
-</div>
-
-<!-- Edit Modal -->
-<div class="modal fade" id="editModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Edit Application</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <form method="POST" action="#">
-                    <!-- Add fields for editing as needed -->
-                    <div class="mb-3">
-                        <label for="edit_applicant_name" class="form-label">Applicant Name</label>
-                        <input type="text" class="form-control" id="edit_applicant_name" name="edit_applicant_name" value="{{ application.applicant_name }}">
-                    </div>
-                    <!-- Add more fields as needed -->
-                    <div class="d-flex justify-content-end">
-                        <button type="button" class="btn btn-secondary me-2" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" class="btn btn-primary">Save Changes</button>
-                    </div>
-                </form>
-            </div>
+        
+        <div class="mt-3">
+            <a href="{{ url_for('dashboard') }}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> Back to Dashboard
+            </a>
         </div>
     </div>
 </div>
