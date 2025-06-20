@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -41,11 +40,11 @@ export function CompactApplicationForm({ user, application, onSave, onCancel }: 
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
 
-  const handleInputChange = (field: string, value: unknown) => {
+  const handleInputChange = (field: string, value: any) => {
     setFormData((prev) => {
       const updated = { ...prev, [field]: value }
       if (field === "permitType") {
-        updated.waterAllocation = calculateWaterAllocation(value as string, prev.waterAllocation)
+        updated.waterAllocation = calculateWaterAllocation(value, prev.waterAllocation)
       }
       return updated
     })

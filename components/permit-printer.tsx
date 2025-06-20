@@ -7,6 +7,7 @@ import { Printer, Download, Eye } from "lucide-react"
 import { PermitTemplate } from "./permit-template"
 import { preparePermitData } from "@/lib/permit-generator"
 import type { PermitApplication } from "@/types"
+import { useSession } from "next-auth/react"
 
 interface PermitPrinterProps {
   application: PermitApplication
@@ -15,6 +16,8 @@ interface PermitPrinterProps {
 
 export function PermitPrinter({ application, disabled = false }: PermitPrinterProps) {
   const [isPreviewOpen, setIsPreviewOpen] = useState(false)
+  const { data: session } = useSession()
+  const user = session?.user
 
   const permitData = preparePermitData(application)
 
@@ -30,6 +33,9 @@ export function PermitPrinter({ application, disabled = false }: PermitPrinterPr
 
     return { canPrint: true, reason: "Ready to print" }
   }
+
+  // Update the component to show status for Permitting Officers
+  const printStatus = getPrintStatus(application, user?.userType || "")
 
   const handlePrint = () => {
     const printWindow = window.open("", "_blank")
@@ -144,15 +150,16 @@ export function PermitPrinter({ application, disabled = false }: PermitPrinterPr
         </DialogContent>
       </Dialog>
 
-      <Button onClick={handlePrint} size="sm">
+      <Button onClick={handlePrint} size="sm" disabled={!printStatus.canPrint}>
         <Printer className="h-4 w-4 mr-2" />
         Print Permit
       </Button>
 
-      <Button onClick={handleAutoprint} size="sm" variant="default">
+      <Button onClick={handleAutoprint} size="sm" variant="default" disabled={!printStatus.canPrint}>
         <Printer className="h-4 w-4 mr-2" />
         Auto Print
       </Button>
+      {!printStatus.canPrint && <div className="text-sm text-gray-500 mt-2">{printStatus.reason}</div>}
     </div>
   )
 }

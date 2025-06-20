@@ -1,8 +1,10 @@
+import type React from "react"
+
 interface User {
   userType: string
 }
 
-type Application = Record<string, unknown>
+type Application = {}
 
 interface DocumentViewerProps {
   user: User
@@ -12,7 +14,7 @@ interface DocumentViewerProps {
   isOwner: boolean
 }
 
-function DocumentViewer({ user, application, canUpload, canDelete, isOwner }: DocumentViewerProps) {
+const DocumentViewer: React.FC<DocumentViewerProps> = ({ user, application, canUpload, canDelete, isOwner }) => {
   return (
     <div>
       {/* Document Viewer Content */}
@@ -29,7 +31,7 @@ interface ApplicationDetailsProps {
   application: Application
 }
 
-function ApplicationDetails({ user, application }: ApplicationDetailsProps) {
+const ApplicationDetails: React.FC<ApplicationDetailsProps> = ({ user, application }) => {
   return (
     <div>
       <h1>Application Details</h1>
