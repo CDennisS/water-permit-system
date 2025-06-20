@@ -6,48 +6,42 @@ from dotenv import load_dotenv
 load_dotenv()
 
 def create_app():
-    """Application factory pattern for better modularity"""
+    """Serverless-optimized Flask app factory"""
     app = Flask(__name__)
     
-    # Configuration
+    # Minimal configuration for serverless
     app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'umscc-permit-system-secret-2025')
     app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'sqlite:///permit_system.db')
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-    app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB
+    app.config['MAX_CONTENT_LENGTH'] = 10 * 1024 * 1024  # 10MB for serverless
     
-    # Initialize core extensions
-    from extensions import init_extensions
-    init_extensions(app)
+    # Initialize lightweight extensions
+    from extensions import init_lightweight_extensions
+    init_lightweight_extensions(app)
     
-    # Register blueprints (modular loading)
-    register_blueprints(app)
+    # Register optimized routes
+    register_lightweight_routes(app)
     
-    # Initialize database
+    # Initialize database with minimal footprint
     with app.app_context():
         from extensions import db
         db.create_all()
-        create_default_users()
+        create_essential_users()
     
     return app
 
-def register_blueprints(app):
-    """Register all blueprints for modular functionality"""
+def register_lightweight_routes(app):
+    """Register essential routes only"""
     from routes.auth import auth_bp
     from routes.applications import applications_bp
-    from routes.documents import documents_bp
-    from routes.admin import admin_bp
-    from routes.reports import reports_bp
-    from routes.activity_logs import logs_bp
+    from routes.serverless_routes import serverless_bp
     
     app.register_blueprint(auth_bp)
     app.register_blueprint(applications_bp, url_prefix='/applications')
-    app.register_blueprint(documents_bp, url_prefix='/documents')
-    app.register_blueprint(admin_bp, url_prefix='/admin')
-    app.register_blueprint(reports_bp, url_prefix='/reports')
-    app.register_blueprint(logs_bp, url_prefix='/logs')
+    app.register_blueprint(serverless_bp, url_prefix='/api')
 
-def create_default_users():
-    """Create default users if they don't exist"""
+def create_essential_users():
+    """Create only essential users"""
     from models import User
     from extensions import db
     
@@ -57,12 +51,13 @@ def create_default_users():
         db.session.add(admin)
         db.session.commit()
 
-# Create app instance
+# Create optimized app instance
 app = create_app()
 
-# Vercel handler
+# Vercel serverless handler
 def handler(event, context):
+    """Optimized Vercel handler"""
     return app(event, context)
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=False)  # Disable debug for production

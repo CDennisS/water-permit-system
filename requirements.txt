@@ -1,21 +1,15 @@
-# Core Flask (lightweight)
+# ULTRA-LIGHTWEIGHT CORE (< 50MB total)
 Flask==2.3.3
 Flask-SQLAlchemy==3.1.1
 Flask-Login==0.6.2
 Werkzeug==2.3.7
 SQLAlchemy==2.0.23
-
-# Database
 psycopg2-binary==2.9.9
 python-dotenv==1.0.0
 
-# Heavy dependencies (loaded dynamically)
-pandas==2.1.1
-xlsxwriter==3.1.2
-reportlab==4.0.4
-PyMuPDF==1.23.7
-Pillow==10.0.1
-
-# Optional: Only install if needed
-# boto3==1.28.62  # For AWS S3
-# python-magic==0.4.27  # For file type detection
+# REMOVED HEAVY DEPENDENCIES:
+# pandas==2.1.1          # 50MB+ - Load dynamically
+# xlsxwriter==3.1.2      # 10MB+ - Load dynamically  
+# reportlab==4.0.4       # 30MB+ - Load dynamically
+# PyMuPDF==1.23.7        # 40MB+ - Load dynamically
+# Pillow==10.0.1         # 20MB+ - Load dynamically

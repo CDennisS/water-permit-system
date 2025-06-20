@@ -1,15 +1,25 @@
 {
   "version": 2,
-  "builds": [
-    {
-      "src": "app.py",
-      "use": "@vercel/python",
-      "config": {
-        "maxLambdaSize": "50mb",
-        "runtime": "python3.9"
-      }
+  "functions": {
+    "app.py": {
+      "runtime": "python3.9",
+      "memory": 1024,
+      "maxDuration": 10,
+      "includeFiles": ["templates/**", "static/**", "utils/**", "routes/**", "models.py", "extensions.py", "config.py"],
+      "excludeFiles": [
+        "tests/**",
+        "deployment/**",
+        "*.md",
+        "*.txt",
+        "*.sh",
+        "*.pyc",
+        "__pycache__/**",
+        ".git/**",
+        ".github/**",
+        "uploads/**"
+      ]
     }
-  ],
+  },
   "routes": [
     {
       "src": "/static/(.*)",
