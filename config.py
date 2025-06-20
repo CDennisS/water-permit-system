@@ -17,6 +17,14 @@ class Config:
     AWS_BUCKET_NAME = os.getenv('AWS_BUCKET_NAME')
     AWS_REGION = os.getenv('AWS_REGION', 'us-east-1')
 
+    # Core features always enabled
+    CORE_FEATURES = True
+    
+    # Heavy features only in production
+    ENABLE_REPORTS = os.getenv('ENABLE_REPORTS', 'false').lower() == 'true'
+    ENABLE_ANALYTICS = os.getenv('ENABLE_ANALYTICS', 'false').lower() == 'true'
+    ENABLE_BULK_OPERATIONS = os.getenv('ENABLE_BULK_OPS', 'false').lower() == 'true'
+
 class DevelopmentConfig(Config):
     """Development configuration"""
     DEBUG = True

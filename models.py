@@ -1,4 +1,4 @@
-from app import db
+from extensions import db
 from flask_login import UserMixin
 from datetime import datetime, timedelta
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -36,31 +36,26 @@ class PermitApplication(db.Model):
     approved_at = db.Column(db.DateTime)
     valid_until = db.Column(db.DateTime)
     water_allocation = db.Column(db.Float)
+    created_by = db.Column(db.Integer, db.ForeignKey('user.id'))
     
     # Relationships
-    documents = db.relationship('Document', backref='application', lazy=True)
-    comments = db.relationship('Comment', backref='application', lazy=True)
-    activities = db.relationship('ActivityLog', backref='application', lazy=True)
-
-    def generate_permit_number(self):
-        year = datetime.utcnow().year
-        count = PermitApplication.query.filter(
-            PermitApplication.permit_number.like(f'MC{year}-%')
-        ).count()
-        return f'MC{year}-{count + 1}'
-
-    def set_validity_period(self):
-        if self.permit_type == 'Bulk Water':
-            # Bulk water permits have custom validity period
-            return
-        self.valid_until = datetime.utcnow() + timedelta(days=5*365)  # 5 years
+    documents = db.relationship('Document', backref='application', lazy=True, cascade='all, delete-orphan')
+    comments = db.relationship('Comment', backref='application', lazy=True, cascade='all, delete-orphan')
+    activities = db.relationship('ActivityLog', backref='application', lazy=True, cascade='all, delete-orphan')
 
 class Document(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     application_id = db.Column(db.Integer, db.ForeignKey('permit_application.id'), nullable=False)
     document_type = db.Column(db.String(50), nullable=False)
+    original_filename = db.Column(db.String(200), nullable=False)
     file_path = db.Column(db.String(200), nullable=False)
+    file_hash = db.Column(db.String(64))
+    file_size = db.Column(db.Integer)
+    uploaded_by = db.Column(db.Integer, db.ForeignKey('user.id'))
     uploaded_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    uploaded_by_user = db.relationship('User', backref='uploaded_documents')
 
 class Comment(db.Model):
     id = db.Column(db.Integer, primary_key=True)
