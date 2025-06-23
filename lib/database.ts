@@ -69,6 +69,8 @@ class MockDatabase {
   async createApplication(
     data: Omit<PermitApplication, "id" | "applicationId" | "createdAt" | "updatedAt">,
   ): Promise<PermitApplication> {
+    console.log("Database: Creating application with data:", data) // Add debugging
+
     const application: PermitApplication = {
       ...data,
       id: `app_${Date.now()}`,
@@ -76,7 +78,15 @@ class MockDatabase {
       createdAt: new Date(),
       updatedAt: new Date(),
     }
+
+    console.log("Database: Created application object:", application) // Add debugging
     this.applications.push(application)
+    console.log("Database: Total applications now:", this.applications.length) // Add debugging
+    console.log(
+      "Database: All applications:",
+      this.applications.map((app) => ({ id: app.applicationId, status: app.status, createdBy: app.createdBy })),
+    ) // Add debugging
+
     return application
   }
 
