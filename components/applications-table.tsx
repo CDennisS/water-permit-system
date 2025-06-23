@@ -249,6 +249,24 @@ export function ApplicationsTable({
     loadApplications()
   }
 
+  const handleIndividualSubmit = async (application: PermitApplication) => {
+    await db.updateApplication(application.id, {
+      status: "submitted",
+      currentStage: 2,
+      submittedAt: new Date(),
+    })
+
+    await db.addLog({
+      userId: user.id,
+      userType: user.userType,
+      action: "Submitted Application",
+      details: `Submitted application ${application.applicationId} for review`,
+      applicationId: application.id,
+    })
+
+    loadApplications()
+  }
+
   const handleBatchSubmit = async () => {
     const readyApps = filteredApplications.filter((app) => {
       if (user.userType === "chairperson") {
@@ -392,10 +410,12 @@ export function ApplicationsTable({
           </Button>
 
           {user.userType === "permitting_officer" && (
-            <Button onClick={handleSubmitAll}>
-              <Send className="h-4 w-4 mr-2" />
-              Submit All
-            </Button>
+            <>
+              <Button onClick={handleSubmitAll} className="bg-green-600 hover:bg-green-700">
+                <Send className="h-4 w-4 mr-2" />
+                Submit All Unsubmitted ({applications.filter((app) => app.status === "unsubmitted").length})
+              </Button>
+            </>
           )}
 
           {["chairperson", "catchment_manager", "catchment_chairperson"].includes(user.userType) && (
@@ -475,9 +495,23 @@ export function ApplicationsTable({
                       </Button>
 
                       {canEdit(application) && (
-                        <Button variant="ghost" size="sm" onClick={() => onEditApplication(application)}>
-                          <Edit className="h-4 w-4" />
-                        </Button>
+                        <>
+                          <Button variant="ghost" size="sm" onClick={() => onEditApplication(application)}>
+                            <Edit className="h-4 w-4" />
+                          </Button>
+
+                          {application.status === "unsubmitted" && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleIndividualSubmit(application)}
+                              className="text-green-600 hover:text-green-800"
+                              title="Submit for review"
+                            >
+                              <Send className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </>
                       )}
 
                       <Button
