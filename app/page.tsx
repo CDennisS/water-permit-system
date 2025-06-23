@@ -14,7 +14,6 @@ import { PermitSupervisorDashboard } from "@/components/permit-supervisor-dashbo
 import { ICTDashboard } from "@/components/ict-dashboard"
 import { CatchmentManagerDashboard } from "@/components/catchment-manager-dashboard"
 import { CatchmentChairpersonDashboard } from "@/components/catchment-chairperson-dashboard"
-import { PermittingOfficerDashboard } from "@/components/permitting-officer-dashboard"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import type { User, PermitApplication } from "@/types"
@@ -144,9 +143,7 @@ export default function Home() {
           ) : (
             <>
               {/* Role-specific dashboards */}
-              {user.userType === "permitting_officer" ? (
-                <PermittingOfficerDashboard user={user} />
-              ) : user.userType === "chairperson" ? (
+              {user.userType === "chairperson" ? (
                 <ChairpersonDashboard user={user} />
               ) : user.userType === "catchment_manager" ? (
                 <CatchmentManagerDashboard user={user} />
@@ -167,7 +164,7 @@ export default function Home() {
                   onViewApplication={handleViewApp}
                 />
               ) : (
-                /* Default dashboard + tabs for other users */
+                /* Default dashboard + tabs for permitting officers etc. */
                 <Tabs value={currentView} onValueChange={handleTabChange} className="w-full">
                   <TabsList className="grid w-full grid-cols-4">
                     {getUserTabs().map((tab) => (
@@ -220,4 +217,3 @@ export default function Home() {
     </div>
   )
 }
-</merged_code>
