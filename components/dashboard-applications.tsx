@@ -1,4 +1,5 @@
 "use client"
+
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -177,7 +178,7 @@ export function DashboardApplications({
             app.applicantName.toLowerCase().includes(searchLower) ||
             app.customerAccountNumber.toLowerCase().includes(searchLower) ||
             app.physicalAddress.toLowerCase().includes(searchLower) ||
-            app.cellularNumber.includes(searchLower) ||
+            app.cellularNumber.toLowerCase().includes(searchLower) ||
             app.intendedUse.toLowerCase().includes(searchLower)
           )
         } else {
@@ -303,30 +304,16 @@ export function DashboardApplications({
       filtered = filtered.filter((app) => app.createdBy === user.id)
     }
 
-    // Sorting
-    filtered.sort((a, b) => {
-      const aValue = a[filters.sortField as keyof PermitApplication]
-      const bValue = b[filters.sortField as keyof PermitApplication]
-
-      let comparison = 0
-      if (aValue < bValue) comparison = -1
-      if (aValue > bValue) comparison = 1
-
-      if (filters.sortDirection === "desc") comparison *= -1
-
-      // Secondary sort
-      if (comparison === 0 && filters.secondarySortField) {
-        const aSecondary = a[filters.secondarySortField as keyof PermitApplication]
-        const bSecondary = b[filters.secondarySortField as keyof PermitApplication]
-
-        if (aSecondary < bSecondary) comparison = -1
-        if (aSecondary > bSecondary) comparison = 1
-
-        if (filters.secondarySortDirection === "desc") comparison *= -1
-      }
-
-      return comparison
-    })
+    // Filter based on user role and workflow stage
+    if (user.userType === "permitting_officer") {
+      filtered = filtered.filter((app) => app.status === "unsubmitted")
+    } else if (user.userType === "chairperson") {
+      filtered = filtered.filter((app) => app.status === "submitted" && app.currentStage === 2)
+    } else if (user.userType === "catchment_manager") {
+      filtered = filtered.filter((app) => app.currentStage === 3)
+    } else if (user.userType === "catchment_chairperson") {
+      filtered = filtered.filter((app) => app.currentStage === 4)
+    }
 
     setFilteredApplications(filtered)
   }
@@ -1102,5 +1089,3 @@ export function DashboardApplications({
     </div>
   )
 }
-
-export default DashboardApplications

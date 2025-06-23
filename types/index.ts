@@ -1,3 +1,8 @@
+export enum UserType {
+  ADMIN = "admin",
+  REGULAR = "regular",
+}
+
 export interface User {
   id: string
   username: string
