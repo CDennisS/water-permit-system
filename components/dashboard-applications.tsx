@@ -298,6 +298,18 @@ export function DashboardApplications({
       })
     }
 
+    // Filter based on user role and workflow stage
+    if (user.userType === "permitting_officer") {
+      // Permitting officers should see ALL applications with status "unsubmitted"
+      filtered = filtered.filter((app) => app.status === "unsubmitted")
+    } else if (user.userType === "chairperson") {
+      filtered = filtered.filter((app) => app.status === "submitted" && app.currentStage === 2)
+    } else if (user.userType === "catchment_manager") {
+      filtered = filtered.filter((app) => app.currentStage === 3)
+    } else if (user.userType === "catchment_chairperson") {
+      filtered = filtered.filter((app) => app.currentStage === 4)
+    }
+
     // User-specific filters
     if (filters.showOnlyMyApplications) {
       filtered = filtered.filter((app) => app.createdBy === user.id)
