@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect } from "react"
 import { LoginForm } from "@/components/login-form"
 import { DashboardHeader } from "@/components/dashboard-header"
 import { ApplicationForm } from "@/components/application-form"
@@ -26,7 +26,6 @@ export default function Home() {
   const [selectedApplication, setSelectedApplication] = useState<PermitApplication | null>(null)
   const [isEditing, setIsEditing] = useState(false)
   const [unreadMessageCount, setUnreadMessageCount] = useState(0)
-  const dashboardRef = useRef<{ refreshApplications: () => void } | null>(null)
 
   /* ------------------------- message polling ------------------------- */
   useEffect(() => {
@@ -68,14 +67,10 @@ export default function Home() {
     setSelectedApplication(a)
     setCurrentView("workflow")
   }
-  const handleSaveApp = async () => {
+  const handleSaveApp = () => {
     setIsEditing(false)
     setSelectedApplication(null)
     setCurrentView("dashboard")
-    // Trigger a refresh of the applications list
-    if (dashboardRef.current) {
-      dashboardRef.current.refreshApplications()
-    }
   }
   const handleCancelEdit = () => {
     setIsEditing(false)
@@ -182,7 +177,6 @@ export default function Home() {
                     </div>
 
                     <DashboardApplications
-                      ref={dashboardRef}
                       user={user}
                       onNewApplication={handleNewApp}
                       onEditApplication={handleEditApp}
