@@ -95,7 +95,7 @@ const defaultFilters: AdvancedFilters = {
   dateField: "createdAt",
   startDate: "",
   endDate: "",
-  datePreset: "all",
+  datePreset: "all_time",
   statusFilter: [],
   stageFilter: [],
   permitTypeFilter: [],
@@ -163,6 +163,18 @@ export const DashboardApplications = forwardRef<{ refreshApplications: () => voi
     const applyFilters = () => {
       let filtered = [...applications]
 
+      console.log("=== FILTER DEBUG ===")
+      console.log("Total applications:", applications.length)
+      console.log("User type:", user.userType)
+      console.log(
+        "Applications before filtering:",
+        applications.map((app) => ({
+          id: app.applicationId,
+          status: app.status,
+          stage: app.currentStage,
+        })),
+      )
+
       // Apply role-based filtering FIRST, before other filters
       if (user.userType === "permitting_officer") {
         // Permitting officers should see ALL applications with status "unsubmitted"
@@ -174,6 +186,16 @@ export const DashboardApplications = forwardRef<{ refreshApplications: () => voi
       } else if (user.userType === "catchment_chairperson") {
         filtered = filtered.filter((app) => app.currentStage === 4)
       }
+
+      console.log("After role-based filtering:", filtered.length)
+      console.log(
+        "Filtered applications:",
+        filtered.map((app) => ({
+          id: app.applicationId,
+          status: app.status,
+          stage: app.currentStage,
+        })),
+      )
 
       // Text search
       if (filters.searchTerm) {
@@ -208,7 +230,7 @@ export const DashboardApplications = forwardRef<{ refreshApplications: () => voi
       }
 
       // Date presets
-      if (filters.datePreset !== "all") {
+      if (filters.datePreset !== "all" && filters.datePreset !== "all_time") {
         const now = new Date()
         let startDate: Date
 
@@ -232,13 +254,15 @@ export const DashboardApplications = forwardRef<{ refreshApplications: () => voi
             startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1)
             break
           default:
-            startDate = new Date("1900-01-01")
+            startDate = null
         }
 
-        filtered = filtered.filter((app) => {
-          const appDate = new Date(app[filters.dateField as keyof PermitApplication] as string)
-          return appDate >= startDate
-        })
+        if (startDate) {
+          filtered = filtered.filter((app) => {
+            const appDate = new Date(app[filters.dateField as keyof PermitApplication] as string)
+            return appDate >= startDate
+          })
+        }
       }
 
       // Status filters
@@ -366,7 +390,12 @@ export const DashboardApplications = forwardRef<{ refreshApplications: () => voi
         if (key === "searchTerm" && value) count++
         else if (Array.isArray(value) && value.length > 0) count++
         else if (typeof value === "boolean" && value && !["includeExpired"].includes(key)) count++
-        else if (typeof value === "string" && value && !["all", "", "createdAt", "desc", "asc"].includes(value)) count++
+        else if (
+          typeof value === "string" &&
+          value &&
+          !["all", "all_time", "", "createdAt", "desc", "asc"].includes(value)
+        )
+          count++
         else if (key.includes("Range") && Array.isArray(value)) {
           if (key === "waterAllocationRange" && (value[0] > 0 || value[1] < 1000)) count++
           else if (key === "landSizeRange" && (value[0] > 0 || value[1] < 500)) count++
