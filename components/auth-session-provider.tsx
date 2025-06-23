@@ -1,20 +1,18 @@
 "use client"
 
-import type React from "react"
-
 import { SessionProvider } from "next-auth/react"
 import type { Session } from "next-auth"
+import type React from "react"
 
 interface AuthSessionProviderProps {
-  /** The session delivered from the server (optional). */
-  session?: Session | null
   children: React.ReactNode
+  session?: Session | null
 }
 
 /**
- * Thin wrapper around next-auth's SessionProvider so we can
- * tree-shake / swap implementations later without touching layout.tsx.
+ * Wraps the app with NextAuth’s SessionProvider so that
+ * `useSession` and other auth hooks work everywhere.
  */
-export default function AuthSessionProvider({ session, children }: AuthSessionProviderProps) {
+export default function AuthSessionProvider({ children, session = null }: AuthSessionProviderProps) {
   return <SessionProvider session={session}>{children}</SessionProvider>
 }
