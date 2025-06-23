@@ -9,6 +9,7 @@ import { MessagingSystem } from "@/components/messaging-system"
 import { ReportsAnalytics } from "@/components/reports-analytics"
 import { ActivityLogs } from "@/components/activity-logs"
 import { DashboardApplications } from "@/components/dashboard-applications"
+import { TestDashboard } from "@/components/test-dashboard"
 import { ChairpersonDashboard } from "@/components/chairperson-dashboard"
 import { PermitSupervisorDashboard } from "@/components/permit-supervisor-dashboard"
 import { ICTDashboard } from "@/components/ict-dashboard"
@@ -56,6 +57,7 @@ export default function Home() {
   }
 
   const handleNewApp = () => {
+    console.log("New Application button clicked!")
     setIsEditing(true)
     setSelectedApplication(null)
     setCurrentView("application-form")
@@ -187,6 +189,9 @@ export default function Home() {
                       <h2 className="mb-2 text-2xl font-bold text-gray-900">Welcome back, {user.username}</h2>
                       <p className="text-gray-600">Manage your permit applications and track progress</p>
                     </div>
+
+                    {/* Temporarily use TestDashboard to verify button works */}
+                    <TestDashboard user={user} onNewApplication={handleNewApp} />
 
                     <DashboardApplications
                       ref={dashboardRef}
