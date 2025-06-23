@@ -493,4 +493,12 @@ export function PermittingOfficerApplicationsTable({
                     {["unsubmitted", "submitted", "under_review", "approved", "rejected"].map((status) => (
                       <div key={status} className="flex items-center space-x-2">
                         <Checkbox
-                          id={`status-
+                          id={`status-${status}`}
+                          checked={filters.statusFilter.includes(status)}
+                          onCheckedChange={(checked) => handleArrayFilterChange("statusFilter", status, checked)}
+                        />
+                        <Label htmlFor={`status-${status}`} className="text-sm font-medium capitalize">
+                          {status.replace("_", " ")}
+                        </Label>
+                      </div>\
+                    ))}
