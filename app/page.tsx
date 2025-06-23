@@ -1,223 +1,178 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState } from "react"
 import { LoginForm } from "@/components/login-form"
-import { DashboardHeader } from "@/components/dashboard-header"
-import { ApplicationForm } from "@/components/application-form"
-import { WorkflowManager } from "@/components/workflow-manager"
-import { MessagingSystem } from "@/components/messaging-system"
-import { ReportsAnalytics } from "@/components/reports-analytics"
-import { ActivityLogs } from "@/components/activity-logs"
 import { DashboardApplications } from "@/components/dashboard-applications"
-import { ChairpersonDashboard } from "@/components/chairperson-dashboard"
-import { PermitSupervisorDashboard } from "@/components/permit-supervisor-dashboard"
-import { ICTDashboard } from "@/components/ict-dashboard"
-import { CatchmentManagerDashboard } from "@/components/catchment-manager-dashboard"
-import { CatchmentChairpersonDashboard } from "@/components/catchment-chairperson-dashboard"
-import { PermittingOfficerDashboard } from "@/components/permitting-officer-dashboard"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Badge } from "@/components/ui/badge"
-import type { User, PermitApplication } from "@/types"
-import { db } from "@/lib/database"
+import { ApplicationForm } from "@/components/application-form"
+import { ApplicationDetails } from "@/components/application-details"
+import { ReportsAnalytics } from "@/components/reports-analytics"
+import { MessagingSystem } from "@/components/messaging-system"
+import type { PermitApplication, User } from "@/types"
 
-export default function Home() {
-  /* ------------------------------ state ------------------------------ */
+export default function HomePage() {
   const [user, setUser] = useState<User | null>(null)
-  const [currentView, setCurrentView] = useState("dashboard")
+  const [currentView, setCurrentView] = useState<
+    "dashboard" | "new-application" | "view-application" | "edit-application" | "reports" | "messages"
+  >("dashboard")
   const [selectedApplication, setSelectedApplication] = useState<PermitApplication | null>(null)
-  const [isEditing, setIsEditing] = useState(false)
-  const [unreadMessageCount, setUnreadMessageCount] = useState(0)
-  const dashboardRef = useRef<{ refreshApplications: () => void } | null>(null)
 
-  /* ------------------------- message polling ------------------------- */
-  useEffect(() => {
-    if (!user) return
+  // Handle login
+  const handleLogin = (userData: User) => {
+    setUser(userData)
+    setCurrentView("dashboard")
+  }
 
-    const loadUnread = async () => {
-      const publicMsgs = await db.getMessages(user.id, /* public */ true)
-      const privateMsgs = await db.getMessages(user.id, /* public */ false)
-
-      const unreadPublic = publicMsgs.filter((m) => m.senderId !== user.id && !m.readAt).length
-      const unreadPrivate = privateMsgs.filter((m) => m.senderId !== user.id && !m.readAt).length
-
-      setUnreadMessageCount(unreadPublic + unreadPrivate)
-    }
-
-    loadUnread()
-    const id = setInterval(loadUnread, 30_000) // refresh every 30 s
-    return () => clearInterval(id)
-  }, [user])
-
-  /* --------------------------- callbacks ----------------------------- */
-  const handleLogin = (u: User) => setUser(u)
-
+  // Handle logout
   const handleLogout = () => {
     setUser(null)
     setCurrentView("dashboard")
-  }
-
-  const handleNewApp = () => {
-    setIsEditing(true)
     setSelectedApplication(null)
-    setCurrentView("application-form")
   }
 
-  const handleEditApp = (a: PermitApplication) => {
-    setIsEditing(true)
-    setSelectedApplication(a)
-    setCurrentView("application-form")
-  }
-
-  const handleViewApp = (a: PermitApplication) => {
-    setIsEditing(false)
-    setSelectedApplication(a)
-    setCurrentView("workflow")
-  }
-
-  const handleSaveApp = async () => {
-    setIsEditing(false)
+  // Navigation handlers
+  const handleNewApplication = () => {
     setSelectedApplication(null)
-    setCurrentView("dashboard")
-    // refresh the applications list
-    dashboardRef.current?.refreshApplications()
+    setCurrentView("new-application")
   }
 
-  const handleCancelEdit = () => {
-    setIsEditing(false)
+  const handleViewApplication = (application: PermitApplication) => {
+    setSelectedApplication(application)
+    setCurrentView("view-application")
+  }
+
+  const handleEditApplication = (application: PermitApplication) => {
+    setSelectedApplication(application)
+    setCurrentView("edit-application")
+  }
+
+  const handleBackToDashboard = () => {
     setSelectedApplication(null)
     setCurrentView("dashboard")
   }
 
-  const handleUpdateApp = (a: PermitApplication) => setSelectedApplication(a)
-
-  const handleTabChange = (v: string) => {
-    setCurrentView(v)
-    if (v === "messages") setUnreadMessageCount(0)
+  // If not logged in, show login form
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="max-w-md w-full">
+          <div className="text-center mb-8">
+            <h1 className="text-3xl font-bold text-gray-900">UMSCC Permit Management</h1>
+            <p className="text-gray-600 mt-2">Upper Manyame Sub Catchment Council</p>
+          </div>
+          <LoginForm onLogin={handleLogin} />
+        </div>
+      </div>
+    )
   }
 
-  const handleMessagesClick = () => {
-    setCurrentView("messages")
-    setUnreadMessageCount(0)
-  }
-
-  /* ------------------------ tab configuration ------------------------ */
-  const baseTabs = [
-    { value: "dashboard", label: "Dashboard & Applications" },
-    { value: "messages", label: "Messages" },
-    { value: "reports", label: "Reports" },
-    { value: "logs", label: "Activity Logs" },
-  ]
-
-  const getUserTabs = () =>
-    !user
-      ? baseTabs
-      : baseTabs.filter(
-          (t) => t.value !== "reports" || ["permitting_officer", "permit_supervisor", "ict"].includes(user.userType),
-        )
-
-  /* ------------------------------ UI -------------------------------- */
-  if (!user) return <LoginForm onLogin={handleLogin} />
-
+  // Main application layout
   return (
     <div className="min-h-screen bg-gray-50">
-      <DashboardHeader user={user} onLogout={handleLogout} onMessagesClick={handleMessagesClick} />
-
-      <main className="p-6">
-        <div className="mx-auto max-w-7xl">
-          {currentView === "application-form" ? (
-            <ApplicationForm
-              user={user}
-              application={selectedApplication}
-              onSave={handleSaveApp}
-              onCancel={handleCancelEdit}
-            />
-          ) : currentView === "workflow" && selectedApplication ? (
-            <div className="space-y-6">
-              <div className="flex items-center justify-between">
-                <h2 className="text-2xl font-bold">Application Details – {selectedApplication.applicationId}</h2>
-                <button onClick={() => setCurrentView("dashboard")} className="text-blue-600 hover:text-blue-800">
-                  ← Back to Dashboard
-                </button>
-              </div>
-              <WorkflowManager user={user} application={selectedApplication} onUpdate={handleUpdateApp} />
+      {/* Header */}
+      <header className="bg-white shadow-sm border-b">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16">
+            <div className="flex items-center">
+              <h1 className="text-xl font-semibold text-gray-900">UMSCC Permit Management System</h1>
             </div>
-          ) : (
-            <>
-              {/* Role-specific dashboards */}
-              {user.userType === "permitting_officer" ? (
-                <PermittingOfficerDashboard user={user} />
-              ) : user.userType === "chairperson" ? (
-                <ChairpersonDashboard user={user} />
-              ) : user.userType === "catchment_manager" ? (
-                <CatchmentManagerDashboard user={user} />
-              ) : user.userType === "catchment_chairperson" ? (
-                <CatchmentChairpersonDashboard user={user} />
-              ) : user.userType === "permit_supervisor" ? (
-                <PermitSupervisorDashboard
-                  user={user}
-                  onNewApplication={handleNewApp}
-                  onEditApplication={handleEditApp}
-                  onViewApplication={handleViewApp}
-                />
-              ) : user.userType === "ict" ? (
-                <ICTDashboard
-                  user={user}
-                  onNewApplication={handleNewApp}
-                  onEditApplication={handleEditApp}
-                  onViewApplication={handleViewApp}
-                />
-              ) : (
-                /* Default dashboard + tabs for other users */
-                <Tabs value={currentView} onValueChange={handleTabChange} className="w-full">
-                  <TabsList className="grid w-full grid-cols-4">
-                    {getUserTabs().map((tab) => (
-                      <TabsTrigger key={tab.value} value={tab.value} className="relative">
-                        {tab.label}
-                        {tab.value === "messages" && unreadMessageCount > 0 && (
-                          <Badge
-                            variant="destructive"
-                            className="ml-2 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs"
-                          >
-                            {unreadMessageCount > 99 ? "99+" : unreadMessageCount}
-                          </Badge>
-                        )}
-                      </TabsTrigger>
-                    ))}
-                  </TabsList>
 
-                  <TabsContent value="dashboard" className="space-y-6">
-                    <div className="mb-6">
-                      <h2 className="mb-2 text-2xl font-bold text-gray-900">Welcome back, {user.username}</h2>
-                      <p className="text-gray-600">Manage your permit applications and track progress</p>
-                    </div>
+            {/* Navigation */}
+            <nav className="flex space-x-4">
+              <button
+                onClick={() => setCurrentView("dashboard")}
+                className={`px-3 py-2 rounded-md text-sm font-medium ${
+                  currentView === "dashboard" ? "bg-blue-100 text-blue-700" : "text-gray-500 hover:text-gray-700"
+                }`}
+              >
+                Dashboard
+              </button>
+              <button
+                onClick={() => setCurrentView("reports")}
+                className={`px-3 py-2 rounded-md text-sm font-medium ${
+                  currentView === "reports" ? "bg-blue-100 text-blue-700" : "text-gray-500 hover:text-gray-700"
+                }`}
+              >
+                Reports
+              </button>
+              <button
+                onClick={() => setCurrentView("messages")}
+                className={`px-3 py-2 rounded-md text-sm font-medium ${
+                  currentView === "messages" ? "bg-blue-100 text-blue-700" : "text-gray-500 hover:text-gray-700"
+                }`}
+              >
+                Messages
+              </button>
+            </nav>
 
-                    <DashboardApplications
-                      ref={dashboardRef}
-                      user={user}
-                      onNewApplication={handleNewApp}
-                      onEditApplication={handleEditApp}
-                      onViewApplication={handleViewApp}
-                    />
-                  </TabsContent>
-
-                  <TabsContent value="messages">
-                    <MessagingSystem user={user} />
-                  </TabsContent>
-
-                  <TabsContent value="reports">
-                    <ReportsAnalytics />
-                  </TabsContent>
-
-                  <TabsContent value="logs">
-                    <ActivityLogs user={user} />
-                  </TabsContent>
-                </Tabs>
-              )}
-            </>
-          )}
+            {/* User menu */}
+            <div className="flex items-center space-x-4">
+              <span className="text-sm text-gray-700">
+                {user.name} ({user.userType.replace("_", " ").toUpperCase()})
+              </span>
+              <button onClick={handleLogout} className="text-sm text-gray-500 hover:text-gray-700">
+                Logout
+              </button>
+            </div>
+          </div>
         </div>
+      </header>
+
+      {/* Main content */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {currentView === "dashboard" && (
+          <DashboardApplications
+            user={user}
+            onNewApplication={handleNewApplication}
+            onViewApplication={handleViewApplication}
+            onEditApplication={handleEditApplication}
+          />
+        )}
+
+        {currentView === "new-application" && (
+          <div>
+            <div className="mb-6">
+              <button onClick={handleBackToDashboard} className="text-blue-600 hover:text-blue-800 text-sm font-medium">
+                ← Back to Dashboard
+              </button>
+            </div>
+            <ApplicationForm onSave={handleBackToDashboard} onCancel={handleBackToDashboard} />
+          </div>
+        )}
+
+        {currentView === "view-application" && selectedApplication && (
+          <div>
+            <div className="mb-6">
+              <button onClick={handleBackToDashboard} className="text-blue-600 hover:text-blue-800 text-sm font-medium">
+                ← Back to Dashboard
+              </button>
+            </div>
+            <ApplicationDetails
+              application={selectedApplication}
+              user={user}
+              onEdit={() => handleEditApplication(selectedApplication)}
+            />
+          </div>
+        )}
+
+        {currentView === "edit-application" && selectedApplication && (
+          <div>
+            <div className="mb-6">
+              <button onClick={handleBackToDashboard} className="text-blue-600 hover:text-blue-800 text-sm font-medium">
+                ← Back to Dashboard
+              </button>
+            </div>
+            <ApplicationForm
+              application={selectedApplication}
+              onSave={handleBackToDashboard}
+              onCancel={handleBackToDashboard}
+            />
+          </div>
+        )}
+
+        {currentView === "reports" && <ReportsAnalytics user={user} />}
+
+        {currentView === "messages" && <MessagingSystem user={user} />}
       </main>
     </div>
   )
 }
-</merged_code>
