@@ -1,29 +1,17 @@
 "use client"
-import { forwardRef, useImperativeHandle, useState, useEffect } from "react"
-import { db } from "@/lib/database"
-import type { PermitApplication } from "@/types"
-import {
-  Button,
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  Badge,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui"
-import { Download, Plus, RefreshCw, Eye, Edit, Calendar, Send } from "lucide-react"
 
-interface UserType {
-  userType: string
-}
+import { forwardRef, useImperativeHandle, useState, useEffect, type ForwardedRef } from "react"
+import { db } from "@/lib/database"
+import type { User, PermitApplication } from "@/types"
+import { Button } from "@/components/ui/button"
+import { Download, Plus, RefreshCw } from "lucide-react"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Eye, Edit, Calendar } from "lucide-react"
 
 interface DashboardApplicationsProps {
-  user: UserType
+  user: User
   onNewApplication: () => void
   onEditApplication: (a: PermitApplication) => void
   onViewApplication: (a: PermitApplication) => void
@@ -33,105 +21,86 @@ export interface DashboardApplicationsHandle {
   refreshApplications: () => void
 }
 
-const DashboardApplicationsInner = forwardRef<DashboardApplicationsHandle, DashboardApplicationsProps>(
-  ({ user, onNewApplication, onEditApplication, onViewApplication }, ref) => {
-    const [applications, setApplications] = useState<PermitApplication[]>([])
-    const [filteredApplications, setFilteredApplications] = useState<PermitApplication[]>([])
-    const [activeFiltersCount] = useState(0) // placeholder until filters are implemented
+function DashboardApplicationsInner(
+  { user, onNewApplication, onEditApplication, onViewApplication }: DashboardApplicationsProps,
+  ref: ForwardedRef<DashboardApplicationsHandle>,
+) {
+  const [applications, setApplications] = useState<PermitApplication[]>([])
+  const [filteredApplications, setFilteredApplications] = useState<PermitApplication[]>([])
+  const [activeFiltersCount, setActiveFiltersCount] = useState(0)
 
-    /* -------------------- data helpers -------------------- */
-    const loadApplications = async () => {
-      const apps = await db.getApplications()
-      setApplications(apps)
-      setFilteredApplications(apps)
-    }
+  const loadApplications = async () => {
+    const apps = await db.getApplications()
+    setApplications(apps)
+    setFilteredApplications(apps) // Initially, filtered applications are all applications
+  }
 
-    const exportFilteredData = () => {
-      /* TODO: implement real export */
-      alert("Exporting data is not yet implemented.")
-    }
+  const exportFilteredData = () => {
+    // TODO: Implement export functionality
+    alert("Exporting data is not yet implemented.")
+  }
 
-    useEffect(() => {
-      loadApplications()
-    }, [])
+  useEffect(() => {
+    loadApplications()
+  }, [])
 
-    useImperativeHandle(ref, () => ({
-      refreshApplications: loadApplications,
-    }))
+  useImperativeHandle(ref, () => ({
+    refreshApplications: loadApplications,
+  }))
 
-    /* -------------------- rendering -------------------- */
-    return (
-      <div className="space-y-6">
-        {/* Helpful process card for permitting officers */}
-        {user.userType === "permitting_officer" && (
-          <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
-            <h3 className="mb-2 font-semibold text-blue-900">📋 Application Submission Process</h3>
-            <ul className="text-sm text-blue-800 space-y-1 list-disc pl-5">
-              <li>
-                <strong>Draft</strong>: create or edit applications (status&nbsp;“unsubmitted”)
-              </li>
-              <li>
-                <strong>Submit</strong>: use the send icon&nbsp;
-                <Send className="inline h-4 w-4" />
-                &nbsp;or “Submit&nbsp;All Unsubmitted” to forward applications to Stage&nbsp;2 (Chairperson)
-              </li>
-              <li>The system has 4 review stages – Chairperson → Catchment Manager → Catchment Chairperson</li>
-            </ul>
-          </div>
-        )}
-
-        {/* Header with global actions */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-2xl font-bold text-gray-900">Applications Dashboard</h2>
-            <p className="text-gray-600">
-              Showing {filteredApplications.length} of {applications.length} applications
-              {activeFiltersCount > 0 && ` (${activeFiltersCount} filters active)`}
-            </p>
-          </div>
-
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              onClick={exportFilteredData}
-              disabled={filteredApplications.length === 0}
-              className="flex items-center gap-2"
-            >
-              <Download className="h-4 w-4" />
-              Export
-            </Button>
-
-            <Button variant="outline" onClick={loadApplications} className="flex items-center gap-2">
-              <RefreshCw className="h-4 w-4" />
-              Refresh
-            </Button>
-
-            <Button
-              onClick={onNewApplication}
-              className="flex items-center gap-2 bg-blue-600 text-white hover:bg-blue-700"
-            >
-              <Plus className="h-4 w-4" />
-              New Application
-            </Button>
-          </div>
+  return (
+    <div>
+      {/* Header with Actions */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900">Applications Dashboard</h2>
+          <p className="text-gray-600">
+            Showing {filteredApplications.length} of {applications.length} applications
+            {activeFiltersCount > 0 && ` (${activeFiltersCount} filters active)`}
+          </p>
         </div>
-
-        {/* Applications table or empty-state card */}
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={exportFilteredData}
+            className="flex items-center gap-2"
+            disabled={filteredApplications.length === 0}
+          >
+            <Download className="h-4 w-4" />
+            Export
+          </Button>
+          <Button variant="outline" onClick={loadApplications} className="flex items-center gap-2">
+            <RefreshCw className="h-4 w-4" />
+            Refresh
+          </Button>
+          <Button
+            onClick={onNewApplication}
+            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white"
+          >
+            <Plus className="h-4 w-4" />
+            New Application
+          </Button>
+        </div>
+      </div>
+      {/* Applications Table */}
+      <div className="mt-6">
         {filteredApplications.length === 0 ? (
           <Card>
-            <CardContent className="flex flex-col items-center justify-center py-12 text-center space-y-4">
-              <h3 className="text-lg font-semibold text-gray-900">No applications found</h3>
-              <p className="text-gray-600">
-                {applications.length === 0
-                  ? "Get started by creating your first permit application."
-                  : "Try adjusting your filters to see more results."}
-              </p>
-              {applications.length === 0 && (
-                <Button onClick={onNewApplication} className="bg-blue-600 text-white hover:bg-blue-700">
-                  <Plus className="mr-2 h-4 w-4" />
-                  Create First Application
-                </Button>
-              )}
+            <CardContent className="flex flex-col items-center justify-center py-12">
+              <div className="text-center">
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">No applications found</h3>
+                <p className="text-gray-600 mb-4">
+                  {applications.length === 0
+                    ? "Get started by creating your first permit application."
+                    : "Try adjusting your filters to see more results."}
+                </p>
+                {applications.length === 0 && (
+                  <Button onClick={onNewApplication} className="bg-blue-600 hover:bg-blue-700 text-white">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Create First Application
+                  </Button>
+                )}
+              </div>
             </CardContent>
           </Card>
         ) : (
@@ -143,15 +112,14 @@ const DashboardApplicationsInner = forwardRef<DashboardApplicationsHandle, Dashb
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Application&nbsp;ID</TableHead>
-                    <TableHead>Applicant</TableHead>
+                    <TableHead>Application ID</TableHead>
+                    <TableHead>Applicant Name</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead>Permit&nbsp;Type</TableHead>
-                    <TableHead>Created</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                    <TableHead>Permit Type</TableHead>
+                    <TableHead>Created Date</TableHead>
+                    <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
-
                 <TableBody>
                   {filteredApplications.map((app) => (
                     <TableRow key={app.id}>
@@ -171,35 +139,36 @@ const DashboardApplicationsInner = forwardRef<DashboardApplicationsHandle, Dashb
                                     : "secondary"
                           }
                         >
-                          {app.status.replaceAll("_", " ").toUpperCase()}
+                          {app.status.replace("_", " ").toUpperCase()}
                         </Badge>
                       </TableCell>
                       <TableCell>{app.permitType}</TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-1 text-sm">
+                        <div className="flex items-center gap-1">
                           <Calendar className="h-4 w-4 text-gray-400" />
                           {app.createdAt.toLocaleDateString()}
                         </div>
                       </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
+                      <TableCell>
+                        <div className="flex items-center gap-2">
                           <Button
-                            size="sm"
                             variant="outline"
+                            size="sm"
                             onClick={() => onViewApplication(app)}
                             className="flex items-center gap-1"
                           >
-                            <Eye className="h-4 w-4" /> View
+                            <Eye className="h-4 w-4" />
+                            View
                           </Button>
-
                           {(app.status === "unsubmitted" || user.userType === "ict") && (
                             <Button
-                              size="sm"
                               variant="outline"
+                              size="sm"
                               onClick={() => onEditApplication(app)}
                               className="flex items-center gap-1"
                             >
-                              <Edit className="h-4 w-4" /> Edit
+                              <Edit className="h-4 w-4" />
+                              Edit
                             </Button>
                           )}
                         </div>
@@ -212,12 +181,8 @@ const DashboardApplicationsInner = forwardRef<DashboardApplicationsHandle, Dashb
           </Card>
         )}
       </div>
-    )
-  },
-)
-
-DashboardApplicationsInner.displayName = "DashboardApplicationsInner"
+    </div>
+  )
+}
 
 export const DashboardApplications = forwardRef(DashboardApplicationsInner)
-export default DashboardApplications
-</merged_code>
