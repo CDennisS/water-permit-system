@@ -1,9 +1,9 @@
 "use client"
 
 import type React from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { CheckCircle, AlertTriangle, Clock, XCircle } from "lucide-react"
+import { CheckCircle, XCircle, Clock } from "lucide-react"
 import type { PermitApplication, User as PermitUser } from "@/types"
 import { PermitPrinter } from "./permit-printer"
 
@@ -13,269 +13,184 @@ interface ApplicationDetailsProps {
 }
 
 const ApplicationDetails: React.FC<ApplicationDetailsProps> = ({ user, application }) => {
-  const getStatusIcon = (status: string) => {
-    switch (status) {
+  const formatDate = (date: Date) => new Intl.DateTimeFormat("en-ZA").format(date)
+  const canPrint = application.status === "approved" && user.userType === "permitting_officer"
+
+  const StatusIcon = () => {
+    switch (application.status) {
       case "approved":
         return <CheckCircle className="h-4 w-4 text-green-600" />
       case "rejected":
         return <XCircle className="h-4 w-4 text-red-600" />
-      case "under_review":
+      default:
         return <Clock className="h-4 w-4 text-blue-600" />
-      default:
-        return <AlertTriangle className="h-4 w-4 text-gray-600" />
     }
   }
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "approved":
-        return "bg-green-600 text-white"
-      case "rejected":
-        return "bg-red-600 text-white"
-      case "under_review":
-        return "bg-blue-600 text-white"
-      default:
-        return "bg-gray-600 text-white"
-    }
-  }
-
-  const formatDate = (date: Date) => {
-    return new Intl.DateTimeFormat("en-ZA", {
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-    }).format(date)
-  }
-
-  const canPrintPermit = () => {
-    return application.status === "approved" && user.userType === "permitting_officer"
-  }
-
-  const InfoRow = ({ label, value, className = "" }: { label: string; value: string | number; className?: string }) => (
-    <tr className="border-b border-gray-100">
-      <td className="py-2 px-3 text-xs font-medium text-gray-600 bg-gray-50 w-1/3">{label}</td>
-      <td className={`py-2 px-3 text-sm text-gray-900 ${className}`}>{value}</td>
-    </tr>
+  const Field = ({ label, value, span = false }: { label: string; value: string | number; span?: boolean }) => (
+    <div className={`${span ? "col-span-2" : ""} border-b border-gray-200 pb-1 mb-2`}>
+      <div className="text-xs font-medium text-gray-600 uppercase tracking-wide">{label}</div>
+      <div className="text-sm text-gray-900 font-medium">{value}</div>
+    </div>
   )
 
   return (
-    <div className="max-w-5xl mx-auto">
-      {/* Official Government Header */}
-      <Card className="mb-4 border-t-4 border-t-blue-800">
-        <CardHeader className="bg-gradient-to-r from-blue-800 to-blue-900 text-white py-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="text-lg font-bold">REPUBLIC OF SOUTH AFRICA</CardTitle>
-              <p className="text-sm opacity-90">Department of Water and Sanitation</p>
-              <p className="text-xs opacity-80">Upper Molopo Sub-Catchment Committee</p>
-            </div>
-            <div className="text-right">
-              <p className="text-xs opacity-80">APPLICATION REFERENCE</p>
-              <p className="text-xl font-bold">{application.applicationId}</p>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="py-3 bg-gray-50 border-b">
-          <div className="flex items-center justify-between">
-            <h2 className="text-base font-semibold text-gray-900">WATER USE PERMIT APPLICATION DETAILS</h2>
-            <div className="flex items-center space-x-2">
-              {getStatusIcon(application.status)}
-              <Badge className={`${getStatusColor(application.status)} text-xs px-2 py-1`}>
-                {application.status.replace("_", " ").toUpperCase()}
-              </Badge>
-              <span className="text-xs text-gray-500">STAGE {application.currentStage}</span>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+    <div className="max-w-4xl mx-auto bg-white">
+      {/* Official Header */}
+      <div className="bg-blue-900 text-white p-4 text-center border-b-4 border-yellow-400">
+        <h1 className="text-lg font-bold">REPUBLIC OF SOUTH AFRICA</h1>
+        <p className="text-sm">DEPARTMENT OF WATER AND SANITATION</p>
+        <p className="text-xs opacity-90">Upper Molopo Sub-Catchment Committee</p>
+      </div>
 
-      {/* Print Section - Compact */}
-      {canPrintPermit() && (
-        <Card className="mb-4 border-l-4 border-l-green-600">
-          <CardContent className="py-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <CheckCircle className="h-5 w-5 text-green-600" />
-                <span className="font-medium text-green-800">PERMIT APPROVED - READY FOR OFFICIAL PRINTING</span>
-              </div>
-              <PermitPrinter application={application} />
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Main Information Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Left Panel */}
-        <div className="space-y-4">
-          {/* Applicant Information */}
-          <Card>
-            <CardHeader className="py-2 bg-gray-100 border-b">
-              <CardTitle className="text-sm font-semibold text-gray-800">APPLICANT INFORMATION</CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-              <table className="w-full text-sm">
-                <tbody>
-                  <InfoRow label="FULL NAME" value={application.applicantName} className="font-semibold" />
-                  <InfoRow label="ACCOUNT NUMBER" value={application.customerAccountNumber} className="font-mono" />
-                  <InfoRow label="CONTACT NUMBER" value={application.cellularNumber} />
-                  <InfoRow label="PHYSICAL ADDRESS" value={application.physicalAddress} />
-                  <InfoRow label="POSTAL ADDRESS" value={application.postalAddress} />
-                </tbody>
-              </table>
-            </CardContent>
-          </Card>
-
-          {/* Property Details */}
-          <Card>
-            <CardHeader className="py-2 bg-gray-100 border-b">
-              <CardTitle className="text-sm font-semibold text-gray-800">PROPERTY DETAILS</CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-              <table className="w-full text-sm">
-                <tbody>
-                  <InfoRow label="LAND SIZE" value={`${application.landSize} hectares`} />
-                  <InfoRow label="NUMBER OF BOREHOLES" value={application.numberOfBoreholes} />
-                  <InfoRow label="GPS LATITUDE" value={`${application.gpsLatitude}°`} className="font-mono" />
-                  <InfoRow label="GPS LONGITUDE" value={`${application.gpsLongitude}°`} className="font-mono" />
-                  <InfoRow label="WATER SOURCE" value={application.waterSource} />
-                  {application.waterSourceDetails && (
-                    <InfoRow label="SOURCE DETAILS" value={application.waterSourceDetails} />
-                  )}
-                </tbody>
-              </table>
-            </CardContent>
-          </Card>
+      {/* Document Title & Reference */}
+      <div className="bg-gray-100 p-3 border-b flex justify-between items-center">
+        <div>
+          <h2 className="text-base font-bold text-gray-900">WATER USE PERMIT APPLICATION</h2>
+          <p className="text-xs text-gray-600">Form GW7B - Water Use License Application</p>
         </div>
-
-        {/* Right Panel */}
-        <div className="space-y-4">
-          {/* Permit Specifications */}
-          <Card>
-            <CardHeader className="py-2 bg-gray-100 border-b">
-              <CardTitle className="text-sm font-semibold text-gray-800">PERMIT SPECIFICATIONS</CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-              <table className="w-full text-sm">
-                <tbody>
-                  <InfoRow label="PERMIT TYPE" value={application.permitType} className="font-semibold" />
-                  <InfoRow label="INTENDED USE" value={application.intendedUse} />
-                  <InfoRow
-                    label="WATER ALLOCATION"
-                    value={`${application.waterAllocation} m³/day`}
-                    className="font-semibold text-blue-700"
-                  />
-                  <InfoRow label="VALIDITY PERIOD" value={`${application.validityPeriod} years`} />
-                  <InfoRow
-                    label="ANNUAL ALLOCATION"
-                    value={`${(application.waterAllocation * 365).toLocaleString()} m³/annum`}
-                  />
-                </tbody>
-              </table>
-            </CardContent>
-          </Card>
-
-          {/* Application Timeline */}
-          <Card>
-            <CardHeader className="py-2 bg-gray-100 border-b">
-              <CardTitle className="text-sm font-semibold text-gray-800">APPLICATION TIMELINE</CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-              <table className="w-full text-sm">
-                <tbody>
-                  <InfoRow label="DATE CREATED" value={formatDate(application.createdAt)} className="font-mono" />
-                  {application.submittedAt && (
-                    <InfoRow label="DATE SUBMITTED" value={formatDate(application.submittedAt)} className="font-mono" />
-                  )}
-                  <InfoRow label="LAST UPDATED" value={formatDate(application.updatedAt)} className="font-mono" />
-                  {application.approvedAt && (
-                    <InfoRow
-                      label="DATE APPROVED"
-                      value={formatDate(application.approvedAt)}
-                      className="font-mono font-semibold text-green-700"
-                    />
-                  )}
-                  {application.rejectedAt && (
-                    <InfoRow
-                      label="DATE REJECTED"
-                      value={formatDate(application.rejectedAt)}
-                      className="font-mono font-semibold text-red-700"
-                    />
-                  )}
-                </tbody>
-              </table>
-            </CardContent>
-          </Card>
-
-          {/* Status Summary */}
-          <Card
-            className={`border-l-4 ${
-              application.status === "approved"
-                ? "border-l-green-600 bg-green-50"
-                : application.status === "rejected"
-                  ? "border-l-red-600 bg-red-50"
-                  : "border-l-blue-600 bg-blue-50"
-            }`}
-          >
-            <CardContent className="py-3">
-              <div className="flex items-center space-x-2 mb-2">
-                {getStatusIcon(application.status)}
-                <span className="font-semibold text-sm">
-                  {application.status === "approved" && "APPLICATION APPROVED"}
-                  {application.status === "rejected" && "APPLICATION REJECTED"}
-                  {application.status === "under_review" && `UNDER REVIEW - STAGE ${application.currentStage}`}
-                  {application.status === "submitted" && "SUBMITTED - AWAITING REVIEW"}
-                </span>
-              </div>
-              <p className="text-xs text-gray-700">
-                {application.status === "approved" &&
-                  "Permit approved through all workflow stages. Ready for issuance."}
-                {application.status === "rejected" &&
-                  "Application rejected during review process. See comments for details."}
-                {application.status === "under_review" &&
-                  "Application currently under review by appropriate authority."}
-                {application.status === "submitted" && "Application submitted and awaiting initial review."}
-              </p>
-              {user.userType === "permitting_officer" && application.status === "approved" && (
-                <p className="text-xs text-green-700 font-medium mt-1">
-                  OFFICIAL PERMIT DOCUMENT AVAILABLE FOR PRINTING
-                </p>
-              )}
-            </CardContent>
-          </Card>
+        <div className="text-right">
+          <div className="text-xs text-gray-600">APPLICATION REF</div>
+          <div className="text-lg font-bold text-blue-900">{application.applicationId}</div>
+          <div className="flex items-center space-x-1 mt-1">
+            <StatusIcon />
+            <Badge
+              className={`text-xs px-2 py-0.5 ${
+                application.status === "approved"
+                  ? "bg-green-600"
+                  : application.status === "rejected"
+                    ? "bg-red-600"
+                    : "bg-blue-600"
+              } text-white`}
+            >
+              {application.status.replace("_", " ").toUpperCase()}
+            </Badge>
+          </div>
         </div>
       </div>
 
-      {/* Comments Section */}
-      {application.comments && (
-        <Card className="mt-4">
-          <CardHeader className="py-2 bg-gray-100 border-b">
-            <CardTitle className="text-sm font-semibold text-gray-800">ADDITIONAL COMMENTS</CardTitle>
-          </CardHeader>
-          <CardContent className="py-3">
-            <p className="text-sm text-gray-700">{application.comments}</p>
-          </CardContent>
-        </Card>
+      {/* Print Section */}
+      {canPrint && (
+        <div className="bg-green-50 border-l-4 border-green-600 p-2 flex justify-between items-center">
+          <div className="flex items-center space-x-2">
+            <CheckCircle className="h-4 w-4 text-green-600" />
+            <span className="text-sm font-medium text-green-800">APPROVED - READY FOR PRINTING</span>
+          </div>
+          <PermitPrinter application={application} />
+        </div>
       )}
 
-      {/* System Information (ICT Only) */}
-      {user.userType === "ict" && (
-        <Card className="mt-4 border-dashed border-gray-400 bg-gray-100">
-          <CardContent className="py-2">
-            <div className="flex justify-between text-xs text-gray-600">
-              <span>User: {user.userType.toUpperCase()}</span>
-              <span>Status: {application.status.toUpperCase()}</span>
-              <span>Print Access: {canPrintPermit() ? "GRANTED" : "DENIED"}</span>
+      {/* Main Form Content */}
+      <Card className="border-0 shadow-none">
+        <CardContent className="p-4">
+          <div className="grid grid-cols-4 gap-x-4 gap-y-2">
+            {/* Row 1 */}
+            <Field label="Applicant Name" value={application.applicantName} span />
+            <Field label="Account No." value={application.customerAccountNumber} />
+            <Field label="Contact" value={application.cellularNumber} />
+
+            {/* Row 2 */}
+            <Field label="Physical Address" value={application.physicalAddress} span />
+            <Field label="Permit Type" value={application.permitType} span />
+
+            {/* Row 3 */}
+            <Field label="Postal Address" value={application.postalAddress} span />
+            <Field label="Intended Use" value={application.intendedUse} span />
+
+            {/* Row 4 */}
+            <Field label="Water Allocation" value={`${application.waterAllocation} m³/day`} />
+            <Field label="Validity Period" value={`${application.validityPeriod} years`} />
+            <Field label="Land Size" value={`${application.landSize} ha`} />
+            <Field label="Boreholes" value={application.numberOfBoreholes} />
+
+            {/* Row 5 */}
+            <Field label="GPS Latitude" value={`${application.gpsLatitude}°`} />
+            <Field label="GPS Longitude" value={`${application.gpsLongitude}°`} />
+            <Field label="Water Source" value={application.waterSource} span />
+
+            {/* Row 6 - Dates */}
+            <Field label="Date Created" value={formatDate(application.createdAt)} />
+            <Field
+              label="Date Submitted"
+              value={application.submittedAt ? formatDate(application.submittedAt) : "N/A"}
+            />
+            <Field label="Last Updated" value={formatDate(application.updatedAt)} />
+            <Field
+              label={
+                application.status === "approved"
+                  ? "Date Approved"
+                  : application.status === "rejected"
+                    ? "Date Rejected"
+                    : "Current Stage"
+              }
+              value={
+                application.status === "approved" && application.approvedAt
+                  ? formatDate(application.approvedAt)
+                  : application.status === "rejected" && application.rejectedAt
+                    ? formatDate(application.rejectedAt)
+                    : `Stage ${application.currentStage}`
+              }
+            />
+
+            {/* Comments if present */}
+            {application.comments && (
+              <div className="col-span-4 border-t border-gray-300 pt-2 mt-2">
+                <div className="text-xs font-medium text-gray-600 uppercase tracking-wide mb-1">
+                  Additional Comments
+                </div>
+                <div className="text-sm text-gray-900">{application.comments}</div>
+              </div>
+            )}
+
+            {/* Water Source Details if present */}
+            {application.waterSourceDetails && (
+              <div className="col-span-4 border-t border-gray-300 pt-2 mt-2">
+                <div className="text-xs font-medium text-gray-600 uppercase tracking-wide mb-1">
+                  Water Source Details
+                </div>
+                <div className="text-sm text-gray-900">{application.waterSourceDetails}</div>
+              </div>
+            )}
+          </div>
+
+          {/* Status Footer */}
+          <div
+            className={`mt-4 p-2 rounded border-l-4 text-sm ${
+              application.status === "approved"
+                ? "bg-green-50 border-green-600 text-green-800"
+                : application.status === "rejected"
+                  ? "bg-red-50 border-red-600 text-red-800"
+                  : "bg-blue-50 border-blue-600 text-blue-800"
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <StatusIcon />
+                <span className="font-medium">
+                  {application.status === "approved" && "Application Approved - Permit Ready for Issuance"}
+                  {application.status === "rejected" && "Application Rejected - See Comments for Details"}
+                  {application.status === "under_review" &&
+                    `Under Review - Currently at Stage ${application.currentStage}`}
+                  {application.status === "submitted" && "Application Submitted - Awaiting Initial Review"}
+                </span>
+              </div>
+              {user.userType === "permitting_officer" && application.status === "approved" && (
+                <span className="text-xs font-medium">OFFICIAL PRINTING AVAILABLE</span>
+              )}
             </div>
-          </CardContent>
-        </Card>
-      )}
+          </div>
+
+          {/* ICT Debug Info */}
+          {user.userType === "ict" && (
+            <div className="mt-2 p-1 bg-gray-100 border border-dashed border-gray-400 text-xs text-gray-600">
+              User: {user.userType} | Status: {application.status} | Print: {canPrint ? "Yes" : "No"}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   )
 }
 
-/* Named export for existing imports */
 export { ApplicationDetails }
-
-/* Optional: keep default export for flexibility */
 export default ApplicationDetails
