@@ -313,6 +313,187 @@ class MockDatabase {
         documents: [],
         workflowComments: [],
       },
+
+      // STAGE 2 - PENDING SUB CATCHMENT CHAIRPERSON REVIEW #1
+      {
+        id: "app_9",
+        applicationId: "MC2024-0009",
+        applicantName: "Patricia Williams",
+        customerAccountNumber: "ACC111222",
+        cellularNumber: "0791234567",
+        physicalAddress: "159 Acacia Road, Norton",
+        postalAddress: "P.O. Box 111222, Norton",
+        permitType: "borehole",
+        intendedUse: "Small-scale commercial farming",
+        landSize: 3.5,
+        numberOfBoreholes: 1,
+        gpsLatitude: -17.8833,
+        gpsLongitude: 30.7,
+        waterSource: "Shallow groundwater aquifer",
+        waterSourceDetails: "Single borehole at 40m depth for small-scale farming operations",
+        waterAllocation: 8.0,
+        validityPeriod: 6,
+        comments: "Small-scale farming operation with sustainable practices",
+        status: "under_review",
+        currentStage: 2, // SUB CATCHMENT CHAIRPERSON STAGE
+        createdBy: "1",
+        createdAt: new Date("2024-03-15"),
+        updatedAt: new Date("2024-03-16"),
+        submittedAt: new Date("2024-03-16"),
+        documents: [],
+        workflowComments: [],
+      },
+
+      // STAGE 2 - PENDING SUB CATCHMENT CHAIRPERSON REVIEW #2
+      {
+        id: "app_10",
+        applicationId: "MC2024-0010",
+        applicantName: "James Rodriguez",
+        customerAccountNumber: "ACC333444",
+        cellularNumber: "0702345678",
+        physicalAddress: "267 Baobab Street, Chegutu",
+        postalAddress: "P.O. Box 333444, Chegutu",
+        permitType: "surface_water",
+        intendedUse: "Fish farming operations",
+        landSize: 2.8,
+        numberOfBoreholes: 0,
+        gpsLatitude: -18.1333,
+        gpsLongitude: 30.15,
+        waterSource: "Seasonal stream with pond construction",
+        waterSourceDetails: "Stream diversion for fish pond construction and aquaculture operations",
+        waterAllocation: 15.0,
+        validityPeriod: 8,
+        comments: "Aquaculture project with environmental considerations",
+        status: "under_review",
+        currentStage: 2, // SUB CATCHMENT CHAIRPERSON STAGE
+        createdBy: "1",
+        createdAt: new Date("2024-03-18"),
+        updatedAt: new Date("2024-03-19"),
+        submittedAt: new Date("2024-03-19"),
+        documents: [],
+        workflowComments: [],
+      },
+
+      // STAGE 2 - PENDING SUB CATCHMENT CHAIRPERSON REVIEW #3
+      {
+        id: "app_11",
+        applicationId: "MC2024-0011",
+        applicantName: "Grace Mukamuri",
+        customerAccountNumber: "ACC555666",
+        cellularNumber: "0713456789",
+        physicalAddress: "384 Msasa Drive, Chitungwiza",
+        postalAddress: "P.O. Box 555666, Chitungwiza",
+        permitType: "borehole",
+        intendedUse: "Community water supply project",
+        landSize: 0.2,
+        numberOfBoreholes: 1,
+        gpsLatitude: -18.0167,
+        gpsLongitude: 31.0833,
+        waterSource: "Community borehole system",
+        waterSourceDetails: "Community borehole with distribution network for residential area",
+        waterAllocation: 12.0,
+        validityPeriod: 10,
+        comments: "Community development project for water access",
+        status: "under_review",
+        currentStage: 2, // SUB CATCHMENT CHAIRPERSON STAGE
+        createdBy: "1",
+        createdAt: new Date("2024-03-20"),
+        updatedAt: new Date("2024-03-21"),
+        submittedAt: new Date("2024-03-21"),
+        documents: [],
+        workflowComments: [],
+      },
+
+      // APPROVED BY SUB CATCHMENT CHAIRPERSON (now at Stage 3)
+      {
+        id: "app_12",
+        applicationId: "MC2024-0012",
+        applicantName: "Thomas Chikwanha",
+        customerAccountNumber: "ACC777888",
+        cellularNumber: "0724567890",
+        physicalAddress: "492 Flame Lily Avenue, Ruwa",
+        postalAddress: "P.O. Box 777888, Ruwa",
+        permitType: "borehole",
+        intendedUse: "Horticultural farming operations",
+        landSize: 4.2,
+        numberOfBoreholes: 2,
+        gpsLatitude: -17.89,
+        gpsLongitude: 31.2444,
+        waterSource: "Intermediate groundwater aquifer",
+        waterSourceDetails: "Two boreholes for greenhouse and open field horticulture",
+        waterAllocation: 20.0,
+        validityPeriod: 7,
+        comments: "Horticultural project with modern irrigation systems",
+        status: "under_review",
+        currentStage: 3, // MOVED TO CATCHMENT MANAGER
+        createdBy: "1",
+        createdAt: new Date("2024-03-10"),
+        updatedAt: new Date("2024-03-25"),
+        submittedAt: new Date("2024-03-11"),
+        documents: [],
+        workflowComments: [],
+      },
+
+      // REJECTED BY SUB CATCHMENT CHAIRPERSON
+      {
+        id: "app_13",
+        applicationId: "MC2024-0013",
+        applicantName: "Susan Moyo",
+        customerAccountNumber: "ACC999000",
+        cellularNumber: "0735678901",
+        physicalAddress: "156 Jacaranda Close, Borrowdale",
+        postalAddress: "P.O. Box 999000, Borrowdale",
+        permitType: "surface_water",
+        intendedUse: "Recreational facility water features",
+        landSize: 1.5,
+        numberOfBoreholes: 0,
+        gpsLatitude: -17.8047,
+        gpsLongitude: 31.0492,
+        waterSource: "Ornamental pond and fountain system",
+        waterSourceDetails: "Water features for recreational facility including ponds and fountains",
+        waterAllocation: 25.0,
+        validityPeriod: 5,
+        comments: "Recreational water features for commercial facility",
+        status: "rejected",
+        currentStage: 5, // COMPLETED - REJECTED
+        createdBy: "1",
+        createdAt: new Date("2024-03-05"),
+        updatedAt: new Date("2024-03-22"),
+        submittedAt: new Date("2024-03-06"),
+        documents: [],
+        workflowComments: [],
+      },
+
+      // FULLY APPROVED APPLICATION (for permit printing test)
+      {
+        id: "app_14",
+        applicationId: "MC2024-0014",
+        applicantName: "Peter Ndlovu",
+        customerAccountNumber: "ACC123789",
+        cellularNumber: "0746789012",
+        physicalAddress: "678 Mukwa Street, Mbare",
+        postalAddress: "P.O. Box 123789, Mbare",
+        permitType: "borehole",
+        intendedUse: "Small business water supply",
+        landSize: 0.1,
+        numberOfBoreholes: 1,
+        gpsLatitude: -17.8667,
+        gpsLongitude: 31.0333,
+        waterSource: "Shallow borehole for business use",
+        waterSourceDetails: "Single borehole for small manufacturing business water supply",
+        waterAllocation: 5.0,
+        validityPeriod: 5,
+        comments: "Small business water supply application",
+        status: "approved",
+        currentStage: 6, // FULLY COMPLETED
+        createdBy: "1",
+        createdAt: new Date("2024-02-15"),
+        updatedAt: new Date("2024-03-28"),
+        submittedAt: new Date("2024-02-16"),
+        approvedAt: new Date("2024-03-28"),
+        documents: [],
+        workflowComments: [],
+      },
     ]
 
     // Add comprehensive sample comments for all stages
@@ -549,6 +730,140 @@ class MockDatabase {
         isRejectionReason: true,
         createdAt: new Date("2024-03-18"),
       },
+
+      // Comments for MC2024-0009 (Patricia Williams - Small-scale farming) - STAGE 2 PENDING
+      {
+        id: "comment_21",
+        applicationId: "app_9",
+        userId: "1",
+        userType: "permitting_officer",
+        stage: 1,
+        comment:
+          "Small-scale commercial farming application reviewed. All documentation in order including land ownership certificates and farming business plan. Water allocation appropriate for proposed crop production. Environmental clearance provided.",
+        action: "approve",
+        createdAt: new Date("2024-03-16"),
+      },
+
+      // Comments for MC2024-0010 (James Rodriguez - Fish farming) - STAGE 2 PENDING
+      {
+        id: "comment_22",
+        applicationId: "app_10",
+        userId: "1",
+        userType: "permitting_officer",
+        stage: 1,
+        comment:
+          "Aquaculture project application with stream diversion for fish farming. Environmental impact assessment provided. Fish farming license and business plan submitted. Water allocation calculated for pond construction and fish production requirements.",
+        action: "approve",
+        createdAt: new Date("2024-03-19"),
+      },
+
+      // Comments for MC2024-0011 (Grace Mukamuri - Community project) - STAGE 2 PENDING
+      {
+        id: "comment_23",
+        applicationId: "app_11",
+        userId: "1",
+        userType: "permitting_officer",
+        stage: 1,
+        comment:
+          "Community water supply project for residential area. Community committee documentation and resolutions provided. Borehole siting and technical specifications appropriate. Water allocation justified by population served. Strong community development impact.",
+        action: "approve",
+        createdAt: new Date("2024-03-21"),
+      },
+
+      // Comments for MC2024-0012 (Thomas Chikwanha - Horticultural) - APPROVED BY CHAIRPERSON
+      {
+        id: "comment_24",
+        applicationId: "app_12",
+        userId: "1",
+        userType: "permitting_officer",
+        stage: 1,
+        comment:
+          "Horticultural farming operation with modern greenhouse and irrigation systems. All agricultural permits and business documentation provided. Water-efficient irrigation technology planned. Environmental compliance measures adequate.",
+        action: "approve",
+        createdAt: new Date("2024-03-11"),
+      },
+      {
+        id: "comment_25",
+        applicationId: "app_12",
+        userId: "2",
+        userType: "chairperson",
+        stage: 2,
+        comment:
+          "Horticultural project with excellent business case and modern farming practices. Greenhouse operations with controlled environment agriculture show strong economic viability. Water-efficient irrigation systems demonstrate responsible resource use. Recommend technical assessment for sustainable water allocation.",
+        action: "approve",
+        createdAt: new Date("2024-03-25"),
+      },
+
+      // Comments for MC2024-0013 (Susan Moyo - Recreational) - REJECTED BY CHAIRPERSON
+      {
+        id: "comment_26",
+        applicationId: "app_13",
+        userId: "1",
+        userType: "permitting_officer",
+        stage: 1,
+        comment:
+          "Recreational facility water features application including ornamental ponds and fountains. Business license and facility plans provided. Water allocation requested for aesthetic and recreational purposes.",
+        action: "approve",
+        createdAt: new Date("2024-03-06"),
+      },
+      {
+        id: "comment_27",
+        applicationId: "app_13",
+        userId: "2",
+        userType: "chairperson",
+        stage: 2,
+        comment:
+          "After careful review of this recreational water features application, I must reject this request. Primary concerns: 1) The requested 25ML allocation for ornamental purposes is excessive and not justified given current water scarcity concerns, 2) Recreational water features are considered non-essential use during periods of water stress, 3) No water recycling or conservation measures proposed for the facility, 4) Alternative landscaping options using drought-resistant plants not explored, 5) The business case does not demonstrate sufficient community benefit to justify the large water allocation. The applicant may resubmit with significantly reduced water allocation, comprehensive water recycling systems, and drought-resistant landscaping alternatives.",
+        action: "reject",
+        isRejectionReason: true,
+        createdAt: new Date("2024-03-22"),
+      },
+
+      // Comments for MC2024-0014 (Peter Ndlovu - Small business) - FULLY APPROVED
+      {
+        id: "comment_28",
+        applicationId: "app_14",
+        userId: "1",
+        userType: "permitting_officer",
+        stage: 1,
+        comment:
+          "Small business water supply application for manufacturing operations. All business licenses and documentation provided. Water allocation appropriate for small-scale manufacturing. Environmental compliance measures adequate.",
+        action: "approve",
+        createdAt: new Date("2024-02-16"),
+      },
+      {
+        id: "comment_29",
+        applicationId: "app_14",
+        userId: "2",
+        userType: "chairperson",
+        stage: 2,
+        comment:
+          "Small business application with reasonable water allocation for manufacturing. Business case shows local employment creation and economic benefit. Water usage appropriate for scale of operations. Recommend technical assessment.",
+        action: "approve",
+        createdAt: new Date("2024-02-28"),
+      },
+      {
+        id: "comment_30",
+        applicationId: "app_14",
+        userId: "3",
+        userType: "catchment_manager",
+        stage: 3,
+        comment:
+          "Technical assessment completed for small business water supply. Borehole specifications appropriate for requested yield. No environmental concerns identified. Water allocation sustainable for local aquifer. Recommend approval.",
+        action: "approve",
+        createdAt: new Date("2024-03-15"),
+      },
+      {
+        id: "comment_31",
+        applicationId: "app_14",
+        userId: "4",
+        userType: "catchment_chairperson",
+        stage: 4,
+        comment:
+          "Small business water supply application approved. All technical assessments positive. Local economic benefit with job creation. Environmental compliance adequate. Permit approved for issuance.",
+        action: "approve",
+        createdAt: new Date("2024-03-28"),
+      },
     ]
 
     // Add sample documents for testing
@@ -624,7 +939,7 @@ class MockDatabase {
     this.applications = sampleApplications
     this.comments = sampleComments
     this.documents = sampleDocuments
-    this.applicationCounter = 9
+    this.applicationCounter = 15
   }
 
   /* ───────────────────────── Applications CRUD ──────────────────────────── */
