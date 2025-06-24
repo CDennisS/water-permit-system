@@ -222,7 +222,7 @@ export function ChairpersonDashboard({ user }: ChairpersonDashboardProps) {
             {/* Applications requiring review */}
             <Card>
               <CardHeader>
-                <CardTitle>Applications Requiring Review</CardTitle>
+                <CardTitle>Applications Pending Review</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
