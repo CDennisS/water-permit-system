@@ -123,7 +123,24 @@ export function CatchmentManagerDashboard({ user }: CatchmentManagerDashboardPro
     const reviewedApps = applications.filter((app) => app.currentStage === 3 && reviewedApplications.has(app.id))
 
     if (reviewedApps.length === 0) {
-      alert("No reviewed applications to submit. Please review applications first.")
+      alert("❌ No reviewed applications to submit. Please complete technical reviews with mandatory comments first.")
+      return
+    }
+
+    // Validate that all reviewed applications have mandatory comments
+    let missingComments = 0
+    for (const app of reviewedApps) {
+      const appComments = await db.getCommentsByApplication(app.id)
+      const managerComment = appComments.find((c) => c.userType === "catchment_manager" && c.action === "review")
+      if (!managerComment || !managerComment.comment.trim()) {
+        missingComments++
+      }
+    }
+
+    if (missingComments > 0) {
+      alert(
+        `❌ Cannot submit: ${missingComments} application(s) are missing mandatory technical assessment comments. Please complete all reviews before submitting.`,
+      )
       return
     }
 
@@ -131,11 +148,14 @@ export function CatchmentManagerDashboard({ user }: CatchmentManagerDashboardPro
       (app) => app.currentStage === 3 && app.status === "under_review" && !reviewedApplications.has(app.id),
     )
 
-    const confirmMessage = `Submit ${reviewedApps.length} reviewed application(s) to Catchment Chairperson?${
-      unreviewed.length > 0
-        ? `\n\n${unreviewed.length} application(s) are not yet reviewed and will remain pending.`
-        : ""
-    }`
+    const confirmMessage = `🚀 SUBMIT TO CATCHMENT CHAIRPERSON
+  
+✅ ${reviewedApps.length} application(s) with mandatory technical assessments ready for final decision.
+${unreviewed.length > 0 ? `\n⏳ ${unreviewed.length} application(s) still pending technical review.` : ""}
+
+All submitted applications include required technical assessment comments.
+
+Proceed with submission?`
 
     if (!confirm(confirmMessage)) return
 
@@ -151,17 +171,19 @@ export function CatchmentManagerDashboard({ user }: CatchmentManagerDashboardPro
         await db.addLog({
           userId: user.id,
           userType: user.userType,
-          action: "Submitted to Catchment Chairperson",
-          details: `Application ${app.applicationId} submitted to final decision stage`,
+          action: "Submitted with Technical Assessment",
+          details: `Application ${app.applicationId} submitted to Catchment Chairperson with mandatory technical assessment comments`,
           applicationId: app.id,
         })
       }
 
-      alert(`Successfully submitted ${reviewedApps.length} application(s) to Catchment Chairperson`)
+      alert(
+        `✅ SUCCESS: ${reviewedApps.length} application(s) with technical assessments submitted to Catchment Chairperson`,
+      )
       loadDashboardData()
     } catch (error) {
       console.error("Failed to submit applications:", error)
-      alert("Failed to submit applications. Please try again.")
+      alert("❌ Failed to submit applications. Please try again.")
     } finally {
       setIsSubmittingBulk(false)
     }

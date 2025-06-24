@@ -76,7 +76,16 @@ export function CatchmentManagerReviewWorkflow({ user, application, onUpdate }: 
     }
 
     if (!reviewComment.trim()) {
-      alert("Comment is mandatory for Catchment Manager review. Please add your technical assessment.")
+      alert(
+        "❌ MANDATORY: Technical assessment comment is required for Catchment Manager review. Please provide your detailed technical evaluation.",
+      )
+      return
+    }
+
+    if (reviewComment.trim().length < 20) {
+      alert(
+        "❌ Technical assessment comment must be at least 20 characters. Please provide a more detailed evaluation.",
+      )
       return
     }
 
@@ -89,7 +98,7 @@ export function CatchmentManagerReviewWorkflow({ user, application, onUpdate }: 
         userId: user.id,
         userType: user.userType,
         stage: 3,
-        comment: reviewComment.trim(),
+        comment: `TECHNICAL ASSESSMENT: ${reviewComment.trim()}`,
         action: "review",
       })
 
@@ -97,17 +106,17 @@ export function CatchmentManagerReviewWorkflow({ user, application, onUpdate }: 
       await db.addLog({
         userId: user.id,
         userType: user.userType,
-        action: "Reviewed Application",
-        details: `Reviewed application ${application.applicationId} with technical assessment`,
+        action: "Technical Review Completed",
+        details: `Completed technical assessment for application ${application.applicationId} with mandatory comments`,
         applicationId: application.id,
       })
 
-      alert("Review saved successfully with technical assessment")
+      alert("✅ Technical review saved successfully with mandatory assessment comments")
       setAlreadyReviewed(true)
       onUpdate() // This will refresh the parent and go back to overview
     } catch (error) {
       console.error("Failed to save review:", error)
-      alert("Failed to save review. Please try again.")
+      alert("❌ Failed to save technical review. Please try again.")
     } finally {
       setIsLoading(false)
     }
@@ -402,29 +411,49 @@ export function CatchmentManagerReviewWorkflow({ user, application, onUpdate }: 
               </Alert>
             ) : (
               <>
-                {/* Mandatory Comment Section */}
+                {/* Enhanced Mandatory Comment Section */}
                 <Alert className="border-orange-200 bg-orange-50">
                   <MessageSquare className="h-4 w-4 text-orange-600" />
                   <AlertDescription className="text-orange-800">
-                    <strong>Technical Assessment Required:</strong> As Catchment Manager, you must provide a detailed
-                    technical assessment comment for this application.
+                    <strong>🔒 MANDATORY TECHNICAL ASSESSMENT:</strong> Every application requires a detailed technical
+                    evaluation comment before submission to Catchment Chairperson.
+                    <br />
+                    <strong>Required elements:</strong> Water allocation analysis, environmental impact, technical
+                    feasibility, compliance assessment, and recommendations.
                   </AlertDescription>
                 </Alert>
 
                 <div>
-                  <label className="text-sm font-medium mb-2 block">
-                    Technical Assessment Comment <span className="text-red-500">*</span>
+                  <label className="text-sm font-medium mb-2 block flex items-center">
+                    Technical Assessment Comment
+                    <span className="text-red-500 ml-1">* MANDATORY</span>
+                    <Badge variant="destructive" className="ml-2 text-xs">
+                      REQUIRED
+                    </Badge>
                   </label>
                   <Textarea
                     value={reviewComment}
                     onChange={(e) => setReviewComment(e.target.value)}
-                    placeholder="Provide your detailed technical assessment of this application including water allocation suitability, environmental considerations, technical feasibility, and any recommendations..."
-                    rows={5}
-                    className="min-h-[120px]"
+                    placeholder="🔍 MANDATORY TECHNICAL ASSESSMENT:
+
+1. WATER ALLOCATION ANALYSIS: Evaluate requested allocation against catchment capacity...
+2. ENVIRONMENTAL IMPACT: Assess potential environmental effects...
+3. TECHNICAL FEASIBILITY: Review borehole specifications and water source sustainability...
+4. REGULATORY COMPLIANCE: Verify compliance with water management regulations...
+5. RECOMMENDATIONS: Provide clear recommendation (approve/reject/modify) with justification...
+
+Minimum 20 characters required. Be thorough - this assessment guides the Chairperson's final decision."
+                    rows={8}
+                    className={`min-h-[200px] ${!reviewComment.trim() ? "border-red-300 focus:border-red-500" : "border-green-300"}`}
                   />
-                  <p className="text-xs text-gray-500 mt-1">
-                    This comment will be visible to the Catchment Chairperson for final decision making.
-                  </p>
+                  <div className="flex justify-between items-center mt-1">
+                    <p className="text-xs text-gray-500">
+                      This technical assessment will be reviewed by the Catchment Chairperson for final decision.
+                    </p>
+                    <span className={`text-xs ${reviewComment.length < 20 ? "text-red-500" : "text-green-600"}`}>
+                      {reviewComment.length}/20 minimum characters
+                    </span>
+                  </div>
                 </div>
 
                 {/* Review Confirmation */}
