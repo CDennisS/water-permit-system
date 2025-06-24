@@ -4,10 +4,10 @@ import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { FileText, Users, CheckCircle, Clock, AlertTriangle, Eye, X } from "lucide-react"
+import { FileText, Users, CheckCircle, Clock, AlertTriangle, Eye, ArrowLeft } from "lucide-react"
 import type { User, PermitApplication } from "@/types"
 import { db } from "@/lib/database"
-import { ChairpersonReviewWorkflow } from "./chairperson-review-workflow" // ✅ correct import
+import { ChairpersonReviewWorkflow } from "./chairperson-review-workflow"
 import { ActivityLogs } from "./activity-logs"
 import { UnreadMessageNotification } from "./unread-message-notification"
 import { Button } from "@/components/ui/button"
@@ -28,8 +28,6 @@ export function ChairpersonDashboard({ user }: ChairpersonDashboardProps) {
     reviewedThisMonth: 0,
     approvalRate: 0,
   })
-
-  const [reviewedApplications, setReviewedApplications] = useState<Set<string>>(new Set())
 
   /* ────────────────── data loading ────────────────── */
   useEffect(() => {
@@ -143,31 +141,9 @@ export function ChairpersonDashboard({ user }: ChairpersonDashboardProps) {
     }
   }
 
-  const handleBulkRefuse = async () => {
-    const pendingApps = applications.filter((a) => a.currentStage === 2 && a.status === "submitted")
-
-    if (confirm(`Are you sure you want to refuse ${pendingApps.length} applications?`)) {
-      try {
-        for (const app of pendingApps) {
-          await db.updateApplication(app.id, {
-            status: "rejected",
-            currentStage: 1,
-          })
-        }
-
-        await db.addLog({
-          userId: user.id,
-          userType: user.userType,
-          action: "Bulk Refuse Applications",
-          details: `Refused ${pendingApps.length} applications`,
-        })
-
-        alert(`Successfully refused ${pendingApps.length} applications`)
-        loadDashboardData()
-      } catch (error) {
-        alert("Failed to refuse applications. Please try again.")
-      }
-    }
+  const handleBackToOverview = () => {
+    setSelectedApplication(null)
+    loadDashboardData() // Refresh data to show updated review status
   }
 
   /* ───────────────────── render ───────────────────── */
@@ -194,182 +170,135 @@ export function ChairpersonDashboard({ user }: ChairpersonDashboardProps) {
         />
       )}
 
-      {/* main tabs */}
-      <Tabs value={activeView} onValueChange={setActiveView}>
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="applications">Applications</TabsTrigger>
-          <TabsTrigger value="messages">
-            Messages
-            {unreadMessageCount > 0 && (
-              <Badge
-                variant="destructive"
-                className="ml-2 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs"
-              >
-                {unreadMessageCount > 99 ? "99+" : unreadMessageCount}
-              </Badge>
-            )}
-          </TabsTrigger>
-          <TabsTrigger value="activity">Activity</TabsTrigger>
-        </TabsList>
-
-        {/* ─────────── overview tab ─────────── */}
-        <TabsContent value="overview" className="space-y-6">
-          <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
-            <StatCard title="Total Applications" value={stats.totalApplications} icon={FileText} color="blue" />
-            <StatCard title="Pending Review" value={stats.pendingReview} icon={Clock} color="yellow" />
-            <StatCard title="Reviewed This Month" value={stats.reviewedThisMonth} icon={CheckCircle} color="green" />
-            <StatCard title="Approval Rate" value={`${stats.approvalRate}%`} icon={AlertTriangle} color="purple" />
+      {/* Show review workflow if application is selected */}
+      {selectedApplication ? (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-semibold">Reviewing Application: {selectedApplication.applicationId}</h2>
+            <Button variant="outline" onClick={handleBackToOverview} className="flex items-center">
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to Overview
+            </Button>
           </div>
-
-          {/* recent pending list */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Recent Applications Requiring Review</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {applications
-                  .filter((a) => a.currentStage === 2 && a.status === "submitted")
-                  .slice(0, 10)
-                  .map((app) => {
-                    const isReviewed =
-                      app.workflowComments?.some((c) => c.userType === "chairperson" && c.action === "review") ?? false
-                    return (
-                      <div
-                        key={app.id}
-                        className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100"
-                      >
-                        <div className="flex items-center space-x-3">
-                          <FileText className="h-5 w-5 text-gray-500" />
-                          <div>
-                            <p className="font-medium">{app.applicationId}</p>
-                            <p className="text-sm text-gray-600">{app.applicantName}</p>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center space-x-4">
-                          {/* Review Status Column */}
-                          <div className="text-center">
-                            <Badge
-                              variant={isReviewed ? "default" : "secondary"}
-                              className={isReviewed ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"}
-                            >
-                              {isReviewed ? "Reviewed" : "Pending Review"}
-                            </Badge>
-                          </div>
-
-                          {/* Application Details */}
-                          <div className="text-right">
-                            <Badge variant="outline" className="mb-1">
-                              {app.permitType.replace("_", " ").toUpperCase()}
-                            </Badge>
-                            <p className="text-xs text-gray-500">{app.createdAt.toLocaleDateString()}</p>
-                          </div>
-
-                          {/* Review Button */}
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setSelectedApplication(app)}
-                            className="flex items-center"
-                          >
-                            <Eye className="h-4 w-4 mr-1" />
-                            Review
-                          </Button>
-                        </div>
-                      </div>
-                    )
-                  })}
-              </div>
-              {/* Bulk Actions */}
-              {applications.filter((a) => a.currentStage === 2 && a.status === "submitted").length > 0 && (
-                <div className="flex justify-end space-x-2 mt-4 pt-4 border-t">
-                  <Button variant="destructive" onClick={handleBulkRefuse} className="flex items-center">
-                    <X className="h-4 w-4 mr-2" />
-                    Refuse All Applications
-                  </Button>
-                  <Button onClick={handleBulkSubmit} className="flex items-center">
-                    <CheckCircle className="h-4 w-4 mr-2" />
-                    Submit All to Next Stage
-                  </Button>
-                </div>
+          <ChairpersonReviewWorkflow user={user} application={selectedApplication} onUpdate={handleBackToOverview} />
+        </div>
+      ) : (
+        /* main tabs - only show when not reviewing an application */
+        <Tabs value={activeView} onValueChange={setActiveView}>
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="messages">
+              Messages
+              {unreadMessageCount > 0 && (
+                <Badge
+                  variant="destructive"
+                  className="ml-2 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs"
+                >
+                  {unreadMessageCount > 99 ? "99+" : unreadMessageCount}
+                </Badge>
               )}
-            </CardContent>
-          </Card>
-        </TabsContent>
+            </TabsTrigger>
+            <TabsTrigger value="activity">Activity</TabsTrigger>
+          </TabsList>
 
-        {/* ───────── applications tab ───────── */}
-        <TabsContent value="applications" className="space-y-6">
-          {selectedApplication ? (
-            <ChairpersonReviewWorkflow
-              user={user}
-              application={selectedApplication}
-              onUpdate={(app) => {
-                // refresh list and return to applications view
-                setSelectedApplication(null)
-                loadDashboardData()
-              }}
-            />
-          ) : (
+          {/* ─────────── overview tab ─────────── */}
+          <TabsContent value="overview" className="space-y-6">
+            <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
+              <StatCard title="Total Applications" value={stats.totalApplications} icon={FileText} color="blue" />
+              <StatCard title="Pending Review" value={stats.pendingReview} icon={Clock} color="yellow" />
+              <StatCard title="Reviewed This Month" value={stats.reviewedThisMonth} icon={CheckCircle} color="green" />
+              <StatCard title="Approval Rate" value={`${stats.approvalRate}%`} icon={AlertTriangle} color="purple" />
+            </div>
+
+            {/* Applications requiring review */}
             <Card>
               <CardHeader>
-                <CardTitle>All Applications</CardTitle>
+                <CardTitle>Applications Requiring Review</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {applications.map((app) => (
-                    <div
-                      key={app.id}
-                      onClick={() => setSelectedApplication(app)}
-                      className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50 cursor-pointer"
-                    >
-                      <div className="flex items-center space-x-3">
-                        <FileText className="h-5 w-5 text-gray-500" />
-                        <div>
-                          <p className="font-medium">{app.applicationId}</p>
-                          <p className="text-sm text-gray-600">{app.applicantName}</p>
+                  {applications
+                    .filter((a) => a.currentStage === 2 && a.status === "submitted")
+                    .map((app) => {
+                      const isReviewed =
+                        app.workflowComments?.some((c) => c.userType === "chairperson" && c.action === "review") ??
+                        false
+                      return (
+                        <div
+                          key={app.id}
+                          className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100"
+                        >
+                          <div className="flex items-center space-x-4">
+                            <FileText className="h-5 w-5 text-gray-500" />
+                            <div>
+                              <p className="font-medium">{app.applicationId}</p>
+                              <p className="text-sm text-gray-600">{app.applicantName}</p>
+                              <p className="text-xs text-gray-500">{app.createdAt.toLocaleDateString()}</p>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center space-x-4">
+                            {/* Review Status */}
+                            <div className="text-center">
+                              <Badge
+                                variant={isReviewed ? "default" : "secondary"}
+                                className={isReviewed ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"}
+                              >
+                                {isReviewed ? "Reviewed" : "Pending Review"}
+                              </Badge>
+                            </div>
+
+                            {/* Permit Type */}
+                            <div className="text-right">
+                              <Badge variant="outline" className="mb-1">
+                                {app.permitType.replace("_", " ").toUpperCase()}
+                              </Badge>
+                            </div>
+
+                            {/* Review Button */}
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setSelectedApplication(app)}
+                              className="flex items-center"
+                            >
+                              <Eye className="h-4 w-4 mr-1" />
+                              Review
+                            </Button>
+                          </div>
                         </div>
-                      </div>
-                      <div className="text-right">
-                        <div className="flex items-center space-x-2 mb-1">
-                          <Badge
-                            className={
-                              app.status === "approved"
-                                ? "bg-green-100 text-green-800"
-                                : app.status === "rejected"
-                                  ? "bg-red-100 text-red-800"
-                                  : app.status === "submitted"
-                                    ? "bg-blue-100 text-blue-800"
-                                    : "bg-gray-100 text-gray-800"
-                            }
-                          >
-                            {app.status.toUpperCase()}
-                          </Badge>
-                          <Badge variant="outline">Stage {app.currentStage}</Badge>
-                        </div>
-                        <p className="text-xs text-gray-500">{app.createdAt.toLocaleDateString()}</p>
-                      </div>
-                    </div>
-                  ))}
+                      )
+                    })}
+
+                  {applications.filter((a) => a.currentStage === 2 && a.status === "submitted").length === 0 && (
+                    <p className="text-center text-gray-500 py-8">No applications pending review</p>
+                  )}
                 </div>
+
+                {/* Bulk Submit Button */}
+                {applications.filter((a) => a.currentStage === 2 && a.status === "submitted").length > 0 && (
+                  <div className="flex justify-end mt-6 pt-4 border-t">
+                    <Button onClick={handleBulkSubmit} className="flex items-center" size="lg">
+                      <CheckCircle className="h-4 w-4 mr-2" />
+                      Submit All Reviewed Applications to Next Stage
+                    </Button>
+                  </div>
+                )}
               </CardContent>
             </Card>
-          )}
-        </TabsContent>
+          </TabsContent>
 
-        {/* ───────── messages tab ───────── */}
-        <TabsContent value="messages">
-          {/* MessagingSystem intentionally omitted
-              (read-only for chairperson in this workflow) */}
-          <p className="text-center text-gray-500 py-8">Messaging interface is disabled for Chairperson role.</p>
-        </TabsContent>
+          {/* ───────── messages tab ───────── */}
+          <TabsContent value="messages">
+            <p className="text-center text-gray-500 py-8">Messaging interface is disabled for Chairperson role.</p>
+          </TabsContent>
 
-        {/* ───────── activity tab ───────── */}
-        <TabsContent value="activity">
-          <ActivityLogs user={user} />
-        </TabsContent>
-      </Tabs>
+          {/* ───────── activity tab ───────── */}
+          <TabsContent value="activity">
+            <ActivityLogs user={user} />
+          </TabsContent>
+        </Tabs>
+      )}
     </div>
   )
 }

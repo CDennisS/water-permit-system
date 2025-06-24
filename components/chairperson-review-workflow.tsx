@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Eye, FileText, CheckCircle, User, Clock, X, Save } from "lucide-react"
+import { Eye, FileText, CheckCircle, User, Clock, Save, Download } from "lucide-react"
 import type { PermitApplication, User as UserType, WorkflowComment } from "@/types"
 import { db } from "@/lib/database"
 import { ApplicationDetails } from "./application-details"
@@ -15,7 +15,7 @@ import { EnhancedDocumentViewer } from "./enhanced-document-viewer"
 interface ChairpersonReviewWorkflowProps {
   user: UserType
   application: PermitApplication
-  onUpdate: (application: PermitApplication) => void
+  onUpdate: () => void
 }
 
 export function ChairpersonReviewWorkflow({ user, application, onUpdate }: ChairpersonReviewWorkflowProps) {
@@ -23,6 +23,7 @@ export function ChairpersonReviewWorkflow({ user, application, onUpdate }: Chair
   const [documents, setDocuments] = useState([])
   const [isReviewed, setIsReviewed] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [alreadyReviewed, setAlreadyReviewed] = useState(false)
 
   useEffect(() => {
     loadApplicationData()
@@ -36,48 +37,15 @@ export function ChairpersonReviewWorkflow({ user, application, onUpdate }: Chair
     // Load documents
     const appDocuments = await db.getDocumentsByApplication(application.id)
     setDocuments(appDocuments)
+
+    // Check if already reviewed by chairperson
+    const chairpersonReview = appComments.find((c) => c.userType === "chairperson" && c.action === "review")
+    setAlreadyReviewed(!!chairpersonReview)
+    setIsReviewed(!!chairpersonReview)
   }
 
   const canReview = () => {
     return user.userType === "chairperson" && application.currentStage === 2 && application.status === "submitted"
-  }
-
-  const handleSubmitToNextStage = async () => {
-    if (!isReviewed) {
-      alert("Please review the application before submitting to next stage")
-      return
-    }
-
-    setIsLoading(true)
-
-    try {
-      // Update application to advance to catchment manager (stage 3)
-      const updates: Partial<PermitApplication> = {
-        currentStage: 3,
-        status: "under_review",
-      }
-
-      const updatedApp = await db.updateApplication(application.id, updates)
-      if (updatedApp) {
-        onUpdate(updatedApp)
-      }
-
-      // Log the review action
-      await db.addLog({
-        userId: user.id,
-        userType: user.userType,
-        action: "Reviewed and Forwarded Application",
-        details: `Reviewed application ${application.applicationId} and forwarded to Catchment Manager`,
-        applicationId: application.id,
-      })
-
-      alert("Application successfully reviewed and forwarded to Catchment Manager")
-    } catch (error) {
-      console.error("Failed to submit:", error)
-      alert("Failed to submit application. Please try again.")
-    } finally {
-      setIsLoading(false)
-    }
   }
 
   const handleSaveReview = async () => {
@@ -109,62 +77,11 @@ export function ChairpersonReviewWorkflow({ user, application, onUpdate }: Chair
       })
 
       alert("Review saved successfully")
-      onUpdate(application) // Refresh the parent component
+      setAlreadyReviewed(true)
+      onUpdate() // This will refresh the parent and go back to overview
     } catch (error) {
       console.error("Failed to save review:", error)
       alert("Failed to save review. Please try again.")
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  const handleRefuseApplication = async () => {
-    if (!isReviewed) {
-      alert("Please confirm you have reviewed the application")
-      return
-    }
-
-    if (!confirm("Are you sure you want to refuse this application?")) {
-      return
-    }
-
-    setIsLoading(true)
-
-    try {
-      // Update application status to rejected and return to stage 1
-      const updates: Partial<PermitApplication> = {
-        status: "rejected",
-        currentStage: 1,
-      }
-
-      const updatedApp = await db.updateApplication(application.id, updates)
-
-      // Add refusal comment
-      await db.addComment({
-        applicationId: application.id,
-        userId: user.id,
-        userType: user.userType,
-        stage: 2,
-        comment: "Application refused by chairperson",
-        action: "reject",
-      })
-
-      // Log the refusal action
-      await db.addLog({
-        userId: user.id,
-        userType: user.userType,
-        action: "Refused Application",
-        details: `Refused application ${application.applicationId}`,
-        applicationId: application.id,
-      })
-
-      alert("Application refused successfully")
-      if (updatedApp) {
-        onUpdate(updatedApp)
-      }
-    } catch (error) {
-      console.error("Failed to refuse application:", error)
-      alert("Failed to refuse application. Please try again.")
     } finally {
       setIsLoading(false)
     }
@@ -176,9 +93,9 @@ export function ChairpersonReviewWorkflow({ user, application, onUpdate }: Chair
       <Alert className="border-blue-200 bg-blue-50">
         <Eye className="h-4 w-4 text-blue-600" />
         <AlertDescription className="text-blue-800">
-          <strong>Upper Manyame Sub Catchment Council Chairperson:</strong> Your role is to review submitted
-          applications, view documents and comments from the permitting officer, then forward to the Catchment Manager.
-          You do not add comments to applications.
+          <strong>Upper Manyame Sub Catchment Council Chairperson:</strong> Review the application details, documents,
+          and comments from the permitting officer. Mark as reviewed and save. You cannot refuse applications - only
+          review and forward.
         </AlertDescription>
       </Alert>
 
@@ -255,17 +172,34 @@ export function ChairpersonReviewWorkflow({ user, application, onUpdate }: Chair
         </CardContent>
       </Card>
 
-      {/* Documents (Read-Only) */}
+      {/* Documents Viewer */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center">
             <FileText className="h-5 w-5 mr-2 text-green-600" />
-            Application Documents (Read-Only)
+            Application Documents
           </CardTitle>
         </CardHeader>
         <CardContent>
           {documents.length > 0 ? (
-            <EnhancedDocumentViewer user={user} application={application} canUpload={false} canDelete={false} />
+            <div className="space-y-4">
+              <EnhancedDocumentViewer user={user} application={application} canUpload={false} canDelete={false} />
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {documents.map((doc, index) => (
+                  <div key={index} className="border rounded-lg p-4 hover:bg-gray-50">
+                    <div className="flex items-center justify-between mb-2">
+                      <FileText className="h-5 w-5 text-blue-600" />
+                      <Button variant="outline" size="sm">
+                        <Download className="h-4 w-4 mr-1" />
+                        View
+                      </Button>
+                    </div>
+                    <p className="text-sm font-medium truncate">{doc.name || `Document ${index + 1}`}</p>
+                    <p className="text-xs text-gray-500">{doc.type || "PDF Document"}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
           ) : (
             <p className="text-gray-500 text-center py-4">No documents uploaded</p>
           )}
@@ -276,59 +210,55 @@ export function ChairpersonReviewWorkflow({ user, application, onUpdate }: Chair
       {canReview() && (
         <Card>
           <CardHeader>
-            <CardTitle>Review Decision</CardTitle>
+            <CardTitle>Complete Review</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {/* Review Confirmation */}
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="reviewed"
-                checked={isReviewed}
-                onCheckedChange={(checked) => setIsReviewed(checked as boolean)}
-              />
-              <label htmlFor="reviewed" className="text-sm font-medium">
-                I have reviewed this application, viewed all documents and comments
-              </label>
-            </div>
+            {alreadyReviewed ? (
+              <Alert className="border-green-200 bg-green-50">
+                <CheckCircle className="h-4 w-4 text-green-600" />
+                <AlertDescription className="text-green-800">
+                  <strong>Review Complete:</strong> You have already reviewed this application. It will be included when
+                  you submit all reviewed applications to the next stage.
+                </AlertDescription>
+              </Alert>
+            ) : (
+              <>
+                {/* Review Confirmation */}
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="reviewed"
+                    checked={isReviewed}
+                    onCheckedChange={(checked) => setIsReviewed(checked as boolean)}
+                  />
+                  <label htmlFor="reviewed" className="text-sm font-medium">
+                    I have reviewed this application, viewed all documents and comments
+                  </label>
+                </div>
 
-            {/* Action Buttons */}
-            <div className="flex justify-end space-x-2">
-              <Button
-                variant="destructive"
-                onClick={handleRefuseApplication}
-                disabled={!isReviewed || isLoading}
-                className="flex items-center"
-              >
-                {isLoading ? (
-                  "Processing..."
-                ) : (
-                  <>
-                    <X className="h-4 w-4 mr-2" />
-                    Refuse
-                  </>
-                )}
-              </Button>
+                {/* Save Review Button */}
+                <div className="flex justify-end">
+                  <Button onClick={handleSaveReview} disabled={!isReviewed || isLoading} className="flex items-center">
+                    {isLoading ? (
+                      "Saving..."
+                    ) : (
+                      <>
+                        <Save className="h-4 w-4 mr-2" />
+                        Save Review
+                      </>
+                    )}
+                  </Button>
+                </div>
 
-              <Button onClick={handleSaveReview} disabled={!isReviewed || isLoading} className="flex items-center">
-                {isLoading ? (
-                  "Saving..."
-                ) : (
-                  <>
-                    <Save className="h-4 w-4 mr-2" />
-                    Save Review
-                  </>
-                )}
-              </Button>
-            </div>
-
-            {/* Instructions */}
-            <Alert>
-              <AlertDescription>
-                <strong>Instructions:</strong> Review the application details, documents, and comments. Check the review
-                box above, then either Save your review or Refuse the application. After reviewing all applications, you
-                can submit them all to the next stage from the main dashboard.
-              </AlertDescription>
-            </Alert>
+                {/* Instructions */}
+                <Alert>
+                  <AlertDescription>
+                    <strong>Instructions:</strong> Review the application details, documents, and comments. Check the
+                    review box above and save your review. Return to the overview to review other applications. Once all
+                    applications are reviewed, you can submit them all to the next stage.
+                  </AlertDescription>
+                </Alert>
+              </>
+            )}
           </CardContent>
         </Card>
       )}
