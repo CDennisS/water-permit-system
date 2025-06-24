@@ -20,7 +20,6 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-  DropdownMenuCheckboxItem,
 } from "@/components/ui/dropdown-menu"
 import {
   AlertDialog,
@@ -72,6 +71,7 @@ interface ColumnConfig {
   visible: boolean
   width: number
   resizable: boolean
+  removable: boolean
 }
 
 export const EnhancedDashboardApplications = forwardRef<
@@ -86,23 +86,59 @@ export const EnhancedDashboardApplications = forwardRef<
   const [isLoading, setIsLoading] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  // Column management
-  const [columns, setColumns] = useState<ColumnConfig[]>([
-    { key: "checkbox", label: "", visible: true, width: 50, resizable: false },
-    { key: "applicationId", label: "Application ID", visible: true, width: 150, resizable: true },
-    { key: "applicantName", label: "Applicant Name", visible: true, width: 180, resizable: true },
-    { key: "address", label: "Address", visible: true, width: 200, resizable: true },
-    { key: "status", label: "Status", visible: true, width: 120, resizable: true },
-    { key: "stage", label: "Stage", visible: true, width: 80, resizable: true },
-    { key: "permitType", label: "Permit Type", visible: true, width: 140, resizable: true },
-    { key: "customerAccountNumber", label: "Account Number", visible: true, width: 140, resizable: true },
-    { key: "created", label: "Created Date", visible: true, width: 100, resizable: true },
-    { key: "processingDays", label: "Processing Days", visible: true, width: 120, resizable: true },
-    { key: "waterAllocation", label: "Water Allocation (ML)", visible: false, width: 120, resizable: true },
-    { key: "landSize", label: "Land Size (ha)", visible: false, width: 100, resizable: true },
-    { key: "cellularNumber", label: "Phone Number", visible: false, width: 120, resizable: true },
-    { key: "intendedUse", label: "Intended Use", visible: false, width: 150, resizable: true },
-    { key: "actions", label: "Actions", visible: true, width: 200, resizable: false },
+  // Available columns that can be added to the table
+  const [availableColumns] = useState<ColumnConfig[]>([
+    { key: "checkbox", label: "", visible: true, width: 50, resizable: false, removable: false },
+    { key: "applicationId", label: "Application ID", visible: true, width: 150, resizable: true, removable: false },
+    { key: "applicantName", label: "Applicant Name", visible: true, width: 180, resizable: true, removable: false },
+    { key: "address", label: "Address", visible: true, width: 200, resizable: true, removable: true },
+    { key: "status", label: "Status", visible: true, width: 120, resizable: true, removable: false },
+    { key: "stage", label: "Stage", visible: true, width: 80, resizable: true, removable: true },
+    { key: "permitType", label: "Permit Type", visible: true, width: 140, resizable: true, removable: true },
+    {
+      key: "customerAccountNumber",
+      label: "Account Number",
+      visible: true,
+      width: 140,
+      resizable: true,
+      removable: true,
+    },
+    { key: "created", label: "Created Date", visible: true, width: 100, resizable: true, removable: true },
+    { key: "processingDays", label: "Processing Days", visible: true, width: 120, resizable: true, removable: true },
+    {
+      key: "waterAllocation",
+      label: "Water Allocation (ML)",
+      visible: false,
+      width: 120,
+      resizable: true,
+      removable: true,
+    },
+    { key: "landSize", label: "Land Size (ha)", visible: false, width: 100, resizable: true, removable: true },
+    { key: "cellularNumber", label: "Phone Number", visible: false, width: 120, resizable: true, removable: true },
+    { key: "intendedUse", label: "Intended Use", visible: false, width: 150, resizable: true, removable: true },
+    { key: "postalAddress", label: "Postal Address", visible: false, width: 180, resizable: true, removable: true },
+    { key: "numberOfBoreholes", label: "Boreholes", visible: false, width: 100, resizable: true, removable: true },
+    { key: "gpsCoordinates", label: "GPS Coordinates", visible: false, width: 150, resizable: true, removable: true },
+    { key: "waterSource", label: "Water Source", visible: false, width: 120, resizable: true, removable: true },
+    { key: "validityPeriod", label: "Validity (Years)", visible: false, width: 120, resizable: true, removable: true },
+    { key: "submittedAt", label: "Submitted Date", visible: false, width: 120, resizable: true, removable: true },
+    { key: "approvedAt", label: "Approved Date", visible: false, width: 120, resizable: true, removable: true },
+    { key: "actions", label: "Actions", visible: true, width: 200, resizable: false, removable: false },
+  ])
+
+  // Active columns that are currently displayed
+  const [activeColumns, setActiveColumns] = useState<string[]>([
+    "checkbox",
+    "applicationId",
+    "applicantName",
+    "address",
+    "status",
+    "stage",
+    "permitType",
+    "customerAccountNumber",
+    "created",
+    "processingDays",
+    "actions",
   ])
 
   // Resizing state
@@ -294,7 +330,7 @@ export const EnhancedDashboardApplications = forwardRef<
   }
 
   const handleColumnVisibilityChange = (columnKey: string, visible: boolean) => {
-    setColumns((prev) => prev.map((col) => (col.key === columnKey ? { ...col, visible } : col)))
+    // setColumns((prev) => prev.map((col) => (col.key === columnKey ? { ...col, visible } : col)))
   }
 
   const handleMouseDown = (e: React.MouseEvent, columnKey: string) => {
@@ -302,7 +338,7 @@ export const EnhancedDashboardApplications = forwardRef<
     setIsResizing(true)
     setResizingColumn(columnKey)
     setStartX(e.clientX)
-    const column = columns.find((col) => col.key === columnKey)
+    const column = availableColumns.find((col) => col.key === columnKey)
     setStartWidth(column?.width || 100)
   }
 
@@ -312,7 +348,7 @@ export const EnhancedDashboardApplications = forwardRef<
     const diff = e.clientX - startX
     const newWidth = Math.max(50, startWidth + diff)
 
-    setColumns((prev) => prev.map((col) => (col.key === resizingColumn ? { ...col, width: newWidth } : col)))
+    // setColumns((prev) => prev.map((col) => (col.key === resizingColumn ? { ...col, width: newWidth } : col)))
   }
 
   const handleMouseUp = () => {
@@ -332,7 +368,9 @@ export const EnhancedDashboardApplications = forwardRef<
   }, [isResizing, resizingColumn, startX, startWidth])
 
   const exportFilteredData = () => {
-    const visibleColumns = columns.filter((col) => col.visible && col.key !== "checkbox" && col.key !== "actions")
+    const visibleColumns = availableColumns.filter(
+      (col) => activeColumns.includes(col.key) && col.key !== "checkbox" && col.key !== "actions",
+    )
     const csvData = [
       visibleColumns.map((col) => col.label),
       ...filteredApplications.map((app) =>
@@ -429,6 +467,42 @@ export const EnhancedDashboardApplications = forwardRef<
     )
   }
 
+  const addColumn = (columnKey: string) => {
+    if (!activeColumns.includes(columnKey)) {
+      const column = availableColumns.find((col) => col.key === columnKey)
+      if (column) {
+        // Insert before actions column
+        const actionsIndex = activeColumns.indexOf("actions")
+        const newActiveColumns = [...activeColumns]
+        newActiveColumns.splice(actionsIndex, 0, columnKey)
+        setActiveColumns(newActiveColumns)
+      }
+    }
+  }
+
+  const removeColumn = (columnKey: string) => {
+    const column = availableColumns.find((col) => col.key === columnKey)
+    if (column?.removable) {
+      setActiveColumns(activeColumns.filter((key) => key !== columnKey))
+    }
+  }
+
+  const resetColumns = () => {
+    setActiveColumns([
+      "checkbox",
+      "applicationId",
+      "applicantName",
+      "address",
+      "status",
+      "stage",
+      "permitType",
+      "customerAccountNumber",
+      "created",
+      "processingDays",
+      "actions",
+    ])
+  }
+
   const renderCellContent = (app: PermitApplication, columnKey: string) => {
     switch (columnKey) {
       case "checkbox":
@@ -490,6 +564,28 @@ export const EnhancedDashboardApplications = forwardRef<
             {app.intendedUse}
           </div>
         )
+      case "postalAddress":
+        return (
+          <div className="text-sm max-w-xs truncate" title={app.postalAddress}>
+            {app.postalAddress}
+          </div>
+        )
+      case "numberOfBoreholes":
+        return app.numberOfBoreholes
+      case "gpsCoordinates":
+        return `${app.gpsLatitude}, ${app.gpsLongitude}`
+      case "waterSource":
+        return (
+          <div className="text-sm max-w-xs truncate" title={app.waterSource}>
+            {app.waterSource}
+          </div>
+        )
+      case "validityPeriod":
+        return `${app.validityPeriod} years`
+      case "submittedAt":
+        return app.submittedAt ? <span className="text-sm">{app.submittedAt.toLocaleDateString()}</span> : "N/A"
+      case "approvedAt":
+        return app.approvedAt ? <span className="text-sm">{app.approvedAt.toLocaleDateString()}</span> : "N/A"
       case "actions":
         return (
           <TooltipProvider>
@@ -628,7 +724,7 @@ export const EnhancedDashboardApplications = forwardRef<
     return app?.status === "unsubmitted"
   }).length
 
-  const visibleColumns = columns.filter((col) => col.visible)
+  const visibleColumns = availableColumns.filter((col) => activeColumns.includes(col.key))
 
   return (
     <div className="space-y-6">
@@ -713,47 +809,48 @@ export const EnhancedDashboardApplications = forwardRef<
               <DropdownMenuTrigger asChild>
                 <Button variant="outline">
                   <Settings className="h-4 w-4 mr-2" />
-                  Columns ({visibleColumns.length - 2})
+                  Columns ({activeColumns.length - 2})
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuLabel>Show/Hide Columns</DropdownMenuLabel>
+              <DropdownMenuContent align="end" className="w-64 max-h-96 overflow-y-auto">
+                <DropdownMenuLabel>Active Columns</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                {columns
-                  .filter((col) => col.key !== "checkbox" && col.key !== "actions")
+                {activeColumns
+                  .filter((key) => key !== "checkbox" && key !== "actions")
+                  .map((columnKey) => {
+                    const column = availableColumns.find((col) => col.key === columnKey)
+                    return column ? (
+                      <div key={columnKey} className="flex items-center justify-between px-2 py-1">
+                        <span className="text-sm">{column.label}</span>
+                        {column.removable && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => removeColumn(columnKey)}
+                            className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
+                          >
+                            ×
+                          </Button>
+                        )}
+                      </div>
+                    ) : null
+                  })}
+
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel>Available Columns</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {availableColumns
+                  .filter((col) => !activeColumns.includes(col.key) && col.key !== "checkbox" && col.key !== "actions")
                   .map((column) => (
-                    <DropdownMenuCheckboxItem
-                      key={column.key}
-                      checked={column.visible}
-                      onCheckedChange={(checked) => handleColumnVisibilityChange(column.key, checked)}
-                    >
+                    <DropdownMenuItem key={column.key} onClick={() => addColumn(column.key)} className="cursor-pointer">
+                      <Plus className="mr-2 h-4 w-4" />
                       {column.label}
-                    </DropdownMenuCheckboxItem>
+                    </DropdownMenuItem>
                   ))}
+
                 <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  onClick={() => {
-                    // Reset to default visibility
-                    setColumns((prev) =>
-                      prev.map((col) => ({
-                        ...col,
-                        visible: [
-                          "checkbox",
-                          "applicationId",
-                          "applicantName",
-                          "address",
-                          "status",
-                          "stage",
-                          "permitType",
-                          "customerAccountNumber",
-                          "created",
-                          "processingDays",
-                          "actions",
-                        ].includes(col.key),
-                      })),
-                    )
-                  }}
-                >
+                <DropdownMenuItem onClick={resetColumns}>
+                  <RefreshCw className="mr-2 h-4 w-4" />
                   Reset to Default
                 </DropdownMenuItem>
               </DropdownMenuContent>
