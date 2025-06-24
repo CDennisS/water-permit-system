@@ -145,16 +145,18 @@ export function StrictViewOnlyApplicationDetails({ user, application }: StrictVi
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
-            {application.comments && application.comments.length > 0 ? (
-              application.comments.map((comment, index) => (
+            {application.workflowComments && application.workflowComments.length > 0 ? (
+              application.workflowComments.map((workflowComment, index) => (
                 <div key={index} className="bg-gray-50 p-3 rounded-lg">
                   <div className="flex items-center justify-between mb-2">
                     <Badge variant="outline" className="text-xs">
-                      {comment.userType.replace("_", " ").toUpperCase()}
+                      {workflowComment.userType.replace("_", " ").toUpperCase()}
                     </Badge>
-                    <span className="text-xs text-gray-500">{comment.createdAt.toLocaleDateString()}</span>
+                    <span className="text-xs text-gray-500">
+                      {new Date(workflowComment.createdAt).toLocaleDateString()}
+                    </span>
                   </div>
-                  <p className="text-sm text-gray-700">{comment.comment}</p>
+                  <p className="text-sm text-gray-700">{workflowComment.comment}</p>
                 </div>
               ))
             ) : (
