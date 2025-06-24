@@ -360,7 +360,14 @@ export const EnhancedDashboardApplications = forwardRef<
 
     // Show/hide options
     if (!filters.showDrafts) {
-      filtered = filtered.filter((app) => app.status !== "unsubmitted")
+      // Only hide drafts that aren't created by the current user
+      filtered = filtered.filter((app) => {
+        if (app.status === "unsubmitted") {
+          // Always show drafts created by current user, hide others' drafts
+          return app.createdBy === user.id
+        }
+        return true
+      })
     }
 
     // Sorting
@@ -1091,6 +1098,45 @@ export const EnhancedDashboardApplications = forwardRef<
                       </div>
                     </div>
                   </div>
+
+                  {/* Display Options */}
+                  <div className="space-y-4">
+                    <h4 className="text-sm font-semibold text-gray-900">Display Options</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="showDrafts"
+                          checked={filters.showDrafts}
+                          onCheckedChange={(checked) => handleFilterChange("showDrafts", checked)}
+                        />
+                        <Label htmlFor="showDrafts" className="text-sm">
+                          Show draft applications
+                        </Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="showArchived"
+                          checked={filters.showArchived}
+                          onCheckedChange={(checked) => handleFilterChange("showArchived", checked)}
+                        />
+                        <Label htmlFor="showArchived" className="text-sm">
+                          Show archived applications
+                        </Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="compactViewFilter"
+                          checked={filters.compactView}
+                          onCheckedChange={(checked) => handleFilterChange("compactView", checked)}
+                        />
+                        <Label htmlFor="compactViewFilter" className="text-sm">
+                          Compact table view
+                        </Label>
+                      </div>
+                    </div>
+                  </div>
+
+                  <Separator />
                 </CardContent>
               </CollapsibleContent>
             </Collapsible>
