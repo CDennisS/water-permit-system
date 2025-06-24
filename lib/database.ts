@@ -72,7 +72,7 @@ class MockDatabase {
 
   private seedSampleData() {
     const sampleApplications: PermitApplication[] = [
-      // EXISTING APPROVED APPLICATION
+      // EXISTING APPROVED APPLICATION (Stage 6 - Completed)
       {
         id: "app_1",
         applicationId: "MC2024-0001",
@@ -103,7 +103,7 @@ class MockDatabase {
         workflowComments: [],
       },
 
-      // STAGE 3 - PENDING CATCHMENT MANAGER REVIEW #1
+      // STAGE 4 - PENDING CATCHMENT CHAIRPERSON DECISION #1 (Borehole)
       {
         id: "app_2",
         applicationId: "MC2024-0002",
@@ -112,28 +112,28 @@ class MockDatabase {
         cellularNumber: "0723456789",
         physicalAddress: "456 Oak Avenue, Bulawayo",
         postalAddress: "P.O. Box 5678, Bulawayo",
-        permitType: "surface_water",
-        intendedUse: "Irrigation for commercial farming operations",
+        permitType: "borehole",
+        intendedUse: "Commercial farming irrigation operations",
         landSize: 15.0,
-        numberOfBoreholes: 0,
+        numberOfBoreholes: 2,
         gpsLatitude: -20.1504,
         gpsLongitude: 28.5906,
-        waterSource: "Seasonal river with dam construction",
-        waterSourceDetails: "Proposed dam on seasonal river with 45ML capacity for irrigation",
-        waterAllocation: 45.0,
+        waterSource: "Deep groundwater aquifer system",
+        waterSourceDetails: "Two boreholes at 65m and 80m depth with combined yield of 25ML/year for crop irrigation",
+        waterAllocation: 25.0,
         validityPeriod: 10,
-        comments: "Large scale irrigation project requiring environmental assessment",
+        comments: "Commercial farming operation requiring technical assessment",
         status: "under_review",
-        currentStage: 3, // CATCHMENT MANAGER STAGE
+        currentStage: 4, // CATCHMENT CHAIRPERSON STAGE
         createdBy: "1",
         createdAt: new Date("2024-02-01"),
-        updatedAt: new Date("2024-02-15"),
+        updatedAt: new Date("2024-03-05"),
         submittedAt: new Date("2024-02-02"),
         documents: [],
         workflowComments: [],
       },
 
-      // STAGE 3 - PENDING CATCHMENT MANAGER REVIEW #2
+      // STAGE 4 - PENDING CATCHMENT CHAIRPERSON DECISION #2 (Surface Water)
       {
         id: "app_3",
         applicationId: "MC2024-0003",
@@ -142,28 +142,28 @@ class MockDatabase {
         cellularNumber: "0734567890",
         physicalAddress: "789 Pine Road, Mutare",
         postalAddress: "P.O. Box 9876, Mutare",
-        permitType: "borehole",
+        permitType: "surface_water",
         intendedUse: "Industrial water supply for manufacturing",
         landSize: 2.0,
-        numberOfBoreholes: 3,
+        numberOfBoreholes: 0,
         gpsLatitude: -18.9707,
         gpsLongitude: 32.6731,
-        waterSource: "Deep groundwater aquifer system",
-        waterSourceDetails: "Three boreholes at depths 80m, 95m, and 110m with combined yield of 12ML/year",
-        waterAllocation: 12.0,
+        waterSource: "Seasonal river with abstraction point",
+        waterSourceDetails: "River abstraction with treatment facility for industrial manufacturing processes",
+        waterAllocation: 35.0,
         validityPeriod: 7,
-        comments: "Industrial application requiring technical feasibility assessment",
+        comments: "Industrial application requiring environmental compliance assessment",
         status: "under_review",
-        currentStage: 3, // CATCHMENT MANAGER STAGE
+        currentStage: 4, // CATCHMENT CHAIRPERSON STAGE
         createdBy: "1",
         createdAt: new Date("2024-02-10"),
-        updatedAt: new Date("2024-02-12"),
+        updatedAt: new Date("2024-03-08"),
         submittedAt: new Date("2024-02-12"),
         documents: [],
         workflowComments: [],
       },
 
-      // STAGE 3 - PENDING CATCHMENT MANAGER REVIEW #3
+      // STAGE 4 - PENDING CATCHMENT CHAIRPERSON DECISION #3 (Municipal)
       {
         id: "app_4",
         applicationId: "MC2024-0004",
@@ -180,20 +180,20 @@ class MockDatabase {
         gpsLongitude: 29.8154,
         waterSource: "Municipal reservoir and treatment plant",
         waterSourceDetails: "Expansion of existing municipal water treatment facility with river abstraction",
-        waterAllocation: 25.0,
+        waterAllocation: 45.0,
         validityPeriod: 15,
         comments: "Municipal expansion project with high priority status",
         status: "under_review",
-        currentStage: 3, // CATCHMENT MANAGER STAGE
+        currentStage: 4, // CATCHMENT CHAIRPERSON STAGE
         createdBy: "1",
         createdAt: new Date("2024-01-20"),
-        updatedAt: new Date("2024-02-25"),
+        updatedAt: new Date("2024-03-10"),
         submittedAt: new Date("2024-01-21"),
         documents: [],
         workflowComments: [],
       },
 
-      // STAGE 3 - PENDING CATCHMENT MANAGER REVIEW #4
+      // STAGE 4 - PENDING CATCHMENT CHAIRPERSON DECISION #4 (Commercial)
       {
         id: "app_5",
         applicationId: "MC2024-0005",
@@ -203,27 +203,27 @@ class MockDatabase {
         physicalAddress: "654 Birch Lane, Masvingo",
         postalAddress: "P.O. Box 7890, Masvingo",
         permitType: "borehole",
-        intendedUse: "Agricultural irrigation for crop production",
-        landSize: 8.5,
-        numberOfBoreholes: 2,
+        intendedUse: "Commercial bottled water production",
+        landSize: 1.2,
+        numberOfBoreholes: 4,
         gpsLatitude: -20.0637,
         gpsLongitude: 30.8267,
-        waterSource: "Intermediate groundwater aquifer",
-        waterSourceDetails: "Two boreholes at 65m and 70m depth for crop irrigation with drip system",
-        waterAllocation: 18.5,
-        validityPeriod: 8,
-        comments: "Agricultural irrigation with water-efficient drip system",
+        waterSource: "High-quality groundwater aquifer",
+        waterSourceDetails: "Four production boreholes with water quality suitable for bottling operations",
+        waterAllocation: 55.0,
+        validityPeriod: 12,
+        comments: "Commercial bottled water facility requiring sustainability assessment",
         status: "under_review",
-        currentStage: 3, // CATCHMENT MANAGER STAGE
+        currentStage: 4, // CATCHMENT CHAIRPERSON STAGE
         createdBy: "1",
         createdAt: new Date("2024-02-20"),
-        updatedAt: new Date("2024-02-20"),
+        updatedAt: new Date("2024-03-12"),
         submittedAt: new Date("2024-02-21"),
         documents: [],
         workflowComments: [],
       },
 
-      // STAGE 3 - PENDING CATCHMENT MANAGER REVIEW #5
+      // APPROVED BY CATCHMENT CHAIRPERSON (for testing permit printing)
       {
         id: "app_6",
         applicationId: "MC2024-0006",
@@ -233,27 +233,28 @@ class MockDatabase {
         physicalAddress: "987 Maple Drive, Chinhoyi",
         postalAddress: "P.O. Box 12345, Chinhoyi",
         permitType: "borehole",
-        intendedUse: "Commercial bottled water production",
-        landSize: 1.2,
-        numberOfBoreholes: 4,
+        intendedUse: "Agricultural irrigation for crop production",
+        landSize: 8.5,
+        numberOfBoreholes: 2,
         gpsLatitude: -17.3667,
         gpsLongitude: 30.1833,
-        waterSource: "High-quality groundwater aquifer",
-        waterSourceDetails: "Four production boreholes with water quality suitable for bottling operations",
-        waterAllocation: 35.0,
-        validityPeriod: 12,
-        comments: "Commercial bottled water facility requiring quality and sustainability assessment",
-        status: "under_review",
-        currentStage: 3, // CATCHMENT MANAGER STAGE
+        waterSource: "Intermediate groundwater aquifer",
+        waterSourceDetails: "Two boreholes at 65m and 70m depth for crop irrigation with drip system",
+        waterAllocation: 18.5,
+        validityPeriod: 8,
+        comments: "Agricultural irrigation with water-efficient drip system",
+        status: "approved",
+        currentStage: 5, // COMPLETED
         createdBy: "1",
         createdAt: new Date("2024-02-25"),
-        updatedAt: new Date("2024-02-26"),
+        updatedAt: new Date("2024-03-15"),
         submittedAt: new Date("2024-02-26"),
+        approvedAt: new Date("2024-03-15"),
         documents: [],
         workflowComments: [],
       },
 
-      // STAGE 2 - CHAIRPERSON REVIEW (for comparison)
+      // REJECTED BY CATCHMENT CHAIRPERSON (for testing rejection notice printing)
       {
         id: "app_7",
         applicationId: "MC2024-0007",
@@ -262,31 +263,61 @@ class MockDatabase {
         cellularNumber: "0778901234",
         physicalAddress: "147 Elm Street, Kadoma",
         postalAddress: "P.O. Box 98765, Kadoma",
-        permitType: "borehole",
+        permitType: "surface_water",
         intendedUse: "Mining operations water supply",
         landSize: 5.0,
-        numberOfBoreholes: 2,
+        numberOfBoreholes: 0,
         gpsLatitude: -18.3333,
         gpsLongitude: 29.9167,
-        waterSource: "Deep confined aquifer",
-        waterSourceDetails: "Two deep boreholes for mining operations with water recycling system",
-        waterAllocation: 22.0,
+        waterSource: "Seasonal river near mining site",
+        waterSourceDetails: "River abstraction for mining operations with water recycling system",
+        waterAllocation: 75.0,
         validityPeriod: 5,
         comments: "Mining operation with environmental compliance requirements",
-        status: "under_review",
-        currentStage: 2, // CHAIRPERSON STAGE
+        status: "rejected",
+        currentStage: 5, // COMPLETED
         createdBy: "1",
         createdAt: new Date("2024-02-28"),
-        updatedAt: new Date("2024-03-01"),
+        updatedAt: new Date("2024-03-18"),
         submittedAt: new Date("2024-02-28"),
+        documents: [],
+        workflowComments: [],
+      },
+
+      // STAGE 3 - PENDING CATCHMENT MANAGER REVIEW (for comparison)
+      {
+        id: "app_8",
+        applicationId: "MC2024-0008",
+        applicantName: "Lisa Anderson",
+        customerAccountNumber: "ACC054321",
+        cellularNumber: "0789012345",
+        physicalAddress: "258 Willow Street, Kwekwe",
+        postalAddress: "P.O. Box 54321, Kwekwe",
+        permitType: "borehole",
+        intendedUse: "Residential water supply",
+        landSize: 0.3,
+        numberOfBoreholes: 1,
+        gpsLatitude: -18.9167,
+        gpsLongitude: 29.8167,
+        waterSource: "Shallow groundwater aquifer",
+        waterSourceDetails: "Single borehole at 35m depth for residential use",
+        waterAllocation: 3.0,
+        validityPeriod: 5,
+        comments: "Standard residential application",
+        status: "under_review",
+        currentStage: 3, // CATCHMENT MANAGER STAGE
+        createdBy: "1",
+        createdAt: new Date("2024-03-01"),
+        updatedAt: new Date("2024-03-05"),
+        submittedAt: new Date("2024-03-02"),
         documents: [],
         workflowComments: [],
       },
     ]
 
-    // Add sample comments from previous stages for Stage 3 applications
+    // Add comprehensive sample comments for all stages
     const sampleComments: WorkflowComment[] = [
-      // Comments for MC2024-0002 (Mary Johnson - Surface Water)
+      // Comments for MC2024-0002 (Mary Johnson - Commercial Farming) - STAGE 4 PENDING
       {
         id: "comment_1",
         applicationId: "app_2",
@@ -294,7 +325,7 @@ class MockDatabase {
         userType: "permitting_officer",
         stage: 1,
         comment:
-          "Application form completed correctly. All required documents submitted. Water allocation calculation verified. Environmental clearance certificate provided.",
+          "Commercial farming application reviewed. All required documents submitted including land ownership certificates, environmental clearance, and borehole completion certificates. Water allocation calculation verified against farming requirements. Application meets all regulatory requirements for Stage 1 approval.",
         action: "approve",
         createdAt: new Date("2024-02-03"),
       },
@@ -305,105 +336,218 @@ class MockDatabase {
         userType: "chairperson",
         stage: 2,
         comment:
-          "Initial review completed. Large scale irrigation project appears feasible. Recommend technical assessment by Catchment Manager for environmental and sustainability evaluation.",
+          "Commercial farming operation with significant water allocation reviewed. Business plan and farming operations appear sustainable. Environmental impact assessment provided. Recommend technical feasibility assessment by Catchment Manager for aquifer sustainability evaluation.",
         action: "approve",
-        createdAt: new Date("2024-02-10"),
+        createdAt: new Date("2024-02-15"),
       },
-
-      // Comments for MC2024-0003 (Robert Wilson - Industrial Borehole)
       {
         id: "comment_3",
+        applicationId: "app_2",
+        userId: "3",
+        userType: "catchment_manager",
+        stage: 3,
+        comment:
+          "Technical assessment completed. Aquifer capacity analysis shows sustainable yield for requested allocation. Groundwater monitoring plan approved. Environmental compliance measures adequate. Water conservation practices with drip irrigation system commendable. Recommend approval for final decision.",
+        action: "approve",
+        createdAt: new Date("2024-03-05"),
+      },
+
+      // Comments for MC2024-0003 (Robert Wilson - Industrial) - STAGE 4 PENDING
+      {
+        id: "comment_4",
         applicationId: "app_3",
         userId: "1",
         userType: "permitting_officer",
         stage: 1,
         comment:
-          "Industrial application with three boreholes. All documentation in order. Borehole completion certificates provided. Water allocation within industrial limits.",
+          "Industrial water supply application for manufacturing facility. All documentation in order including industrial licenses, environmental impact assessment, and water treatment facility plans. Water allocation justified by production requirements. Wastewater treatment and recycling plans provided.",
         action: "approve",
         createdAt: new Date("2024-02-13"),
       },
       {
-        id: "comment_4",
+        id: "comment_5",
         applicationId: "app_3",
         userId: "2",
         userType: "chairperson",
         stage: 2,
         comment:
-          "Industrial water supply application reviewed. Multiple boreholes require technical feasibility assessment. Forward to Catchment Manager for aquifer sustainability evaluation.",
+          "Industrial application with substantial water allocation reviewed. Manufacturing facility environmental compliance documentation adequate. Water recycling and treatment systems planned. Forward to Catchment Manager for detailed technical assessment of river abstraction impact.",
         action: "approve",
-        createdAt: new Date("2024-02-18"),
+        createdAt: new Date("2024-02-25"),
+      },
+      {
+        id: "comment_6",
+        applicationId: "app_3",
+        userId: "3",
+        userType: "catchment_manager",
+        stage: 3,
+        comment:
+          "River flow analysis completed. Seasonal abstraction plan acceptable with proposed storage facilities. Environmental monitoring protocols established. Industrial wastewater treatment meets discharge standards. Water recycling efficiency targets set at 70%. Technical assessment satisfactory - recommend for final approval.",
+        action: "approve",
+        createdAt: new Date("2024-03-08"),
       },
 
-      // Comments for MC2024-0004 (Sarah Davis - Municipal)
+      // Comments for MC2024-0004 (Sarah Davis - Municipal) - STAGE 4 PENDING
       {
-        id: "comment_5",
+        id: "comment_7",
         applicationId: "app_4",
         userId: "1",
         userType: "permitting_officer",
         stage: 1,
         comment:
-          "Municipal water supply expansion application. High priority project. All municipal documentation and environmental assessments provided. Allocation justified by population growth projections.",
+          "Municipal water supply expansion application. High priority project due to population growth. All municipal documentation provided including council resolutions, population projections, and infrastructure plans. Environmental assessments completed. Water allocation justified by demographic studies.",
         action: "approve",
         createdAt: new Date("2024-01-22"),
       },
       {
-        id: "comment_6",
+        id: "comment_8",
         applicationId: "app_4",
         userId: "2",
         userType: "chairperson",
         stage: 2,
         comment:
-          "Municipal expansion project approved for technical review. High priority due to population growth. Requires detailed technical assessment of river abstraction impact and treatment capacity.",
+          "Municipal expansion project approved for technical review. Critical infrastructure development with high community impact. Population growth projections support increased allocation. Requires comprehensive technical assessment of treatment capacity and distribution network.",
         action: "approve",
-        createdAt: new Date("2024-02-05"),
+        createdAt: new Date("2024-02-10"),
+      },
+      {
+        id: "comment_9",
+        applicationId: "app_4",
+        userId: "3",
+        userType: "catchment_manager",
+        stage: 3,
+        comment:
+          "Municipal infrastructure assessment completed. Treatment plant expansion plans technically sound. River abstraction impact modeling shows acceptable environmental effects. Water quality monitoring systems adequate. Distribution network capacity verified. Strong recommendation for approval given community benefit.",
+        action: "approve",
+        createdAt: new Date("2024-03-10"),
       },
 
-      // Comments for MC2024-0005 (Michael Brown - Agricultural)
+      // Comments for MC2024-0005 (Michael Brown - Commercial Bottling) - STAGE 4 PENDING
       {
-        id: "comment_7",
+        id: "comment_10",
         applicationId: "app_5",
         userId: "1",
         userType: "permitting_officer",
         stage: 1,
         comment:
-          "Agricultural irrigation application with water-efficient drip system. Good water conservation practices demonstrated. All agricultural permits and land ownership documents verified.",
+          "Commercial bottled water production application. High water allocation requested for bottling operations. All business licenses and water quality certificates provided. Borehole completion certificates for all four production wells submitted. Quality control and testing protocols documented.",
         action: "approve",
         createdAt: new Date("2024-02-22"),
       },
       {
-        id: "comment_8",
+        id: "comment_11",
         applicationId: "app_5",
         userId: "2",
         userType: "chairperson",
         stage: 2,
         comment:
-          "Agricultural application with efficient irrigation system. Water conservation measures are commendable. Recommend technical review for aquifer sustainability and allocation optimization.",
+          "Commercial bottling operation with significant water allocation. Business case demonstrates market demand and economic viability. Water quality standards exceed bottling requirements. Critical technical assessment needed for long-term aquifer sustainability and production capacity.",
         action: "approve",
-        createdAt: new Date("2024-02-28"),
+        createdAt: new Date("2024-03-05"),
+      },
+      {
+        id: "comment_12",
+        applicationId: "app_5",
+        userId: "3",
+        userType: "catchment_manager",
+        stage: 3,
+        comment:
+          "Comprehensive aquifer assessment completed. Four-borehole system shows excellent water quality and sustainable yield. Groundwater recharge analysis indicates long-term viability. Water quality monitoring and testing protocols exceed industry standards. Production sustainability verified - recommend approval with monitoring conditions.",
+        action: "approve",
+        createdAt: new Date("2024-03-12"),
       },
 
-      // Comments for MC2024-0006 (Jennifer Martinez - Commercial Bottling)
+      // Comments for MC2024-0006 (Jennifer Martinez - Agricultural) - APPROVED
       {
-        id: "comment_9",
+        id: "comment_13",
         applicationId: "app_6",
         userId: "1",
         userType: "permitting_officer",
         stage: 1,
         comment:
-          "Commercial bottled water production application. High water allocation requested. All business licenses and water quality certificates provided. Requires detailed technical assessment.",
+          "Agricultural irrigation application with water-efficient drip system. All agricultural permits and land ownership documents verified. Crop production plan and irrigation schedule provided. Water conservation measures demonstrate responsible usage practices.",
         action: "approve",
         createdAt: new Date("2024-02-27"),
       },
       {
-        id: "comment_10",
+        id: "comment_14",
         applicationId: "app_6",
         userId: "2",
         userType: "chairperson",
         stage: 2,
         comment:
-          "Commercial bottling operation with significant water allocation. Business case is sound. Critical technical assessment needed for aquifer capacity and long-term sustainability impact.",
+          "Agricultural application with excellent water conservation practices. Drip irrigation system efficiency rated at 85%. Crop rotation and soil management plans support sustainable farming. Recommend technical review for aquifer capacity and allocation optimization.",
         action: "approve",
-        createdAt: new Date("2024-03-02"),
+        createdAt: new Date("2024-03-08"),
+      },
+      {
+        id: "comment_15",
+        applicationId: "app_6",
+        userId: "3",
+        userType: "catchment_manager",
+        stage: 3,
+        comment:
+          "Technical assessment shows sustainable aquifer yield for requested allocation. Water conservation measures exemplary with drip irrigation and soil moisture monitoring. Environmental impact minimal with proper agricultural practices. Strong recommendation for approval.",
+        action: "approve",
+        createdAt: new Date("2024-03-12"),
+      },
+      {
+        id: "comment_16",
+        applicationId: "app_6",
+        userId: "4",
+        userType: "catchment_chairperson",
+        stage: 4,
+        comment:
+          "Final review completed. Agricultural operation demonstrates excellent water conservation practices and sustainable farming methods. All technical assessments positive. Environmental compliance exemplary. Application approved for permit issuance.",
+        action: "approve",
+        createdAt: new Date("2024-03-15"),
+      },
+
+      // Comments for MC2024-0007 (David Thompson - Mining) - REJECTED
+      {
+        id: "comment_17",
+        applicationId: "app_7",
+        userId: "1",
+        userType: "permitting_officer",
+        stage: 1,
+        comment:
+          "Mining operations water supply application. All mining licenses and environmental clearances provided. Water recycling system planned for operations. High water allocation requested for mineral processing and dust suppression.",
+        action: "approve",
+        createdAt: new Date("2024-03-01"),
+      },
+      {
+        id: "comment_18",
+        applicationId: "app_7",
+        userId: "2",
+        userType: "chairperson",
+        stage: 2,
+        comment:
+          "Mining operation with substantial water requirements. Environmental compliance documentation provided. Water recycling plans show 60% efficiency target. Requires detailed technical assessment of environmental impact and water source sustainability.",
+        action: "approve",
+        createdAt: new Date("2024-03-10"),
+      },
+      {
+        id: "comment_19",
+        applicationId: "app_7",
+        userId: "3",
+        userType: "catchment_manager",
+        stage: 3,
+        comment:
+          "Technical assessment reveals concerns about seasonal river flow capacity during dry periods. Mining operations would significantly impact downstream water availability for existing users. Water recycling efficiency below recommended standards. Environmental impact assessment shows potential risks to aquatic ecosystems. Recommend approval with strict conditions and enhanced monitoring.",
+        action: "approve",
+        createdAt: new Date("2024-03-15"),
+      },
+      {
+        id: "comment_20",
+        applicationId: "app_7",
+        userId: "4",
+        userType: "catchment_chairperson",
+        stage: 4,
+        comment:
+          "After comprehensive review of all technical assessments and environmental impact studies, this application is rejected. Primary concerns: 1) Excessive water allocation would severely impact downstream users during dry seasons, 2) Proposed water recycling efficiency of 60% is insufficient for mining operations of this scale, 3) Environmental impact on seasonal river ecosystem is unacceptable, 4) Alternative water sources not adequately explored. Applicant may resubmit with enhanced water conservation measures, alternative water sources, and improved environmental mitigation strategies.",
+        action: "reject",
+        isRejectionReason: true,
+        createdAt: new Date("2024-03-18"),
       },
     ]
 
@@ -480,7 +624,7 @@ class MockDatabase {
     this.applications = sampleApplications
     this.comments = sampleComments
     this.documents = sampleDocuments
-    this.applicationCounter = 8
+    this.applicationCounter = 9
   }
 
   /* ───────────────────────── Applications CRUD ──────────────────────────── */
