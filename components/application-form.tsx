@@ -159,3 +159,4 @@ const ApplicationForm: React.FC<ApplicationFormProps> = ({ application, user, db
 }
 
 export default ApplicationForm
+export { ApplicationForm }
