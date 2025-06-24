@@ -14,6 +14,7 @@ import { MessagingSystem } from "./messaging-system"
 import { ActivityLogs } from "./activity-logs"
 import { UnreadMessageNotification } from "./unread-message-notification"
 import { EnhancedExportSystem } from "./enhanced-export-system"
+import { CatchmentManagerApplicationHistory } from "./catchment-manager-application-history"
 
 interface CatchmentManagerDashboardProps {
   user: User
@@ -301,7 +302,7 @@ Proceed with submission?`
 
       {/* Navigation Tabs */}
       <Tabs value={activeView} onValueChange={setActiveView} className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="messages" className="relative">
             Messages
@@ -314,6 +315,7 @@ Proceed with submission?`
               </Badge>
             )}
           </TabsTrigger>
+          <TabsTrigger value="history">Application History</TabsTrigger>
           <TabsTrigger value="activity">Activity</TabsTrigger>
         </TabsList>
 
@@ -459,6 +461,11 @@ Proceed with submission?`
         {/* Messages Tab */}
         <TabsContent value="messages">
           <MessagingSystem user={user} />
+        </TabsContent>
+
+        {/* Application History Tab */}
+        <TabsContent value="history">
+          <CatchmentManagerApplicationHistory user={user} />
         </TabsContent>
 
         {/* Activity Tab */}
