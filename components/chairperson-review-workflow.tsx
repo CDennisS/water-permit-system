@@ -399,15 +399,6 @@ export function ChairpersonReviewWorkflow({ user, application, onUpdate }: Chair
                     )}
                   </Button>
                 </div>
-
-                {/* Instructions */}
-                <Alert>
-                  <AlertDescription>
-                    <strong>Instructions:</strong> Review all the application details above, check each submitted
-                    document, and read any comments from the permitting officer. Once you have completed your review,
-                    check the box above and save your review.
-                  </AlertDescription>
-                </Alert>
               </>
             )}
           </CardContent>
