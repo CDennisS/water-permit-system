@@ -241,3 +241,9 @@ export class Database {
     }
   }
 }
+
+// ──────────────────────────────────────────────────────────────
+//  Export a singleton database instance so it can be imported
+//  elsewhere in the application (e.g. `import { db } from "@/lib/database"`)
+// ──────────────────────────────────────────────────────────────
+export const db = new Database()
