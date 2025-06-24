@@ -20,6 +20,17 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
+import {
   Search,
   Download,
   RefreshCw,
@@ -34,6 +45,8 @@ import {
   AlertTriangle,
   Users,
   TrendingUp,
+  Send,
+  CheckSquare,
 } from "lucide-react"
 import type { PermitApplication, User } from "@/types"
 import { db } from "@/lib/database"
@@ -56,6 +69,7 @@ export const EnhancedDashboardApplications = forwardRef<
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage, setItemsPerPage] = useState(25)
   const [isLoading, setIsLoading] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   // Simple filters
   const [searchTerm, setSearchTerm] = useState("")
@@ -157,6 +171,73 @@ export const EnhancedDashboardApplications = forwardRef<
     setCurrentPage(1)
   }
 
+  const handleSelectAllUnsubmitted = () => {
+    const unsubmittedApps = filteredApplications.filter((app) => app.status === "unsubmitted").map((app) => app.id)
+    setSelectedApplications(unsubmittedApps)
+  }
+
+  const handleSubmitSelected = async () => {
+    if (selectedApplications.length === 0) return
+
+    setIsSubmitting(true)
+    try {
+      const selectedApps = applications.filter((app) => selectedApplications.includes(app.id))
+
+      for (const app of selectedApps) {
+        if (app.status === "unsubmitted") {
+          await db.updateApplication(app.id, {
+            status: "submitted",
+            currentStage: 2,
+            submittedAt: new Date(),
+          })
+
+          await db.addLog({
+            userId: user.id,
+            userType: user.userType,
+            action: "Submitted Application",
+            details: `Submitted application ${app.applicationId} for review`,
+            applicationId: app.id,
+          })
+        }
+      }
+
+      // Clear selection and reload
+      setSelectedApplications([])
+      await loadApplications()
+
+      console.log(`Successfully submitted ${selectedApps.length} applications`)
+    } catch (error) {
+      console.error("Failed to submit applications:", error)
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const handleSubmitSingle = async (application: PermitApplication) => {
+    if (application.status !== "unsubmitted") return
+
+    try {
+      await db.updateApplication(application.id, {
+        status: "submitted",
+        currentStage: 2,
+        submittedAt: new Date(),
+      })
+
+      await db.addLog({
+        userId: user.id,
+        userType: user.userType,
+        action: "Submitted Application",
+        details: `Submitted application ${application.applicationId} for review`,
+        applicationId: application.id,
+      })
+
+      await loadApplications()
+      console.log(`Successfully submitted application ${application.applicationId}`)
+    } catch (error) {
+      console.error("Failed to submit application:", error)
+    }
+  }
+
   const exportFilteredData = () => {
     const csvData = [
       [
@@ -250,6 +331,7 @@ export const EnhancedDashboardApplications = forwardRef<
   // Quick stats
   const quickStats = {
     total: filteredApplications.length,
+    unsubmitted: filteredApplications.filter((app) => app.status === "unsubmitted").length,
     submitted: filteredApplications.filter((app) => app.status === "submitted").length,
     underReview: filteredApplications.filter((app) => app.status === "under_review").length,
     approved: filteredApplications.filter((app) => app.status === "approved").length,
@@ -257,6 +339,12 @@ export const EnhancedDashboardApplications = forwardRef<
     overdue: filteredApplications.filter((app) => isOverdue(app)).length,
     assignedToMe: filteredApplications.filter((app) => app.createdBy === user.id).length,
   }
+
+  const unsubmittedCount = quickStats.unsubmitted
+  const selectedUnsubmittedCount = selectedApplications.filter((id) => {
+    const app = applications.find((a) => a.id === id)
+    return app?.status === "unsubmitted"
+  }).length
 
   return (
     <div className="space-y-6">
@@ -270,7 +358,7 @@ export const EnhancedDashboardApplications = forwardRef<
           <CardContent>
             <div className="text-2xl font-bold">{quickStats.total}</div>
             <p className="text-xs text-muted-foreground">
-              {quickStats.submitted} submitted, {quickStats.underReview} under review
+              {quickStats.unsubmitted} unsubmitted, {quickStats.submitted} submitted
             </p>
           </CardContent>
         </Card>
@@ -288,12 +376,12 @@ export const EnhancedDashboardApplications = forwardRef<
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Overdue Items</CardTitle>
-            <AlertTriangle className="h-4 w-4 text-red-600" />
+            <CardTitle className="text-sm font-medium">Pending Submission</CardTitle>
+            <AlertTriangle className="h-4 w-4 text-orange-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-red-600">{quickStats.overdue}</div>
-            <p className="text-xs text-muted-foreground">Applications over 30 days</p>
+            <div className="text-2xl font-bold text-orange-600">{quickStats.unsubmitted}</div>
+            <p className="text-xs text-muted-foreground">Ready to submit</p>
           </CardContent>
         </Card>
 
@@ -405,6 +493,60 @@ export const EnhancedDashboardApplications = forwardRef<
             </CardContent>
           </Card>
 
+          {/* Bulk Actions */}
+          {unsubmittedCount > 0 && (
+            <Card className="border-orange-200 bg-orange-50">
+              <CardHeader>
+                <CardTitle className="text-orange-800 flex items-center">
+                  <AlertTriangle className="h-5 w-5 mr-2" />
+                  Unsubmitted Applications ({unsubmittedCount})
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-4">
+                    <Button
+                      variant="outline"
+                      onClick={handleSelectAllUnsubmitted}
+                      className="border-orange-300 text-orange-700 hover:bg-orange-100"
+                    >
+                      <CheckSquare className="h-4 w-4 mr-2" />
+                      Select All Unsubmitted ({unsubmittedCount})
+                    </Button>
+                    {selectedUnsubmittedCount > 0 && (
+                      <span className="text-sm text-orange-700">
+                        {selectedUnsubmittedCount} unsubmitted applications selected
+                      </span>
+                    )}
+                  </div>
+                  {selectedUnsubmittedCount > 0 && (
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button className="bg-orange-600 hover:bg-orange-700 text-white" disabled={isSubmitting}>
+                          <Send className="h-4 w-4 mr-2" />
+                          {isSubmitting ? "Submitting..." : `Submit Selected (${selectedUnsubmittedCount})`}
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Submit Applications</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Are you sure you want to submit {selectedUnsubmittedCount} application(s) to the next level?
+                            This action will move them to the review stage and they cannot be edited afterwards.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction onClick={handleSubmitSelected}>Submit Applications</AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Applications Table */}
           <Card>
             <CardHeader>
@@ -455,7 +597,7 @@ export const EnhancedDashboardApplications = forwardRef<
                       <TableHead>Land (ha)</TableHead>
                       <TableHead>Created</TableHead>
                       <TableHead>Processing Days</TableHead>
-                      <TableHead className="w-[100px]">Actions</TableHead>
+                      <TableHead className="w-[150px]">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -506,31 +648,81 @@ export const EnhancedDashboardApplications = forwardRef<
                           )}
                         </TableCell>
                         <TableCell>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" className="h-8 w-8 p-0">
-                                <MoreHorizontal className="h-4 w-4" />
+                          <div className="flex items-center space-x-1">
+                            {/* View Button - Always visible */}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => onViewApplication(app)}
+                              title="View application details"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+
+                            {/* Edit Button - Only for unsubmitted or ICT */}
+                            {(app.status === "unsubmitted" || user.userType === "ict") && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => onEditApplication(app)}
+                                title="Edit application"
+                              >
+                                <Edit className="h-4 w-4" />
                               </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                              <DropdownMenuItem onClick={() => onViewApplication(app)}>
-                                <Eye className="mr-2 h-4 w-4" />
-                                View Details
-                              </DropdownMenuItem>
-                              {(app.status === "unsubmitted" || user.userType === "ict") && (
-                                <DropdownMenuItem onClick={() => onEditApplication(app)}>
-                                  <Edit className="mr-2 h-4 w-4" />
-                                  Edit
+                            )}
+
+                            {/* Submit Button - Only for unsubmitted */}
+                            {app.status === "unsubmitted" && (
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="text-green-600 hover:text-green-800"
+                                    title="Submit application"
+                                  >
+                                    <Send className="h-4 w-4" />
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Submit Application</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      Are you sure you want to submit application {app.applicationId} to the next level?
+                                      This action cannot be undone and the application will move to the review stage.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                    <AlertDialogAction onClick={() => handleSubmitSingle(app)}>
+                                      Submit Application
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            )}
+
+                            {/* More Actions Menu */}
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" className="h-8 w-8 p-0">
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuLabel>More Actions</DropdownMenuLabel>
+                                <DropdownMenuItem>
+                                  <Download className="mr-2 h-4 w-4" />
+                                  Export Details
                                 </DropdownMenuItem>
-                              )}
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem>
-                                <Download className="mr-2 h-4 w-4" />
-                                Export Details
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem>
+                                  <FileText className="mr-2 h-4 w-4" />
+                                  View Documents
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}
