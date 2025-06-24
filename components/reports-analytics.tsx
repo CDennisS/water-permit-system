@@ -44,6 +44,24 @@ import {
 } from "lucide-react"
 import type { PermitApplication } from "@/types"
 import { db } from "@/lib/database"
+import type React from "react"
+
+// --- Safe chart wrapper (prevents Recharts null-child crash) ---
+function ChartOrPlaceholder({
+  data,
+  children,
+}: {
+  data: any[]
+  children: React.ReactNode
+}) {
+  return data && data.length ? (
+    (children as JSX.Element)
+  ) : (
+    <div className="flex h-full w-full items-center justify-center text-sm text-muted-foreground">
+      {"No data to display"}
+    </div>
+  )
+}
 
 interface DateFilter {
   field: string
@@ -1356,54 +1374,56 @@ export function ReportsAnalytics() {
             </Button>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              {filters.chartType === "bar" && (
-                <BarChart data={chartData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" />
-                  <YAxis />
-                  <Tooltip />
-                  <Bar dataKey="value" fill="#3B82F6" />
-                </BarChart>
-              )}
-              {filters.chartType === "pie" && (
-                <PieChart>
-                  <Pie
-                    data={chartData}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={({ name, percentage }) => `${name} ${percentage}%`}
-                    outerRadius={80}
-                    fill="#8884d8"
-                    dataKey="value"
-                  >
-                    {chartData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              )}
-              {filters.chartType === "line" && (
-                <LineChart data={chartData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" />
-                  <YAxis />
-                  <Tooltip />
-                  <Line type="monotone" dataKey="value" stroke="#3B82F6" />
-                </LineChart>
-              )}
-              {filters.chartType === "area" && (
-                <AreaChart data={chartData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" />
-                  <YAxis />
-                  <Tooltip />
-                  <Area type="monotone" dataKey="value" stroke="#3B82F6" fill="#3B82F6" fillOpacity={0.6} />
-                </AreaChart>
-              )}
-            </ResponsiveContainer>
+            <ChartOrPlaceholder data={chartData}>
+              <ResponsiveContainer width="100%" height={300}>
+                {filters.chartType === "bar" && (
+                  <BarChart data={chartData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="name" />
+                    <YAxis />
+                    <Tooltip />
+                    <Bar dataKey="value" fill="#3B82F6" />
+                  </BarChart>
+                )}
+                {filters.chartType === "pie" && (
+                  <PieChart>
+                    <Pie
+                      data={chartData}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={false}
+                      label={({ name, percentage }) => `${name} ${percentage}%`}
+                      outerRadius={80}
+                      fill="#8884d8"
+                      dataKey="value"
+                    >
+                      {chartData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                )}
+                {filters.chartType === "line" && (
+                  <LineChart data={chartData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="name" />
+                    <YAxis />
+                    <Tooltip />
+                    <Line type="monotone" dataKey="value" stroke="#3B82F6" />
+                  </LineChart>
+                )}
+                {filters.chartType === "area" && (
+                  <AreaChart data={chartData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="name" />
+                    <YAxis />
+                    <Tooltip />
+                    <Area type="monotone" dataKey="value" stroke="#3B82F6" fill="#3B82F6" fillOpacity={0.6} />
+                  </AreaChart>
+                )}
+              </ResponsiveContainer>
+            </ChartOrPlaceholder>
           </CardContent>
         </Card>
 
