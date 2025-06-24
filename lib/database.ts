@@ -1,249 +1,1021 @@
-export interface Application {
-  id: string
-  applicationId: string
-  applicantName: string
-  applicationDate: Date
-  status: string
-  assignedTo?: string
-}
+import type { PermitApplication, User, WorkflowComment, ActivityLog, Message, Document } from "@/types"
 
-export interface User {
-  id: string
-  name: string
-  email: string
-  userType: string
-}
+/* -------------------------------------------------------------------------- */
+/*                             In-memory database                             */
+/*   In production replace with Supabase or another persistent datastore.     */
+/* -------------------------------------------------------------------------- */
 
-export interface WorkflowComment {
-  id: string
-  applicationId: string
-  userId: string
-  userType: string
-  stage: number
-  comment: string
-  isRejectionReason: boolean
-  createdAt: Date
-  updatedAt: Date
-}
+class MockDatabase {
+  /* ──────────────────────────── core storage ────────────────────────────── */
+  private applications: PermitApplication[] = []
+  private users: User[] = [
+    {
+      id: "1",
+      username: "admin",
+      userType: "permitting_officer",
+      password: "admin",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    },
+    {
+      id: "2",
+      username: "admin",
+      userType: "chairperson",
+      password: "admin",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    },
+    {
+      id: "3",
+      username: "admin",
+      userType: "catchment_manager",
+      password: "admin",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    },
+    {
+      id: "4",
+      username: "admin",
+      userType: "catchment_chairperson",
+      password: "admin",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    },
+    {
+      id: "5",
+      username: "admin",
+      userType: "permit_supervisor",
+      password: "admin",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    },
+    {
+      id: "6",
+      username: "umsccict2025",
+      userType: "ict",
+      password: "umsccict2025",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    },
+  ]
+  private comments: WorkflowComment[] = []
+  private logs: ActivityLog[] = []
+  private messages: Message[] = []
+  private documents: Document[] = []
 
-export class Database {
-  applications: Application[] = []
-  users: User[] = []
-  workflowComments: WorkflowComment[] = []
+  private applicationCounter = 1
 
   constructor() {
-    // Sample Applications
-    this.applications = [
-      {
-        id: "app-001",
-        applicationId: "MC2024-0009",
-        applicantName: "EcoFarms Ltd",
-        applicationDate: new Date("2024-01-05"),
-        status: "Under Review",
-        assignedTo: "user-po-001",
-      },
-      {
-        id: "app-002",
-        applicationId: "MC2024-0013",
-        applicantName: "AgriGrow Corp",
-        applicationDate: new Date("2023-12-20"),
-        status: "Rejected",
-        assignedTo: "user-cm-001",
-      },
-      {
-        id: "app-003",
-        applicationId: "MC2024-0014",
-        applicantName: "AquaSolutions Inc",
-        applicationDate: new Date("2024-01-10"),
-        status: "Approved",
-        assignedTo: "user-cchair-001",
-      },
-    ]
-
-    // Sample Users
-    this.users = [
-      {
-        id: "user-po-001",
-        name: "Jane Permitting",
-        email: "jane.permitting@example.com",
-        userType: "permitting_officer",
-      },
-      {
-        id: "user-chair-001",
-        name: "Bob Chairperson",
-        email: "bob.chairperson@example.com",
-        userType: "chairperson",
-      },
-      {
-        id: "user-cm-001",
-        name: "Alice Catchment",
-        email: "alice.catchment@example.com",
-        userType: "catchment_manager",
-      },
-      {
-        id: "user-cchair-001",
-        name: "Charlie CatchmentChair",
-        email: "charlie.catchmentchair@example.com",
-        userType: "catchment_chairperson",
-      },
-    ]
-
-    // Seed sample comments for demonstration
-    this.seedSampleComments()
+    // Add sample applications for testing
+    this.seedSampleData()
   }
 
-  async seedSampleComments() {
-    // Add sample comments for MC2024-0013 (rejected application)
-    const rejectedApp = this.applications.find((app) => app.applicationId === "MC2024-0013")
-    if (rejectedApp) {
-      // Clear existing comments first
-      this.workflowComments = this.workflowComments.filter((c) => c.applicationId !== rejectedApp.id)
+  private seedSampleData() {
+    const sampleApplications: PermitApplication[] = [
+      // EXISTING APPROVED APPLICATION (Stage 6 - Completed)
+      {
+        id: "app_1",
+        applicationId: "MC2024-0001",
+        applicantName: "John Smith",
+        customerAccountNumber: "ACC001234",
+        cellularNumber: "0712345678",
+        physicalAddress: "123 Main Street, Harare",
+        postalAddress: "P.O. Box 1234, Harare",
+        permitType: "borehole",
+        intendedUse: "Domestic water supply for residential property",
+        landSize: 0.5,
+        numberOfBoreholes: 1,
+        gpsLatitude: -17.8252,
+        gpsLongitude: 31.0335,
+        waterSource: "Groundwater from shallow aquifer",
+        waterSourceDetails: "Single borehole at 45m depth with yield of 2.5ML/year",
+        waterAllocation: 2.5,
+        validityPeriod: 5,
+        comments: "Standard residential application with all required documentation",
+        status: "approved",
+        currentStage: 6,
+        createdBy: "1",
+        createdAt: new Date("2024-01-15"),
+        updatedAt: new Date("2024-02-20"),
+        submittedAt: new Date("2024-01-16"),
+        approvedAt: new Date("2024-02-20"),
+        documents: [],
+        workflowComments: [],
+      },
 
-      // Stage 1: Permitting Officer
-      this.workflowComments.push({
-        id: "comment-001",
-        applicationId: rejectedApp.id,
-        userId: "user-po-001",
+      // STAGE 4 - PENDING CATCHMENT CHAIRPERSON DECISION #1 (Borehole)
+      {
+        id: "app_2",
+        applicationId: "MC2024-0002",
+        applicantName: "Mary Johnson",
+        customerAccountNumber: "ACC005678",
+        cellularNumber: "0723456789",
+        physicalAddress: "456 Oak Avenue, Bulawayo",
+        postalAddress: "P.O. Box 5678, Bulawayo",
+        permitType: "borehole",
+        intendedUse: "Commercial farming irrigation operations",
+        landSize: 15.0,
+        numberOfBoreholes: 2,
+        gpsLatitude: -20.1504,
+        gpsLongitude: 28.5906,
+        waterSource: "Deep groundwater aquifer system",
+        waterSourceDetails: "Two boreholes at 65m and 80m depth with combined yield of 25ML/year for crop irrigation",
+        waterAllocation: 25.0,
+        validityPeriod: 10,
+        comments: "Commercial farming operation requiring technical assessment",
+        status: "under_review",
+        currentStage: 4, // CATCHMENT CHAIRPERSON STAGE
+        createdBy: "1",
+        createdAt: new Date("2024-02-01"),
+        updatedAt: new Date("2024-03-05"),
+        submittedAt: new Date("2024-02-02"),
+        documents: [],
+        workflowComments: [],
+      },
+
+      // STAGE 4 - PENDING CATCHMENT CHAIRPERSON DECISION #2 (Surface Water)
+      {
+        id: "app_3",
+        applicationId: "MC2024-0003",
+        applicantName: "Robert Wilson",
+        customerAccountNumber: "ACC009876",
+        cellularNumber: "0734567890",
+        physicalAddress: "789 Pine Road, Mutare",
+        postalAddress: "P.O. Box 9876, Mutare",
+        permitType: "surface_water",
+        intendedUse: "Industrial water supply for manufacturing",
+        landSize: 2.0,
+        numberOfBoreholes: 0,
+        gpsLatitude: -18.9707,
+        gpsLongitude: 32.6731,
+        waterSource: "Seasonal river with abstraction point",
+        waterSourceDetails: "River abstraction with treatment facility for industrial manufacturing processes",
+        waterAllocation: 35.0,
+        validityPeriod: 7,
+        comments: "Industrial application requiring environmental compliance assessment",
+        status: "under_review",
+        currentStage: 4, // CATCHMENT CHAIRPERSON STAGE
+        createdBy: "1",
+        createdAt: new Date("2024-02-10"),
+        updatedAt: new Date("2024-03-08"),
+        submittedAt: new Date("2024-02-12"),
+        documents: [],
+        workflowComments: [],
+      },
+
+      // STAGE 4 - PENDING CATCHMENT CHAIRPERSON DECISION #3 (Municipal)
+      {
+        id: "app_4",
+        applicationId: "MC2024-0004",
+        applicantName: "Sarah Davis",
+        customerAccountNumber: "ACC004321",
+        cellularNumber: "0745678901",
+        physicalAddress: "321 Cedar Street, Gweru",
+        postalAddress: "P.O. Box 4321, Gweru",
+        permitType: "surface_water",
+        intendedUse: "Municipal water supply expansion",
+        landSize: 0.8,
+        numberOfBoreholes: 0,
+        gpsLatitude: -19.4543,
+        gpsLongitude: 29.8154,
+        waterSource: "Municipal reservoir and treatment plant",
+        waterSourceDetails: "Expansion of existing municipal water treatment facility with river abstraction",
+        waterAllocation: 45.0,
+        validityPeriod: 15,
+        comments: "Municipal expansion project with high priority status",
+        status: "under_review",
+        currentStage: 4, // CATCHMENT CHAIRPERSON STAGE
+        createdBy: "1",
+        createdAt: new Date("2024-01-20"),
+        updatedAt: new Date("2024-03-10"),
+        submittedAt: new Date("2024-01-21"),
+        documents: [],
+        workflowComments: [],
+      },
+
+      // STAGE 4 - PENDING CATCHMENT CHAIRPERSON DECISION #4 (Commercial)
+      {
+        id: "app_5",
+        applicationId: "MC2024-0005",
+        applicantName: "Michael Brown",
+        customerAccountNumber: "ACC007890",
+        cellularNumber: "0756789012",
+        physicalAddress: "654 Birch Lane, Masvingo",
+        postalAddress: "P.O. Box 7890, Masvingo",
+        permitType: "borehole",
+        intendedUse: "Commercial bottled water production",
+        landSize: 1.2,
+        numberOfBoreholes: 4,
+        gpsLatitude: -20.0637,
+        gpsLongitude: 30.8267,
+        waterSource: "High-quality groundwater aquifer",
+        waterSourceDetails: "Four production boreholes with water quality suitable for bottling operations",
+        waterAllocation: 55.0,
+        validityPeriod: 12,
+        comments: "Commercial bottled water facility requiring sustainability assessment",
+        status: "under_review",
+        currentStage: 4, // CATCHMENT CHAIRPERSON STAGE
+        createdBy: "1",
+        createdAt: new Date("2024-02-20"),
+        updatedAt: new Date("2024-03-12"),
+        submittedAt: new Date("2024-02-21"),
+        documents: [],
+        workflowComments: [],
+      },
+
+      // APPROVED BY CATCHMENT CHAIRPERSON (for testing permit printing)
+      {
+        id: "app_6",
+        applicationId: "MC2024-0006",
+        applicantName: "Jennifer Martinez",
+        customerAccountNumber: "ACC012345",
+        cellularNumber: "0767890123",
+        physicalAddress: "987 Maple Drive, Chinhoyi",
+        postalAddress: "P.O. Box 12345, Chinhoyi",
+        permitType: "borehole",
+        intendedUse: "Agricultural irrigation for crop production",
+        landSize: 8.5,
+        numberOfBoreholes: 2,
+        gpsLatitude: -17.3667,
+        gpsLongitude: 30.1833,
+        waterSource: "Intermediate groundwater aquifer",
+        waterSourceDetails: "Two boreholes at 65m and 70m depth for crop irrigation with drip system",
+        waterAllocation: 18.5,
+        validityPeriod: 8,
+        comments: "Agricultural irrigation with water-efficient drip system",
+        status: "approved",
+        currentStage: 5, // COMPLETED
+        createdBy: "1",
+        createdAt: new Date("2024-02-25"),
+        updatedAt: new Date("2024-03-15"),
+        submittedAt: new Date("2024-02-26"),
+        approvedAt: new Date("2024-03-15"),
+        documents: [],
+        workflowComments: [],
+      },
+
+      // REJECTED BY CATCHMENT CHAIRPERSON (for testing rejection notice printing)
+      {
+        id: "app_7",
+        applicationId: "MC2024-0007",
+        applicantName: "David Thompson",
+        customerAccountNumber: "ACC098765",
+        cellularNumber: "0778901234",
+        physicalAddress: "147 Elm Street, Kadoma",
+        postalAddress: "P.O. Box 98765, Kadoma",
+        permitType: "surface_water",
+        intendedUse: "Mining operations water supply",
+        landSize: 5.0,
+        numberOfBoreholes: 0,
+        gpsLatitude: -18.3333,
+        gpsLongitude: 29.9167,
+        waterSource: "Seasonal river near mining site",
+        waterSourceDetails: "River abstraction for mining operations with water recycling system",
+        waterAllocation: 75.0,
+        validityPeriod: 5,
+        comments: "Mining operation with environmental compliance requirements",
+        status: "rejected",
+        currentStage: 5, // COMPLETED
+        createdBy: "1",
+        createdAt: new Date("2024-02-28"),
+        updatedAt: new Date("2024-03-18"),
+        submittedAt: new Date("2024-02-28"),
+        rejectedAt: new Date("2024-03-18"),
+        documents: [],
+        workflowComments: [],
+      },
+
+      // STAGE 3 - PENDING CATCHMENT MANAGER REVIEW (for comparison)
+      {
+        id: "app_8",
+        applicationId: "MC2024-0008",
+        applicantName: "Lisa Anderson",
+        customerAccountNumber: "ACC054321",
+        cellularNumber: "0789012345",
+        physicalAddress: "258 Willow Street, Kwekwe",
+        postalAddress: "P.O. Box 54321, Kwekwe",
+        permitType: "borehole",
+        intendedUse: "Residential water supply",
+        landSize: 0.3,
+        numberOfBoreholes: 1,
+        gpsLatitude: -18.9167,
+        gpsLongitude: 29.8167,
+        waterSource: "Shallow groundwater aquifer",
+        waterSourceDetails: "Single borehole at 35m depth for residential use",
+        waterAllocation: 3.0,
+        validityPeriod: 5,
+        comments: "Standard residential application",
+        status: "under_review",
+        currentStage: 3, // CATCHMENT MANAGER STAGE
+        createdBy: "1",
+        createdAt: new Date("2024-03-01"),
+        updatedAt: new Date("2024-03-05"),
+        submittedAt: new Date("2024-03-02"),
+        documents: [],
+        workflowComments: [],
+      },
+
+      // STAGE 2 - PENDING SUB CATCHMENT CHAIRPERSON REVIEW #1
+      {
+        id: "app_9",
+        applicationId: "MC2024-0009",
+        applicantName: "Patricia Williams",
+        customerAccountNumber: "ACC111222",
+        cellularNumber: "0791234567",
+        physicalAddress: "159 Acacia Road, Norton",
+        postalAddress: "P.O. Box 111222, Norton",
+        permitType: "borehole",
+        intendedUse: "Small-scale commercial farming",
+        landSize: 3.5,
+        numberOfBoreholes: 1,
+        gpsLatitude: -17.8833,
+        gpsLongitude: 30.7,
+        waterSource: "Shallow groundwater aquifer",
+        waterSourceDetails: "Single borehole at 40m depth for small-scale farming operations",
+        waterAllocation: 8.0,
+        validityPeriod: 6,
+        comments: "Small-scale farming operation with sustainable practices",
+        status: "under_review",
+        currentStage: 2, // SUB CATCHMENT CHAIRPERSON STAGE
+        createdBy: "1",
+        createdAt: new Date("2024-03-15"),
+        updatedAt: new Date("2024-03-16"),
+        submittedAt: new Date("2024-03-16"),
+        documents: [],
+        workflowComments: [],
+      },
+
+      // STAGE 2 - PENDING SUB CATCHMENT CHAIRPERSON REVIEW #2
+      {
+        id: "app_10",
+        applicationId: "MC2024-0010",
+        applicantName: "James Rodriguez",
+        customerAccountNumber: "ACC333444",
+        cellularNumber: "0702345678",
+        physicalAddress: "267 Baobab Street, Chegutu",
+        postalAddress: "P.O. Box 333444, Chegutu",
+        permitType: "surface_water",
+        intendedUse: "Fish farming operations",
+        landSize: 2.8,
+        numberOfBoreholes: 0,
+        gpsLatitude: -18.1333,
+        gpsLongitude: 30.15,
+        waterSource: "Seasonal stream with pond construction",
+        waterSourceDetails: "Stream diversion for fish pond construction and aquaculture operations",
+        waterAllocation: 15.0,
+        validityPeriod: 8,
+        comments: "Aquaculture project with environmental considerations",
+        status: "under_review",
+        currentStage: 2, // SUB CATCHMENT CHAIRPERSON STAGE
+        createdBy: "1",
+        createdAt: new Date("2024-03-18"),
+        updatedAt: new Date("2024-03-19"),
+        submittedAt: new Date("2024-03-19"),
+        documents: [],
+        workflowComments: [],
+      },
+
+      // STAGE 2 - PENDING SUB CATCHMENT CHAIRPERSON REVIEW #3
+      {
+        id: "app_11",
+        applicationId: "MC2024-0011",
+        applicantName: "Grace Mukamuri",
+        customerAccountNumber: "ACC555666",
+        cellularNumber: "0713456789",
+        physicalAddress: "384 Msasa Drive, Chitungwiza",
+        postalAddress: "P.O. Box 555666, Chitungwiza",
+        permitType: "borehole",
+        intendedUse: "Community water supply project",
+        landSize: 0.2,
+        numberOfBoreholes: 1,
+        gpsLatitude: -18.0167,
+        gpsLongitude: 31.0833,
+        waterSource: "Community borehole system",
+        waterSourceDetails: "Community borehole with distribution network for residential area",
+        waterAllocation: 12.0,
+        validityPeriod: 10,
+        comments: "Community development project for water access",
+        status: "under_review",
+        currentStage: 2, // SUB CATCHMENT CHAIRPERSON STAGE
+        createdBy: "1",
+        createdAt: new Date("2024-03-20"),
+        updatedAt: new Date("2024-03-21"),
+        submittedAt: new Date("2024-03-21"),
+        documents: [],
+        workflowComments: [],
+      },
+
+      // APPROVED BY SUB CATCHMENT CHAIRPERSON (now at Stage 3)
+      {
+        id: "app_12",
+        applicationId: "MC2024-0012",
+        applicantName: "Thomas Chikwanha",
+        customerAccountNumber: "ACC777888",
+        cellularNumber: "0724567890",
+        physicalAddress: "492 Flame Lily Avenue, Ruwa",
+        postalAddress: "P.O. Box 777888, Ruwa",
+        permitType: "borehole",
+        intendedUse: "Horticultural farming operations",
+        landSize: 4.2,
+        numberOfBoreholes: 2,
+        gpsLatitude: -17.89,
+        gpsLongitude: 31.2444,
+        waterSource: "Intermediate groundwater aquifer",
+        waterSourceDetails: "Two boreholes for greenhouse and open field horticulture",
+        waterAllocation: 20.0,
+        validityPeriod: 7,
+        comments: "Horticultural project with modern irrigation systems",
+        status: "under_review",
+        currentStage: 3, // MOVED TO CATCHMENT MANAGER
+        createdBy: "1",
+        createdAt: new Date("2024-03-10"),
+        updatedAt: new Date("2024-03-25"),
+        submittedAt: new Date("2024-03-11"),
+        documents: [],
+        workflowComments: [],
+      },
+
+      // REJECTED BY SUB CATCHMENT CHAIRPERSON
+      {
+        id: "app_13",
+        applicationId: "MC2024-0013",
+        applicantName: "Susan Moyo",
+        customerAccountNumber: "ACC999000",
+        cellularNumber: "0735678901",
+        physicalAddress: "156 Jacaranda Close, Borrowdale",
+        postalAddress: "P.O. Box 999000, Borrowdale",
+        permitType: "surface_water",
+        intendedUse: "Recreational facility water features",
+        landSize: 1.5,
+        numberOfBoreholes: 0,
+        gpsLatitude: -17.8047,
+        gpsLongitude: 31.0492,
+        waterSource: "Ornamental pond and fountain system",
+        waterSourceDetails: "Water features for recreational facility including ponds and fountains",
+        waterAllocation: 25.0,
+        validityPeriod: 5,
+        comments: "Recreational water features for commercial facility",
+        status: "rejected",
+        currentStage: 5, // COMPLETED - REJECTED
+        createdBy: "1",
+        createdAt: new Date("2024-03-05"),
+        updatedAt: new Date("2024-03-22"),
+        submittedAt: new Date("2024-03-06"),
+        rejectedAt: new Date("2024-03-22"),
+        documents: [],
+        workflowComments: [],
+      },
+
+      // FULLY APPROVED APPLICATION (for permit printing test)
+      {
+        id: "app_14",
+        applicationId: "MC2024-0014",
+        applicantName: "Peter Ndlovu",
+        customerAccountNumber: "ACC123789",
+        cellularNumber: "0746789012",
+        physicalAddress: "678 Mukwa Street, Mbare",
+        postalAddress: "P.O. Box 123789, Mbare",
+        permitType: "borehole",
+        intendedUse: "Small business water supply",
+        landSize: 0.1,
+        numberOfBoreholes: 1,
+        gpsLatitude: -17.8667,
+        gpsLongitude: 31.0333,
+        waterSource: "Shallow borehole for business use",
+        waterSourceDetails: "Single borehole for small manufacturing business water supply",
+        waterAllocation: 5.0,
+        validityPeriod: 5,
+        comments: "Small business water supply application",
+        status: "approved",
+        currentStage: 6, // FULLY COMPLETED
+        createdBy: "1",
+        createdAt: new Date("2024-02-15"),
+        updatedAt: new Date("2024-03-28"),
+        submittedAt: new Date("2024-02-16"),
+        approvedAt: new Date("2024-03-28"),
+        documents: [],
+        workflowComments: [],
+      },
+    ]
+
+    // Add comprehensive sample comments for all stages
+    const sampleComments: WorkflowComment[] = [
+      // Comments for MC2024-0002 (Mary Johnson - Commercial Farming) - STAGE 4 PENDING
+      {
+        id: "comment_1",
+        applicationId: "app_2",
+        userId: "1",
         userType: "permitting_officer",
         stage: 1,
         comment:
-          "Initial review completed. Application documentation is complete and meets basic requirements. Water allocation request of 50 ML/annum appears reasonable for the intended agricultural use. GPS coordinates verified and fall within our jurisdiction. Forwarding to Chairperson for technical review.",
-        isRejectionReason: false,
-        createdAt: new Date("2024-01-15T10:30:00"),
-        updatedAt: new Date("2024-01-15T10:30:00"),
-      })
-
-      // Stage 2: Chairperson
-      this.workflowComments.push({
-        id: "comment-002",
-        applicationId: rejectedApp.id,
-        userId: "user-chair-001",
+          "Commercial farming application reviewed. All required documents submitted including land ownership certificates, environmental clearance, and borehole completion certificates. Water allocation calculation verified against farming requirements. Application meets all regulatory requirements for Stage 1 approval.",
+        action: "approve",
+        createdAt: new Date("2024-02-03"),
+      },
+      {
+        id: "comment_2",
+        applicationId: "app_2",
+        userId: "2",
         userType: "chairperson",
-        comment:
-          "Technical review completed. The proposed borehole locations are acceptable and the intended use aligns with catchment management objectives. Water allocation of 50 ML/annum is within sustainable limits for this area. Environmental impact appears minimal. Recommending approval and forwarding to Catchment Manager for final assessment.",
-        isRejectionReason: false,
         stage: 2,
-        createdAt: new Date("2024-01-16T14:15:00"),
-        updatedAt: new Date("2024-01-16T14:15:00"),
-      })
-
-      // Stage 3: Catchment Manager (Rejection)
-      this.workflowComments.push({
-        id: "comment-003",
-        applicationId: rejectedApp.id,
-        userId: "user-cm-001",
+        comment:
+          "Commercial farming operation with significant water allocation reviewed. Business plan and farming operations appear sustainable. Environmental impact assessment provided. Recommend technical feasibility assessment by Catchment Manager for aquifer sustainability evaluation.",
+        action: "approve",
+        createdAt: new Date("2024-02-15"),
+      },
+      {
+        id: "comment_3",
+        applicationId: "app_2",
+        userId: "3",
         userType: "catchment_manager",
         stage: 3,
         comment:
-          "After detailed hydrological assessment, I must reject this application. The proposed extraction site is located within 500 meters of a protected wetland area, which violates our environmental protection guidelines. Additionally, recent groundwater studies indicate declining water table levels in this specific area, making additional extraction unsustainable. The cumulative impact of existing permits in this sub-catchment has already reached 85% of sustainable yield capacity. Recommend applicant to consider alternative sites at least 1km away from sensitive ecological areas.",
-        isRejectionReason: true,
-        createdAt: new Date("2024-01-18T09:45:00"),
-        updatedAt: new Date("2024-01-18T09:45:00"),
-      })
-    }
+          "Technical assessment completed. Aquifer capacity analysis shows sustainable yield for requested allocation. Groundwater monitoring plan approved. Environmental compliance measures adequate. Water conservation practices with drip irrigation system commendable. Recommend approval for final decision.",
+        action: "approve",
+        createdAt: new Date("2024-03-05"),
+      },
 
-    // Add sample comments for MC2024-0014 (approved application)
-    const approvedApp = this.applications.find((app) => app.applicationId === "MC2024-0014")
-    if (approvedApp) {
-      // Clear existing comments first
-      this.workflowComments = this.workflowComments.filter((c) => c.applicationId !== approvedApp.id)
-
-      // Stage 1: Permitting Officer
-      this.workflowComments.push({
-        id: "comment-004",
-        applicationId: approvedApp.id,
-        userId: "user-po-001",
+      // Comments for MC2024-0003 (Robert Wilson - Industrial) - STAGE 4 PENDING
+      {
+        id: "comment_4",
+        applicationId: "app_3",
+        userId: "1",
         userType: "permitting_officer",
         stage: 1,
         comment:
-          "Application review completed successfully. All required documentation provided and verified. Applicant has demonstrated clear need for domestic water supply. Proposed extraction rate of 25 ML/annum is reasonable for household use. Site inspection confirms suitable location away from sensitive areas. Recommending for approval.",
-        isRejectionReason: false,
-        createdAt: new Date("2024-01-10T11:20:00"),
-        updatedAt: new Date("2024-01-10T11:20:00"),
-      })
-
-      // Stage 2: Chairperson
-      this.workflowComments.push({
-        id: "comment-005",
-        applicationId: approvedApp.id,
-        userId: "user-chair-001",
+          "Industrial water supply application for manufacturing facility. All documentation in order including industrial licenses, environmental impact assessment, and water treatment facility plans. Water allocation justified by production requirements. Wastewater treatment and recycling plans provided.",
+        action: "approve",
+        createdAt: new Date("2024-02-13"),
+      },
+      {
+        id: "comment_5",
+        applicationId: "app_3",
+        userId: "2",
         userType: "chairperson",
         stage: 2,
         comment:
-          "Technical assessment confirms suitability of proposed borehole location. Geological survey indicates adequate groundwater availability. No conflicts with existing water rights in the area. Environmental impact assessment shows minimal ecological disruption. Water allocation of 25 ML/annum approved for domestic use. Forwarding to Catchment Manager with positive recommendation.",
-        isRejectionReason: false,
-        createdAt: new Date("2024-01-12T15:30:00"),
-        updatedAt: new Date("2024-01-12T15:30:00"),
-      })
-
-      // Stage 3: Catchment Manager
-      this.workflowComments.push({
-        id: "comment-006",
-        applicationId: approvedApp.id,
-        userId: "user-cm-001",
+          "Industrial application with substantial water allocation reviewed. Manufacturing facility environmental compliance documentation adequate. Water recycling and treatment systems planned. Forward to Catchment Manager for detailed technical assessment of river abstraction impact.",
+        action: "approve",
+        createdAt: new Date("2024-02-25"),
+      },
+      {
+        id: "comment_6",
+        applicationId: "app_3",
+        userId: "3",
         userType: "catchment_manager",
         stage: 3,
         comment:
-          "Comprehensive catchment assessment completed. The proposed extraction falls well within sustainable yield parameters for this sub-catchment. Current allocation in this area is only at 45% capacity, allowing for additional sustainable extraction. Hydrological modeling confirms no adverse impact on downstream users or ecological flows. Water quality testing indicates excellent groundwater quality suitable for domestic use. Strongly recommend approval. Forwarding to Catchment Chairperson for final authorization.",
-        isRejectionReason: false,
-        createdAt: new Date("2024-01-14T13:10:00"),
-        updatedAt: new Date("2024-01-14T13:10:00"),
-      })
+          "River flow analysis completed. Seasonal abstraction plan acceptable with proposed storage facilities. Environmental monitoring protocols established. Industrial wastewater treatment meets discharge standards. Water recycling efficiency targets set at 70%. Technical assessment satisfactory - recommend for final approval.",
+        action: "approve",
+        createdAt: new Date("2024-03-08"),
+      },
 
-      // Stage 4: Catchment Chairperson
-      this.workflowComments.push({
-        id: "comment-007",
-        applicationId: approvedApp.id,
-        userId: "user-cchair-001",
+      // Comments for MC2024-0007 (David Thompson - Mining) - REJECTED
+      {
+        id: "comment_17",
+        applicationId: "app_7",
+        userId: "1",
+        userType: "permitting_officer",
+        stage: 1,
+        comment:
+          "Mining operations water supply application. All mining licenses and environmental clearances provided. Water recycling system planned for operations. High water allocation requested for mineral processing and dust suppression.",
+        action: "approve",
+        createdAt: new Date("2024-03-01"),
+      },
+      {
+        id: "comment_18",
+        applicationId: "app_7",
+        userId: "2",
+        userType: "chairperson",
+        stage: 2,
+        comment:
+          "Mining operation with substantial water requirements. Environmental compliance documentation provided. Water recycling plans show 60% efficiency target. Requires detailed technical assessment of environmental impact and water source sustainability.",
+        action: "approve",
+        createdAt: new Date("2024-03-10"),
+      },
+      {
+        id: "comment_19",
+        applicationId: "app_7",
+        userId: "3",
+        userType: "catchment_manager",
+        stage: 3,
+        comment:
+          "Technical assessment reveals concerns about seasonal river flow capacity during dry periods. Mining operations would significantly impact downstream water availability for existing users. Water recycling efficiency below recommended standards. Environmental impact assessment shows potential risks to aquatic ecosystems. Recommend approval with strict conditions and enhanced monitoring.",
+        action: "approve",
+        createdAt: new Date("2024-03-15"),
+      },
+      {
+        id: "comment_20",
+        applicationId: "app_7",
+        userId: "4",
         userType: "catchment_chairperson",
         stage: 4,
         comment:
-          "Final review completed. All technical, environmental, and regulatory requirements have been satisfied. The application demonstrates responsible water use planning and aligns with our catchment management strategy. Water allocation of 25 ML/annum approved for domestic use with standard conditions. Permit authorized for issuance with validity period of 5 years, subject to annual compliance monitoring.",
-        isRejectionReason: false,
-        createdAt: new Date("2024-01-16T16:45:00"),
-        updatedAt: new Date("2024-01-16T16:45:00"),
-      })
-    }
+          "After comprehensive review of all technical assessments and environmental impact studies, this application is rejected. Primary concerns: 1) Excessive water allocation would severely impact downstream users during dry seasons, 2) Proposed water recycling efficiency of 60% is insufficient for mining operations of this scale, 3) Environmental impact on seasonal river ecosystem is unacceptable, 4) Alternative water sources not adequately explored. Applicant may resubmit with enhanced water conservation measures, alternative water sources, and improved environmental mitigation strategies.",
+        action: "reject",
+        isRejectionReason: true,
+        createdAt: new Date("2024-03-18"),
+      },
 
-    // Add sample comments for MC2024-0009 (under review)
-    const underReviewApp = this.applications.find((app) => app.applicationId === "MC2024-0009")
-    if (underReviewApp) {
-      // Clear existing comments first
-      this.workflowComments = this.workflowComments.filter((c) => c.applicationId !== underReviewApp.id)
-
-      // Stage 1: Permitting Officer
-      this.workflowComments.push({
-        id: "comment-008",
-        applicationId: underReviewApp.id,
-        userId: "user-po-001",
+      // Comments for MC2024-0013 (Susan Moyo - Recreational) - REJECTED BY CHAIRPERSON
+      {
+        id: "comment_26",
+        applicationId: "app_13",
+        userId: "1",
         userType: "permitting_officer",
         stage: 1,
         comment:
-          "Initial application review in progress. Documentation appears complete, however, requesting additional clarification on intended irrigation schedule and crop rotation plans. Water allocation of 75 ML/annum for commercial agriculture requires detailed justification. Site visit scheduled for next week to verify proposed borehole locations and assess local water table conditions.",
-        isRejectionReason: false,
-        createdAt: new Date("2024-01-20T09:15:00"),
-        updatedAt: new Date("2024-01-20T09:15:00"),
-      })
-
-      // Stage 2: Chairperson
-      this.workflowComments.push({
-        id: "comment-009",
-        applicationId: underReviewApp.id,
-        userId: "user-chair-001",
+          "Recreational facility water features application including ornamental ponds and fountains. Business license and facility plans provided. Water allocation requested for aesthetic and recreational purposes.",
+        action: "approve",
+        createdAt: new Date("2024-03-06"),
+      },
+      {
+        id: "comment_27",
+        applicationId: "app_13",
+        userId: "2",
         userType: "chairperson",
         stage: 2,
         comment:
-          "Preliminary technical review indicates potential concerns with the high water allocation request. The proposed 75 ML/annum for 15 hectares of irrigation may exceed optimal water use efficiency standards. Requesting detailed irrigation system specifications and water conservation measures. Environmental impact assessment required due to proximity to seasonal wetlands. Awaiting additional documentation before proceeding.",
-        isRejectionReason: false,
-        createdAt: new Date("2024-01-22T14:20:00"),
-        updatedAt: new Date("2024-01-22T14:20:00"),
-      })
+          "After careful review of this recreational water features application, I must reject this request. Primary concerns: 1) The requested 25ML allocation for ornamental purposes is excessive and not justified given current water scarcity concerns, 2) Recreational water features are considered non-essential use during periods of water stress, 3) No water recycling or conservation measures proposed for the facility, 4) Alternative landscaping options using drought-resistant plants not explored, 5) The business case does not demonstrate sufficient community benefit to justify the large water allocation. The applicant may resubmit with significantly reduced water allocation, comprehensive water recycling systems, and drought-resistant landscaping alternatives.",
+        action: "reject",
+        isRejectionReason: true,
+        createdAt: new Date("2024-03-22"),
+      },
+
+      // Comments for MC2024-0014 (Peter Ndlovu - Small business) - FULLY APPROVED
+      {
+        id: "comment_28",
+        applicationId: "app_14",
+        userId: "1",
+        userType: "permitting_officer",
+        stage: 1,
+        comment:
+          "Small business water supply application for manufacturing operations. All business licenses and documentation provided. Water allocation appropriate for small-scale manufacturing. Environmental compliance measures adequate.",
+        action: "approve",
+        createdAt: new Date("2024-02-16"),
+      },
+      {
+        id: "comment_29",
+        applicationId: "app_14",
+        userId: "2",
+        userType: "chairperson",
+        stage: 2,
+        comment:
+          "Small business application with reasonable water allocation for manufacturing. Business case shows local employment creation and economic benefit. Water usage appropriate for scale of operations. Recommend technical assessment.",
+        action: "approve",
+        createdAt: new Date("2024-02-28"),
+      },
+      {
+        id: "comment_30",
+        applicationId: "app_14",
+        userId: "3",
+        userType: "catchment_manager",
+        stage: 3,
+        comment:
+          "Technical assessment completed for small business water supply. Borehole specifications appropriate for requested yield. No environmental concerns identified. Water allocation sustainable for local aquifer. Recommend approval.",
+        action: "approve",
+        createdAt: new Date("2024-03-15"),
+      },
+      {
+        id: "comment_31",
+        applicationId: "app_14",
+        userId: "4",
+        userType: "catchment_chairperson",
+        stage: 4,
+        comment:
+          "Small business water supply application approved. All technical assessments positive. Local economic benefit with job creation. Environmental compliance adequate. Permit approved for issuance.",
+        action: "approve",
+        createdAt: new Date("2024-03-28"),
+      },
+
+      // Comments for MC2024-0009 (Patricia Williams - Small-scale farming) - STAGE 2 PENDING
+      {
+        id: "comment_21",
+        applicationId: "app_9",
+        userId: "1",
+        userType: "permitting_officer",
+        stage: 1,
+        comment:
+          "Small-scale commercial farming application reviewed. All documentation in order including land ownership certificates and farming business plan. Water allocation appropriate for proposed crop production. Environmental clearance provided.",
+        action: "approve",
+        createdAt: new Date("2024-03-16"),
+      },
+    ]
+
+    // Add sample documents for testing
+    const sampleDocuments: Document[] = [
+      // Documents for MC2024-0002 (Mary Johnson)
+      {
+        id: "doc_1",
+        applicationId: "app_2",
+        fileName: "GW7B_Application_Form_Johnson.pdf",
+        fileType: "pdf",
+        fileSize: 245760,
+        documentType: "application_form",
+        uploadedAt: new Date("2024-02-01"),
+      },
+      {
+        id: "doc_2",
+        applicationId: "app_2",
+        fileName: "Environmental_Clearance_Certificate.pdf",
+        fileType: "pdf",
+        fileSize: 189440,
+        documentType: "environmental_clearance",
+        uploadedAt: new Date("2024-02-01"),
+      },
+      {
+        id: "doc_3",
+        applicationId: "app_2",
+        fileName: "Site_Plan_Dam_Construction.pdf",
+        fileType: "pdf",
+        fileSize: 512000,
+        documentType: "site_plan",
+        uploadedAt: new Date("2024-02-01"),
+      },
+
+      // Documents for MC2024-0003 (Robert Wilson)
+      {
+        id: "doc_4",
+        applicationId: "app_3",
+        fileName: "GW7B_Application_Wilson_Industrial.pdf",
+        fileType: "pdf",
+        fileSize: 198720,
+        documentType: "application_form",
+        uploadedAt: new Date("2024-02-10"),
+      },
+      {
+        id: "doc_5",
+        applicationId: "app_3",
+        fileName: "Borehole_Completion_Certificate_BH1.pdf",
+        fileType: "pdf",
+        fileSize: 156800,
+        documentType: "borehole_completion",
+        uploadedAt: new Date("2024-02-10"),
+      },
+    ]
+
+    // Add sample activity logs
+    const sampleLogs: ActivityLog[] = [
+      {
+        id: "log_1",
+        userId: "1",
+        userType: "permitting_officer",
+        action: "application_created",
+        description: "Created new application MC2024-0014",
+        applicationId: "app_14",
+        timestamp: new Date("2024-02-15T09:30:00"),
+      },
+      {
+        id: "log_2",
+        userId: "1",
+        userType: "permitting_officer",
+        action: "comment_added",
+        description: "Added review comment for MC2024-0014",
+        applicationId: "app_14",
+        timestamp: new Date("2024-02-16T11:20:00"),
+      },
+      {
+        id: "log_3",
+        userId: "2",
+        userType: "chairperson",
+        action: "application_approved",
+        description: "Approved application MC2024-0014 at Stage 2",
+        applicationId: "app_14",
+        timestamp: new Date("2024-02-28T15:30:00"),
+      },
+    ]
+
+    // Add sample messages
+    const sampleMessages: Message[] = [
+      {
+        id: "msg_1",
+        senderId: "1",
+        receiverId: "2",
+        subject: "Application MC2024-0014 Review",
+        content: "Please review the small business water supply application. All documentation appears complete.",
+        isPublic: false,
+        createdAt: new Date("2024-02-16T14:00:00"),
+      },
+      {
+        id: "msg_2",
+        senderId: "2",
+        receiverId: "1",
+        subject: "Re: Application MC2024-0014 Review",
+        content: "Review completed. Application approved and forwarded to Catchment Manager.",
+        isPublic: false,
+        readAt: new Date("2024-02-28T16:00:00"),
+        createdAt: new Date("2024-02-28T15:45:00"),
+      },
+    ]
+
+    this.applications = sampleApplications
+    this.comments = sampleComments
+    this.documents = sampleDocuments
+    this.logs = sampleLogs
+    this.messages = sampleMessages
+    this.applicationCounter = 15
+  }
+
+  /* ───────────────────────── Applications CRUD ──────────────────────────── */
+  async createApplication(
+    data: Omit<PermitApplication, "id" | "applicationId" | "createdAt" | "updatedAt">,
+  ): Promise<PermitApplication> {
+    console.log("Database: Creating application with data:", data) // Add debugging
+
+    const application: PermitApplication = {
+      ...data,
+      id: `app_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`, // More unique ID
+      applicationId: `MC${new Date().getFullYear()}-${String(this.applicationCounter++).padStart(4, "0")}`,
+      createdAt: new Date(),
+      updatedAt: new Date(),
     }
+
+    console.log("Database: Created application object:", application) // Add debugging
+    this.applications.push(application)
+    console.log("Database: Total applications now:", this.applications.length) // Add debugging
+    console.log(
+      "Database: All applications:",
+      this.applications.map((app) => ({
+        id: app.applicationId,
+        status: app.status,
+        createdBy: app.createdBy,
+        applicantName: app.applicantName,
+      })),
+    ) // Add debugging
+
+    return application
+  }
+
+  async getApplications(filters?: {
+    status?: string
+    userType?: string
+    userId?: string
+  }): Promise<PermitApplication[]> {
+    let filtered = [...this.applications]
+
+    if (filters?.status) filtered = filtered.filter((a) => a.status === filters.status)
+    // add more filters as required
+
+    return filtered.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
+  }
+
+  async getApplicationById(id: string) {
+    return this.applications.find((a) => a.id === id) ?? null
+  }
+
+  async updateApplication(id: string, updates: Partial<PermitApplication>) {
+    const idx = this.applications.findIndex((a) => a.id === id)
+    if (idx === -1) return null
+    this.applications[idx] = { ...this.applications[idx], ...updates, updatedAt: new Date() }
+    return this.applications[idx]
+  }
+
+  async deleteApplication(id: string) {
+    const idx = this.applications.findIndex((a) => a.id === id)
+    if (idx === -1) return false
+    this.applications.splice(idx, 1)
+    return true
+  }
+
+  /* ─────────────────────────── Workflow comments ────────────────────────── */
+  async addComment(comment: Omit<WorkflowComment, "id" | "createdAt">) {
+    const newComment: WorkflowComment = { ...comment, id: `comment_${Date.now()}`, createdAt: new Date() }
+    this.comments.push(newComment)
+    return newComment
+  }
+
+  async getCommentsByApplication(applicationId: string) {
+    return this.comments.filter((c) => c.applicationId === applicationId)
+  }
+
+  // ICT can edit any comment
+  async updateComment(commentId: string, updates: Partial<WorkflowComment>, userType: string) {
+    if (userType !== "ict") return null
+
+    const idx = this.comments.findIndex((c) => c.id === commentId)
+    if (idx === -1) return null
+
+    this.comments[idx] = { ...this.comments[idx], ...updates }
+    return this.comments[idx]
+  }
+
+  async deleteComment(commentId: string, userType: string) {
+    if (userType !== "ict") return false
+
+    const idx = this.comments.findIndex((c) => c.id === commentId)
+    if (idx === -1) return false
+
+    this.comments.splice(idx, 1)
+    return true
+  }
+
+  /* ───────────────────────────── Activity log ───────────────────────────── */
+  async addLog(log: Omit<ActivityLog, "id" | "timestamp">) {
+    // Log all activities including ICT (ICT activities should be logged for audit purposes)
+    const newLog: ActivityLog = { ...log, id: `log_${Date.now()}`, timestamp: new Date() }
+    this.logs.push(newLog)
+    return newLog
+  }
+
+  async getLogs(filters?: { userId?: string; applicationId?: string }) {
+    let res = [...this.logs]
+    if (filters?.userId) res = res.filter((l) => l.userId === filters.userId)
+    if (filters?.applicationId) res = res.filter((l) => l.applicationId === filters.applicationId)
+    return res.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
+  }
+
+  // ICT can edit logs
+  async updateLog(logId: string, updates: Partial<ActivityLog>, userType: string) {
+    if (userType !== "ict") return null
+
+    const idx = this.logs.findIndex((l) => l.id === logId)
+    if (idx === -1) return null
+
+    this.logs[idx] = { ...this.logs[idx], ...updates }
+    return this.logs[idx]
+  }
+
+  async deleteLog(logId: string, userType: string) {
+    if (userType !== "ict") return false
+
+    const idx = this.logs.findIndex((l) => l.id === logId)
+    if (idx === -1) return false
+
+    this.logs.splice(idx, 1)
+    return true
+  }
+
+  /* ────────────────────────────── Messaging ─────────────────────────────── */
+  async sendMessage(message: Omit<Message, "id" | "createdAt">) {
+    const newMsg: Message = { ...message, id: `msg_${Date.now()}`, createdAt: new Date() }
+    this.messages.push(newMsg)
+    return newMsg
+  }
+
+  async getMessages(userId: string, isPublic?: boolean) {
+    return this.messages
+      .filter((m) => (isPublic ? m.isPublic : !m.isPublic && (m.senderId === userId || m.receiverId === userId)))
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+  }
+
+  async markMessageAsRead(messageId: string) {
+    const idx = this.messages.findIndex((m) => m.id === messageId)
+    if (idx !== -1) this.messages[idx].readAt = new Date()
+  }
+
+  /* ────────────────────────────── Users CRUD ────────────────────────────── */
+  async getUsers() {
+    return [...this.users]
+  }
+
+  async createUser(data: Omit<User, "id" | "createdAt" | "updatedAt">) {
+    const newUser: User = {
+      ...data,
+      id: `user_${Date.now()}`,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }
+    this.users.push(newUser)
+    return newUser
+  }
+
+  async updateUser(id: string, updates: Partial<User>) {
+    const idx = this.users.findIndex((u) => u.id === id)
+    if (idx === -1) return null
+    this.users[idx] = { ...this.users[idx], ...updates, updatedAt: new Date() }
+    return this.users[idx]
+  }
+
+  async deleteUser(id: string) {
+    const idx = this.users.findIndex((u) => u.id === id)
+    if (idx === -1) return false
+    this.users.splice(idx, 1)
+    return true
+  }
+
+  /* ───────────────────────────── Documents CRUD ─────────────────────────── */
+  async uploadDocument(doc: Omit<Document, "id" | "uploadedAt">) {
+    const newDoc: Document = { ...doc, id: `doc_${Date.now()}`, uploadedAt: new Date() }
+    this.documents.push(newDoc)
+    return newDoc
+  }
+
+  async getDocumentsByApplication(applicationId: string) {
+    return this.documents.filter((d) => d.applicationId === applicationId)
+  }
+
+  async deleteDocument(id: string) {
+    const idx = this.documents.findIndex((d) => d.id === id)
+    if (idx === -1) return false
+    this.documents.splice(idx, 1)
+    return true
+  }
+
+  // ICT can delete any document
+  async forceDeleteDocument(id: string, userType: string) {
+    if (userType !== "ict") return false
+    return this.deleteDocument(id)
   }
 }
 
-// ──────────────────────────────────────────────────────────────
-//  Export a singleton database instance so it can be imported
-//  elsewhere in the application (e.g. `import { db } from "@/lib/database"`)
-// ──────────────────────────────────────────────────────────────
-export const db = new Database()
+export const db = new MockDatabase()
