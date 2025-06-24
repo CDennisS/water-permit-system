@@ -44,24 +44,7 @@ import {
 } from "lucide-react"
 import type { PermitApplication } from "@/types"
 import { db } from "@/lib/database"
-import type React from "react"
-
-// --- Safe chart wrapper (prevents Recharts null-child crash) ---
-function ChartOrPlaceholder({
-  data,
-  children,
-}: {
-  data: any[]
-  children: React.ReactNode
-}) {
-  return data && data.length ? (
-    (children as JSX.Element)
-  ) : (
-    <div className="flex h-full w-full items-center justify-center text-sm text-muted-foreground">
-      {"No data to display"}
-    </div>
-  )
-}
+import { ChartOrPlaceholder } from "./chart-or-placeholder"
 
 interface DateFilter {
   field: string
@@ -1376,7 +1359,7 @@ export function ReportsAnalytics() {
           <CardContent>
             <ChartOrPlaceholder data={chartData}>
               <ResponsiveContainer width="100%" height={300}>
-                {filters.chartType === "bar" && (
+                {filters.chartType === "bar" ? (
                   <BarChart data={chartData}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="name" />
@@ -1384,8 +1367,7 @@ export function ReportsAnalytics() {
                     <Tooltip />
                     <Bar dataKey="value" fill="#3B82F6" />
                   </BarChart>
-                )}
-                {filters.chartType === "pie" && (
+                ) : filters.chartType === "pie" ? (
                   <PieChart>
                     <Pie
                       data={chartData}
@@ -1403,8 +1385,7 @@ export function ReportsAnalytics() {
                     </Pie>
                     <Tooltip />
                   </PieChart>
-                )}
-                {filters.chartType === "line" && (
+                ) : filters.chartType === "line" ? (
                   <LineChart data={chartData}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="name" />
@@ -1412,8 +1393,7 @@ export function ReportsAnalytics() {
                     <Tooltip />
                     <Line type="monotone" dataKey="value" stroke="#3B82F6" />
                   </LineChart>
-                )}
-                {filters.chartType === "area" && (
+                ) : (
                   <AreaChart data={chartData}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="name" />

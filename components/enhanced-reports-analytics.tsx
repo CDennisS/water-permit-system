@@ -25,6 +25,7 @@ import { FileText, Download, AlertTriangle, Clock, TrendingUp, BarChart3, PieCha
 import type { PermitApplication } from "@/types"
 import { db } from "@/lib/database"
 import { AdvancedDashboardFilters, type DashboardFilterState } from "./advanced-dashboard-filters"
+import { ChartOrPlaceholder } from "./chart-or-placeholder"
 
 interface ReportFilters {
   dateRange: string
@@ -513,8 +514,8 @@ export function EnhancedReportsAnalytics() {
                 <CardTitle>Application Trends Over Time</CardTitle>
               </CardHeader>
               <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  {monthlyTrends.length > 0 && (
+                <ChartOrPlaceholder data={monthlyTrends}>
+                  <ResponsiveContainer width="100%" height={300}>
                     <AreaChart data={monthlyTrends}>
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="month" />
@@ -545,8 +546,8 @@ export function EnhancedReportsAnalytics() {
                         fillOpacity={0.6}
                       />
                     </AreaChart>
-                  )}
-                </ResponsiveContainer>
+                  </ResponsiveContainer>
+                </ChartOrPlaceholder>
               </CardContent>
             </Card>
 
@@ -555,8 +556,8 @@ export function EnhancedReportsAnalytics() {
                 <CardTitle>Monthly Application Volume</CardTitle>
               </CardHeader>
               <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  {monthlyTrends.length > 0 && (
+                <ChartOrPlaceholder data={monthlyTrends}>
+                  <ResponsiveContainer width="100%" height={300}>
                     <LineChart data={monthlyTrends}>
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="month" />
@@ -566,8 +567,8 @@ export function EnhancedReportsAnalytics() {
                       <Line type="monotone" dataKey="approved" stroke="#10B981" strokeWidth={2} />
                       <Line type="monotone" dataKey="rejected" stroke="#EF4444" strokeWidth={2} />
                     </LineChart>
-                  )}
-                </ResponsiveContainer>
+                  </ResponsiveContainer>
+                </ChartOrPlaceholder>
               </CardContent>
             </Card>
           </div>
@@ -580,8 +581,8 @@ export function EnhancedReportsAnalytics() {
                 <CardTitle>Permit Type Distribution</CardTitle>
               </CardHeader>
               <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  {permitDistribution.length > 0 && (
+                <ChartOrPlaceholder data={permitDistribution}>
+                  <ResponsiveContainer width="100%" height={300}>
                     <PieChart>
                       <Pie
                         data={permitDistribution}
@@ -599,8 +600,8 @@ export function EnhancedReportsAnalytics() {
                       </Pie>
                       <Tooltip />
                     </PieChart>
-                  )}
-                </ResponsiveContainer>
+                  </ResponsiveContainer>
+                </ChartOrPlaceholder>
               </CardContent>
             </Card>
 
@@ -609,8 +610,8 @@ export function EnhancedReportsAnalytics() {
                 <CardTitle>Status Distribution</CardTitle>
               </CardHeader>
               <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  {statusDistribution.length > 0 && (
+                <ChartOrPlaceholder data={statusDistribution}>
+                  <ResponsiveContainer width="100%" height={300}>
                     <PieChart>
                       <Pie
                         data={statusDistribution}
@@ -628,8 +629,8 @@ export function EnhancedReportsAnalytics() {
                       </Pie>
                       <Tooltip />
                     </PieChart>
-                  )}
-                </ResponsiveContainer>
+                  </ResponsiveContainer>
+                </ChartOrPlaceholder>
               </CardContent>
             </Card>
           </div>
@@ -641,17 +642,19 @@ export function EnhancedReportsAnalytics() {
               <CardTitle>Processing Performance Metrics</CardTitle>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={monthlyTrends}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="month" />
-                  <YAxis />
-                  <Tooltip />
-                  <Bar dataKey="approved" fill="#10B981" name="Approved" />
-                  <Bar dataKey="rejected" fill="#EF4444" name="Rejected" />
-                  <Bar dataKey="pending" fill="#F59E0B" name="Pending" />
-                </BarChart>
-              </ResponsiveContainer>
+              <ChartOrPlaceholder data={monthlyTrends}>
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={monthlyTrends}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="month" />
+                    <YAxis />
+                    <Tooltip />
+                    <Bar dataKey="approved" fill="#10B981" name="Approved" />
+                    <Bar dataKey="rejected" fill="#EF4444" name="Rejected" />
+                    <Bar dataKey="pending" fill="#F59E0B" name="Pending" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </ChartOrPlaceholder>
             </CardContent>
           </Card>
         </TabsContent>
@@ -662,8 +665,8 @@ export function EnhancedReportsAnalytics() {
               <CardTitle>Water Allocation Trends</CardTitle>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                {waterAllocationTrends.length > 0 && (
+              <ChartOrPlaceholder data={waterAllocationTrends}>
+                <ResponsiveContainer width="100%" height={300}>
                   <AreaChart data={waterAllocationTrends}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="month" />
@@ -672,8 +675,8 @@ export function EnhancedReportsAnalytics() {
                     <Area type="monotone" dataKey="allocation" stroke="#0088FE" fill="#0088FE" fillOpacity={0.6} />
                     <Area type="monotone" dataKey="avgAllocation" stroke="#00C49F" fill="#00C49F" fillOpacity={0.4} />
                   </AreaChart>
-                )}
-              </ResponsiveContainer>
+                </ResponsiveContainer>
+              </ChartOrPlaceholder>
             </CardContent>
           </Card>
         </TabsContent>
@@ -681,4 +684,3 @@ export function EnhancedReportsAnalytics() {
     </div>
   )
 }
-</merged_code>

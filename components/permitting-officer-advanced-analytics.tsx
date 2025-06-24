@@ -29,6 +29,7 @@ import {
 import { Download, Clock, AlertTriangle, CheckCircle, Users, Filter, Target, Zap } from "lucide-react"
 import type { PermitApplication, User } from "@/types"
 import { db } from "@/lib/database"
+import { ChartOrPlaceholder } from "./chart-or-placeholder"
 
 interface PermittingOfficerAnalyticsProps {
   user: User
@@ -779,8 +780,8 @@ export function PermittingOfficerAdvancedAnalytics({ user }: PermittingOfficerAn
                 <CardTitle>Monthly Processing Efficiency</CardTitle>
               </CardHeader>
               <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  {efficiencyData.length > 0 && (
+                <ChartOrPlaceholder data={efficiencyData}>
+                  <ResponsiveContainer width="100%" height={300}>
                     <AreaChart data={efficiencyData}>
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="month" />
@@ -795,8 +796,8 @@ export function PermittingOfficerAdvancedAnalytics({ user }: PermittingOfficerAn
                         fillOpacity={0.4}
                       />
                     </AreaChart>
-                  )}
-                </ResponsiveContainer>
+                  </ResponsiveContainer>
+                </ChartOrPlaceholder>
               </CardContent>
             </Card>
 
@@ -805,8 +806,8 @@ export function PermittingOfficerAdvancedAnalytics({ user }: PermittingOfficerAn
                 <CardTitle>Processing Time Distribution</CardTitle>
               </CardHeader>
               <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  {processingTimeData.length > 0 && (
+                <ChartOrPlaceholder data={processingTimeData}>
+                  <ResponsiveContainer width="100%" height={300}>
                     <PieChart>
                       <Pie
                         data={processingTimeData}
@@ -824,8 +825,8 @@ export function PermittingOfficerAdvancedAnalytics({ user }: PermittingOfficerAn
                       </Pie>
                       <Tooltip />
                     </PieChart>
-                  )}
-                </ResponsiveContainer>
+                  </ResponsiveContainer>
+                </ChartOrPlaceholder>
               </CardContent>
             </Card>
           </div>
@@ -838,8 +839,8 @@ export function PermittingOfficerAdvancedAnalytics({ user }: PermittingOfficerAn
                 <CardTitle>Permit Type Workload Distribution</CardTitle>
               </CardHeader>
               <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  {workloadData.length > 0 && (
+                <ChartOrPlaceholder data={workloadData}>
+                  <ResponsiveContainer width="100%" height={300}>
                     <BarChart data={workloadData}>
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="name" />
@@ -847,8 +848,8 @@ export function PermittingOfficerAdvancedAnalytics({ user }: PermittingOfficerAn
                       <Tooltip />
                       <Bar dataKey="value" fill="#3B82F6" />
                     </BarChart>
-                  )}
-                </ResponsiveContainer>
+                  </ResponsiveContainer>
+                </ChartOrPlaceholder>
               </CardContent>
             </Card>
 
@@ -857,8 +858,8 @@ export function PermittingOfficerAdvancedAnalytics({ user }: PermittingOfficerAn
                 <CardTitle>Monthly Workload Trends</CardTitle>
               </CardHeader>
               <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  {efficiencyData.length > 0 && (
+                <ChartOrPlaceholder data={efficiencyData}>
+                  <ResponsiveContainer width="100%" height={300}>
                     <LineChart data={efficiencyData}>
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="month" />
@@ -867,8 +868,8 @@ export function PermittingOfficerAdvancedAnalytics({ user }: PermittingOfficerAn
                       <Line type="monotone" dataKey="submitted" stroke="#F59E0B" strokeWidth={2} />
                       <Line type="monotone" dataKey="processed" stroke="#10B981" strokeWidth={2} />
                     </LineChart>
-                  )}
-                </ResponsiveContainer>
+                  </ResponsiveContainer>
+                </ChartOrPlaceholder>
               </CardContent>
             </Card>
           </div>
@@ -880,8 +881,8 @@ export function PermittingOfficerAdvancedAnalytics({ user }: PermittingOfficerAn
               <CardTitle>Performance Overview</CardTitle>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={400}>
-                {efficiencyData.length > 0 && (
+              <ChartOrPlaceholder data={efficiencyData}>
+                <ResponsiveContainer width="100%" height={400}>
                   <AreaChart data={efficiencyData}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="month" />
@@ -904,8 +905,8 @@ export function PermittingOfficerAdvancedAnalytics({ user }: PermittingOfficerAn
                       fillOpacity={0.6}
                     />
                   </AreaChart>
-                )}
-              </ResponsiveContainer>
+                </ResponsiveContainer>
+              </ChartOrPlaceholder>
             </CardContent>
           </Card>
         </TabsContent>
