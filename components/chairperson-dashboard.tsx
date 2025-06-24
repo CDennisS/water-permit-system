@@ -112,8 +112,8 @@ export function ChairpersonDashboard({ user }: ChairpersonDashboardProps) {
   const handleBulkSubmit = async () => {
     const pendingApps = applications.filter((a) => a.currentStage === 2 && a.status === "submitted")
 
-    const allReviewed = pendingApps.every((app) =>
-      app.workflowComments.some((c) => c.userType === "chairperson" && c.action === "review"),
+    const allReviewed = pendingApps.every(
+      (app) => app.workflowComments?.some((c) => c.userType === "chairperson" && c.action === "review") ?? false,
     )
 
     if (!allReviewed) {
@@ -233,9 +233,8 @@ export function ChairpersonDashboard({ user }: ChairpersonDashboardProps) {
                   .filter((a) => a.currentStage === 2 && a.status === "submitted")
                   .slice(0, 10)
                   .map((app) => {
-                    const isReviewed = app.workflowComments.some(
-                      (c) => c.userType === "chairperson" && c.action === "review",
-                    )
+                    const isReviewed =
+                      app.workflowComments?.some((c) => c.userType === "chairperson" && c.action === "review") ?? false
                     return (
                       <div
                         key={app.id}
