@@ -22,6 +22,7 @@ export function ChairpersonDashboard({ user }: ChairpersonDashboardProps) {
   const [selectedApplication, setSelectedApplication] = useState<PermitApplication | null>(null)
   const [activeView, setActiveView] = useState("overview")
   const [unreadMessageCount, setUnreadMessageCount] = useState(0)
+  const [reviewedApplications, setReviewedApplications] = useState<Set<string>>(new Set())
   const [stats, setStats] = useState({
     totalApplications: 0,
     pendingReview: 0,
@@ -43,8 +44,20 @@ export function ChairpersonDashboard({ user }: ChairpersonDashboardProps) {
 
     setApplications(relevant)
 
-    // statistics
-    const pendingReview = relevant.filter((a) => a.currentStage === 2 && a.status === "submitted").length
+    // Load review status for each application
+    const reviewedSet = new Set<string>()
+    for (const app of relevant) {
+      const comments = await db.getCommentsByApplication(app.id)
+      const chairpersonReview = comments.find((c) => c.userType === "chairperson" && c.action === "review")
+      if (chairpersonReview) {
+        reviewedSet.add(app.id)
+      }
+    }
+    setReviewedApplications(reviewedSet)
+
+    // Calculate statistics with proper review status
+    const stage2Applications = relevant.filter((a) => a.currentStage === 2 && a.status === "submitted")
+    const pendingReview = stage2Applications.filter((a) => !reviewedSet.has(a.id)).length
 
     const monthStart = new Date()
     monthStart.setDate(1)
@@ -108,36 +121,27 @@ export function ChairpersonDashboard({ user }: ChairpersonDashboardProps) {
   }
 
   const handleBulkSubmit = async () => {
-    const pendingApps = applications.filter((a) => a.currentStage === 2 && a.status === "submitted")
+    const stage2Applications = applications.filter((a) => a.currentStage === 2 && a.status === "submitted")
+    const pendingApps = stage2Applications.filter((app) => reviewedApplications.has(app.id))
 
-    console.log("Pending applications:", pendingApps.length)
+    console.log("Stage 2 applications:", stage2Applications.length)
+    console.log("Reviewed applications:", pendingApps.length)
     console.log(
-      "Applications to check:",
-      pendingApps.map((app) => ({
-        id: app.applicationId,
-        comments: app.workflowComments?.length || 0,
-        hasChairpersonReview: app.workflowComments?.some((c) => c.userType === "chairperson" && c.action === "review"),
-      })),
+      "Applications to submit:",
+      pendingApps.map((app) => app.applicationId),
     )
 
-    const allReviewed = pendingApps.every(
-      (app) => app.workflowComments?.some((c) => c.userType === "chairperson" && c.action === "review") ?? false,
-    )
-
-    console.log("All applications reviewed:", allReviewed)
-
-    if (!allReviewed) {
-      const unreviewed = pendingApps.filter(
-        (app) => !(app.workflowComments?.some((c) => c.userType === "chairperson" && c.action === "review") ?? false),
-      )
-      alert(
-        `Please review all applications before submitting to next stage. Unreviewed: ${unreviewed.map((a) => a.applicationId).join(", ")}`,
-      )
+    if (pendingApps.length === 0) {
+      alert("No reviewed applications to submit. Please review applications first.")
       return
     }
 
-    if (!confirm(`Are you sure you want to submit ${pendingApps.length} applications to the Catchment Manager?`)) {
-      return
+    const unreviewed = stage2Applications.filter((app) => !reviewedApplications.has(app.id))
+    if (unreviewed.length > 0) {
+      const proceed = confirm(
+        `${unreviewed.length} applications are still pending review: ${unreviewed.map((a) => a.applicationId).join(", ")}.\n\nDo you want to submit only the ${pendingApps.length} reviewed applications to the Catchment Manager?`,
+      )
+      if (!proceed) return
     }
 
     try {
@@ -155,11 +159,11 @@ export function ChairpersonDashboard({ user }: ChairpersonDashboardProps) {
         userId: user.id,
         userType: user.userType,
         action: "Bulk Submit Applications",
-        details: `Submitted ${pendingApps.length} applications to Catchment Manager`,
+        details: `Submitted ${pendingApps.length} reviewed applications to Catchment Manager`,
       })
 
       console.log("Bulk submission completed successfully")
-      alert(`Successfully submitted ${pendingApps.length} applications to Catchment Manager`)
+      alert(`Successfully submitted ${pendingApps.length} reviewed applications to Catchment Manager`)
       loadDashboardData()
     } catch (error) {
       console.error("Bulk submission failed:", error)
@@ -170,6 +174,10 @@ export function ChairpersonDashboard({ user }: ChairpersonDashboardProps) {
   const handleBackToOverview = () => {
     setSelectedApplication(null)
     loadDashboardData() // Refresh data to show updated review status
+  }
+
+  const isApplicationReviewed = (applicationId: string) => {
+    return reviewedApplications.has(applicationId)
   }
 
   /* ───────────────────── render ───────────────────── */
@@ -246,9 +254,7 @@ export function ChairpersonDashboard({ user }: ChairpersonDashboardProps) {
                   {applications
                     .filter((a) => a.currentStage === 2 && a.status === "submitted")
                     .map((app) => {
-                      const isReviewed =
-                        app.workflowComments?.some((c) => c.userType === "chairperson" && c.action === "review") ??
-                        false
+                      const isReviewed = isApplicationReviewed(app.id)
                       return (
                         <div
                           key={app.id}
@@ -343,7 +349,7 @@ export function ChairpersonDashboard({ user }: ChairpersonDashboardProps) {
                                 className="flex items-center"
                               >
                                 <Eye className="h-4 w-4 mr-2" />
-                                Review Application
+                                {isReviewed ? "View Review" : "Review Application"}
                               </Button>
                             </div>
                           </div>
