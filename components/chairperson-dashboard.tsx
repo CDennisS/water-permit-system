@@ -3,26 +3,26 @@
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { FileText, Users, CheckCircle, Clock, AlertTriangle, Eye, ArrowLeft, MapPin, Phone } from "lucide-react"
 import type { User, PermitApplication } from "@/types"
 import { db } from "@/lib/database"
 import { ChairpersonReviewWorkflow } from "./chairperson-review-workflow"
+import { MessagingSystem } from "./messaging-system"
 import { ActivityLogs } from "./activity-logs"
 import { UnreadMessageNotification } from "./unread-message-notification"
-import { Button } from "@/components/ui/button"
+import { ChairpersonApplicationHistory } from "./chairperson-application-history"
 
 interface ChairpersonDashboardProps {
   user: User
 }
 
 export function ChairpersonDashboard({ user }: ChairpersonDashboardProps) {
-  /* ───────────────────── state ───────────────────── */
   const [applications, setApplications] = useState<PermitApplication[]>([])
   const [selectedApplication, setSelectedApplication] = useState<PermitApplication | null>(null)
   const [activeView, setActiveView] = useState("overview")
   const [unreadMessageCount, setUnreadMessageCount] = useState(0)
-  const [reviewedApplications, setReviewedApplications] = useState<Set<string>>(new Set())
   const [stats, setStats] = useState({
     totalApplications: 0,
     pendingReview: 0,
@@ -30,62 +30,90 @@ export function ChairpersonDashboard({ user }: ChairpersonDashboardProps) {
     approvalRate: 0,
   })
 
-  /* ────────────────── data loading ────────────────── */
   useEffect(() => {
     loadDashboardData()
     loadUnreadMessages()
-    const interval = setInterval(loadUnreadMessages, 30_000)
-    return () => clearInterval(interval)
+
+    // Set up polling for unread messages
+    const messageInterval = setInterval(loadUnreadMessages, 30000)
+    return () => clearInterval(messageInterval)
   }, [user.id])
 
   const loadDashboardData = async () => {
-    const all = await db.getApplications()
-    const relevant = all.filter((a) => a.currentStage === 2 || (a.currentStage > 2 && a.status !== "unsubmitted"))
+    try {
+      const allApplications = await db.getApplications()
 
-    setApplications(relevant)
+      // Filter applications that are at stage 2 (chairperson review) or have been reviewed
+      const relevantApplications = allApplications.filter(
+        (app) => app.currentStage === 2 || (app.currentStage > 2 && app.status !== "unsubmitted"),
+      )
 
-    // Load review status for each application
-    const reviewedSet = new Set<string>()
-    for (const app of relevant) {
-      const comments = await db.getCommentsByApplication(app.id)
-      const chairpersonReview = comments.find((c) => c.userType === "chairperson" && c.action === "review")
-      if (chairpersonReview) {
-        reviewedSet.add(app.id)
-      }
+      setApplications(relevantApplications)
+
+      // Calculate statistics
+      const pendingReview = relevantApplications.filter(
+        (app) => app.currentStage === 2 && app.status === "under_review",
+      ).length
+
+      const thisMonth = new Date()
+      thisMonth.setDate(1)
+      thisMonth.setHours(0, 0, 0, 0)
+
+      const reviewedThisMonth = relevantApplications.filter(
+        (app) => app.updatedAt >= thisMonth && app.currentStage > 2,
+      ).length
+
+      const totalReviewed = relevantApplications.filter((app) => app.currentStage > 2).length
+      const approvedApplications = relevantApplications.filter((app) => app.status === "approved").length
+
+      setStats({
+        totalApplications: relevantApplications.length,
+        pendingReview,
+        reviewedThisMonth,
+        approvalRate: totalReviewed > 0 ? Math.round((approvedApplications / totalReviewed) * 100) : 0,
+      })
+    } catch (error) {
+      console.error("Failed to load dashboard data:", error)
     }
-    setReviewedApplications(reviewedSet)
-
-    // Calculate statistics with proper review status
-    const stage2Applications = relevant.filter((a) => a.currentStage === 2 && a.status === "submitted")
-    const pendingReview = stage2Applications.filter((a) => !reviewedSet.has(a.id)).length
-
-    const monthStart = new Date()
-    monthStart.setDate(1)
-    monthStart.setHours(0, 0, 0, 0)
-
-    const reviewedThisMonth = relevant.filter((a) => a.updatedAt >= monthStart && a.currentStage > 2).length
-
-    const totalReviewed = relevant.filter((a) => a.currentStage > 2).length
-    const approved = relevant.filter((a) => a.status === "approved").length
-
-    setStats({
-      totalApplications: relevant.length,
-      pendingReview,
-      reviewedThisMonth,
-      approvalRate: totalReviewed > 0 ? Math.round((approved / totalReviewed) * 100) : 0,
-    })
   }
 
   const loadUnreadMessages = async () => {
-    const pub = await db.getMessages(user.id, true)
-    const priv = await db.getMessages(user.id, false)
-    setUnreadMessageCount(
-      pub.filter((m) => !m.readAt && m.senderId !== user.id).length +
-        priv.filter((m) => !m.readAt && m.senderId !== user.id).length,
-    )
+    try {
+      const publicMsgs = await db.getMessages(user.id, true)
+      const privateMsgs = await db.getMessages(user.id, false)
+
+      const unreadPublic = publicMsgs.filter((m) => m.senderId !== user.id && !m.readAt).length
+      const unreadPrivate = privateMsgs.filter((m) => m.senderId !== user.id && !m.readAt).length
+
+      setUnreadMessageCount(unreadPublic + unreadPrivate)
+    } catch (error) {
+      console.error("Failed to load unread messages:", error)
+    }
   }
 
-  /* ───────────────────── helpers ──────────────────── */
+  const handleViewMessages = () => {
+    setActiveView("messages")
+    setUnreadMessageCount(0)
+  }
+
+  const handleBackToOverview = () => {
+    setSelectedApplication(null)
+    loadDashboardData() // Refresh data to show updated status
+  }
+
+  const getStatusBadge = (application: PermitApplication) => {
+    if (application.status === "approved") {
+      return <Badge className="bg-green-100 text-green-800">Approved</Badge>
+    }
+    if (application.status === "rejected") {
+      return <Badge className="bg-red-100 text-red-800">Rejected</Badge>
+    }
+    if (application.currentStage === 2 && application.status === "under_review") {
+      return <Badge className="bg-yellow-100 text-yellow-800">Pending Review</Badge>
+    }
+    return <Badge variant="secondary">{application.status}</Badge>
+  }
+
   const StatCard = ({
     title,
     value,
@@ -97,12 +125,13 @@ export function ChairpersonDashboard({ user }: ChairpersonDashboardProps) {
     icon: any
     color?: "blue" | "green" | "yellow" | "purple"
   }) => {
-    const colors = {
+    const colorClasses = {
       blue: "bg-blue-100 text-blue-600",
       green: "bg-green-100 text-green-600",
       yellow: "bg-yellow-100 text-yellow-600",
       purple: "bg-purple-100 text-purple-600",
-    } as const
+    }
+
     return (
       <Card>
         <CardContent className="p-6">
@@ -111,7 +140,7 @@ export function ChairpersonDashboard({ user }: ChairpersonDashboardProps) {
               <p className="text-sm font-medium text-gray-600">{title}</p>
               <p className="text-3xl font-bold">{value}</p>
             </div>
-            <div className={`p-3 rounded-lg ${colors[color]}`}>
+            <div className={`p-3 rounded-lg ${colorClasses[color]}`}>
               <Icon className="h-6 w-6" />
             </div>
           </div>
@@ -120,86 +149,25 @@ export function ChairpersonDashboard({ user }: ChairpersonDashboardProps) {
     )
   }
 
-  const handleBulkSubmit = async () => {
-    const stage2Applications = applications.filter((a) => a.currentStage === 2 && a.status === "submitted")
-    const pendingApps = stage2Applications.filter((app) => reviewedApplications.has(app.id))
-
-    console.log("Stage 2 applications:", stage2Applications.length)
-    console.log("Reviewed applications:", pendingApps.length)
-    console.log(
-      "Applications to submit:",
-      pendingApps.map((app) => app.applicationId),
-    )
-
-    if (pendingApps.length === 0) {
-      alert("No reviewed applications to submit. Please review applications first.")
-      return
-    }
-
-    const unreviewed = stage2Applications.filter((app) => !reviewedApplications.has(app.id))
-    if (unreviewed.length > 0) {
-      const proceed = confirm(
-        `${unreviewed.length} applications are still pending review: ${unreviewed.map((a) => a.applicationId).join(", ")}.\n\nDo you want to submit only the ${pendingApps.length} reviewed applications to the Catchment Manager?`,
-      )
-      if (!proceed) return
-    }
-
-    try {
-      console.log("Starting bulk submission...")
-
-      for (const app of pendingApps) {
-        console.log(`Updating application ${app.applicationId}...`)
-        await db.updateApplication(app.id, {
-          currentStage: 3,
-          status: "under_review",
-        })
-      }
-
-      await db.addLog({
-        userId: user.id,
-        userType: user.userType,
-        action: "Bulk Submit Applications",
-        details: `Submitted ${pendingApps.length} reviewed applications to Catchment Manager`,
-      })
-
-      console.log("Bulk submission completed successfully")
-      alert(`Successfully submitted ${pendingApps.length} reviewed applications to Catchment Manager`)
-      loadDashboardData()
-    } catch (error) {
-      console.error("Bulk submission failed:", error)
-      alert("Failed to submit applications. Please try again.")
-    }
-  }
-
-  const handleBackToOverview = () => {
-    setSelectedApplication(null)
-    loadDashboardData() // Refresh data to show updated review status
-  }
-
-  const isApplicationReviewed = (applicationId: string) => {
-    return reviewedApplications.has(applicationId)
-  }
-
-  /* ───────────────────── render ───────────────────── */
   return (
     <div className="space-y-6">
-      {/* header */}
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Chairperson Dashboard</h1>
-          <p className="text-gray-600 mt-1">Upper Manyame Sub-Catchment Council</p>
+          <h1 className="text-3xl font-bold text-gray-900">Upper Manyame Sub Catchment Chairperson Dashboard</h1>
+          <p className="text-gray-600 mt-1">Business Case Review and Assessment Authority</p>
         </div>
         <Badge variant="secondary" className="px-3 py-1">
           <Users className="h-4 w-4 mr-1" />
-          Chairperson Access
+          Sub Catchment Chairperson Access
         </Badge>
       </div>
 
-      {/* unread notification */}
+      {/* Unread Messages Notification */}
       {unreadMessageCount > 0 && (
         <UnreadMessageNotification
           unreadCount={unreadMessageCount}
-          onViewMessages={() => setActiveView("messages")}
+          onViewMessages={handleViewMessages}
           className="mb-6"
         />
       )}
@@ -208,7 +176,7 @@ export function ChairpersonDashboard({ user }: ChairpersonDashboardProps) {
       {selectedApplication ? (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold">Reviewing Application: {selectedApplication.applicationId}</h2>
+            <h2 className="text-xl font-semibold">Business Case Review: {selectedApplication.applicationId}</h2>
             <Button variant="outline" onClick={handleBackToOverview} className="flex items-center">
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back to Overview
@@ -217,11 +185,12 @@ export function ChairpersonDashboard({ user }: ChairpersonDashboardProps) {
           <ChairpersonReviewWorkflow user={user} application={selectedApplication} onUpdate={handleBackToOverview} />
         </div>
       ) : (
-        /* main tabs - only show when not reviewing an application */
-        <Tabs value={activeView} onValueChange={setActiveView}>
-          <TabsList className="grid w-full grid-cols-3">
+        /* Navigation Tabs */
+        <Tabs value={activeView} onValueChange={setActiveView} className="w-full">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="messages">
+            <TabsTrigger value="history">Application History</TabsTrigger>
+            <TabsTrigger value="messages" className="relative">
               Messages
               {unreadMessageCount > 0 && (
                 <Badge
@@ -235,156 +204,165 @@ export function ChairpersonDashboard({ user }: ChairpersonDashboardProps) {
             <TabsTrigger value="activity">Activity</TabsTrigger>
           </TabsList>
 
-          {/* ─────────── overview tab ─────────── */}
+          {/* Overview Tab */}
           <TabsContent value="overview" className="space-y-6">
-            <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
+            {/* Statistics Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               <StatCard title="Total Applications" value={stats.totalApplications} icon={FileText} color="blue" />
               <StatCard title="Pending Review" value={stats.pendingReview} icon={Clock} color="yellow" />
               <StatCard title="Reviewed This Month" value={stats.reviewedThisMonth} icon={CheckCircle} color="green" />
-              <StatCard title="Approval Rate" value={`${stats.approvalRate}%`} icon={AlertTriangle} color="purple" />
+              <StatCard
+                title="Overall Approval Rate"
+                value={`${stats.approvalRate}%`}
+                icon={AlertTriangle}
+                color="purple"
+              />
             </div>
 
             {/* Applications requiring review */}
             <Card>
               <CardHeader>
-                <CardTitle>Applications Requiring Review</CardTitle>
+                <CardTitle>Applications Requiring Business Case Review</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
                   {applications
-                    .filter((a) => a.currentStage === 2 && a.status === "submitted")
-                    .map((app) => {
-                      const isReviewed = isApplicationReviewed(app.id)
-                      return (
-                        <div
-                          key={app.id}
-                          className="border rounded-lg p-4 bg-gray-50 hover:bg-gray-100 transition-colors"
-                        >
-                          <div className="flex items-start justify-between">
-                            {/* Application Details */}
-                            <div className="flex-1 space-y-3">
-                              {/* Header Row */}
-                              <div className="flex items-center justify-between">
-                                <div className="flex items-center space-x-3">
-                                  <FileText className="h-5 w-5 text-blue-600" />
-                                  <div>
-                                    <p className="font-semibold text-lg">{app.applicationId}</p>
-                                    <Badge variant="outline" className="text-xs">
-                                      {app.permitType.replace("_", " ").toUpperCase()}
-                                    </Badge>
-                                  </div>
-                                </div>
-                                <Badge
-                                  variant={isReviewed ? "default" : "secondary"}
-                                  className={
-                                    isReviewed ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"
-                                  }
-                                >
-                                  {isReviewed ? "Reviewed" : "Pending Review"}
-                                </Badge>
-                              </div>
-
-                              {/* Applicant Information */}
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div className="space-y-2">
-                                  <div className="flex items-center space-x-2">
-                                    <Users className="h-4 w-4 text-gray-500" />
-                                    <span className="font-medium">Applicant:</span>
-                                    <span>{app.applicantName}</span>
-                                  </div>
-                                  <div className="flex items-center space-x-2">
-                                    <Phone className="h-4 w-4 text-gray-500" />
-                                    <span className="font-medium">Contact:</span>
-                                    <span>{app.cellularNumber}</span>
-                                  </div>
-                                </div>
-                                <div className="space-y-2">
-                                  <div className="flex items-start space-x-2">
-                                    <MapPin className="h-4 w-4 text-gray-500 mt-0.5" />
-                                    <div>
-                                      <span className="font-medium">Physical Address:</span>
-                                      <p className="text-sm text-gray-600">{app.physicalAddress}</p>
-                                    </div>
-                                  </div>
+                    .filter((a) => a.currentStage === 2 && a.status === "under_review")
+                    .map((app) => (
+                      <div
+                        key={app.id}
+                        className="border rounded-lg p-4 bg-gray-50 hover:bg-gray-100 transition-colors"
+                      >
+                        <div className="flex items-start justify-between">
+                          {/* Application Details */}
+                          <div className="flex-1 space-y-3">
+                            {/* Header Row */}
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center space-x-3">
+                                <FileText className="h-5 w-5 text-blue-600" />
+                                <div>
+                                  <p className="font-semibold text-lg">{app.applicationId}</p>
+                                  <Badge variant="outline" className="text-xs">
+                                    {app.permitType.replace("_", " ").toUpperCase()}
+                                  </Badge>
                                 </div>
                               </div>
-
-                              {/* Additional Details */}
-                              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                                <div>
-                                  <span className="font-medium text-gray-600">Land Size:</span>
-                                  <p>{app.landSize} ha</p>
-                                </div>
-                                <div>
-                                  <span className="font-medium text-gray-600">Water Allocation:</span>
-                                  <p>{app.waterAllocation} ML</p>
-                                </div>
-                                <div>
-                                  <span className="font-medium text-gray-600">Boreholes:</span>
-                                  <p>{app.numberOfBoreholes}</p>
-                                </div>
-                                <div>
-                                  <span className="font-medium text-gray-600">Submitted:</span>
-                                  <p>{app.createdAt.toLocaleDateString()}</p>
-                                </div>
-                              </div>
-
-                              {/* GPS Coordinates */}
-                              {(app.gpsLatitude || app.gpsLongitude) && (
-                                <div className="text-sm">
-                                  <span className="font-medium text-gray-600">GPS Coordinates:</span>
-                                  <p>
-                                    Lat: {app.gpsLatitude?.toFixed(6) || "N/A"}, Lng:{" "}
-                                    {app.gpsLongitude?.toFixed(6) || "N/A"}
-                                  </p>
-                                </div>
-                              )}
+                              {getStatusBadge(app)}
                             </div>
 
-                            {/* Review Button */}
-                            <div className="ml-4">
-                              <Button
-                                variant="outline"
-                                onClick={() => setSelectedApplication(app)}
-                                className="flex items-center"
-                              >
-                                <Eye className="h-4 w-4 mr-2" />
-                                {isReviewed ? "View Review" : "Review Application"}
-                              </Button>
+                            {/* Applicant Information */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div className="space-y-2">
+                                <div className="flex items-center space-x-2">
+                                  <Users className="h-4 w-4 text-gray-500" />
+                                  <span className="font-medium">Applicant:</span>
+                                  <span>{app.applicantName}</span>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <Phone className="h-4 w-4 text-gray-500" />
+                                  <span className="font-medium">Contact:</span>
+                                  <span>{app.cellularNumber}</span>
+                                </div>
+                              </div>
+                              <div className="space-y-2">
+                                <div className="flex items-start space-x-2">
+                                  <MapPin className="h-4 w-4 text-gray-500 mt-0.5" />
+                                  <div>
+                                    <span className="font-medium">Physical Address:</span>
+                                    <p className="text-sm text-gray-600">{app.physicalAddress}</p>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Additional Details */}
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                              <div>
+                                <span className="font-medium text-gray-600">Land Size:</span>
+                                <p>{app.landSize} ha</p>
+                              </div>
+                              <div>
+                                <span className="font-medium text-gray-600">Water Allocation:</span>
+                                <p>{app.waterAllocation} ML</p>
+                              </div>
+                              <div>
+                                <span className="font-medium text-gray-600">Boreholes:</span>
+                                <p>{app.numberOfBoreholes}</p>
+                              </div>
+                              <div>
+                                <span className="font-medium text-gray-600">Submitted:</span>
+                                <p>{app.createdAt.toLocaleDateString()}</p>
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      )
-                    })}
 
-                  {applications.filter((a) => a.currentStage === 2 && a.status === "submitted").length === 0 && (
+                          {/* Review Button */}
+                          <div className="ml-4">
+                            <Button
+                              variant="outline"
+                              onClick={() => setSelectedApplication(app)}
+                              className="flex items-center"
+                            >
+                              <Eye className="h-4 w-4 mr-2" />
+                              Review Application
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+
+                  {applications.filter((a) => a.currentStage === 2 && a.status === "under_review").length === 0 && (
                     <div className="text-center py-12">
                       <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                      <p className="text-gray-500 text-lg">No applications pending review</p>
+                      <p className="text-gray-500 text-lg">No applications pending business case review</p>
                       <p className="text-gray-400 text-sm">All submitted applications have been reviewed</p>
                     </div>
                   )}
                 </div>
+              </CardContent>
+            </Card>
 
-                {/* Bulk Submit Button */}
-                {applications.filter((a) => a.currentStage === 2 && a.status === "submitted").length > 0 && (
-                  <div className="flex justify-end mt-6 pt-4 border-t">
-                    <Button onClick={handleBulkSubmit} className="flex items-center" size="lg">
-                      <CheckCircle className="h-4 w-4 mr-2" />
-                      Submit All Reviewed Applications to Next Stage
-                    </Button>
-                  </div>
-                )}
+            {/* Recent Reviews */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Recent Reviews</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {applications
+                    .filter((a) => a.currentStage > 2)
+                    .slice(0, 5)
+                    .map((app) => (
+                      <div key={app.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                        <div className="flex items-center space-x-3">
+                          <FileText className="h-4 w-4 text-gray-500" />
+                          <div>
+                            <p className="font-medium">{app.applicationId}</p>
+                            <p className="text-sm text-gray-600">{app.applicantName}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <Badge variant="outline">Stage {app.currentStage}</Badge>
+                          <span className="text-xs text-gray-500">{app.updatedAt.toLocaleDateString()}</span>
+                        </div>
+                      </div>
+                    ))}
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
 
-          {/* ───────── messages tab ───────── */}
-          <TabsContent value="messages">
-            <p className="text-center text-gray-500 py-8">Messaging interface is disabled for Chairperson role.</p>
+          {/* Application History Tab */}
+          <TabsContent value="history">
+            <ChairpersonApplicationHistory user={user} />
           </TabsContent>
 
-          {/* ───────── activity tab ───────── */}
+          {/* Messages Tab */}
+          <TabsContent value="messages">
+            <MessagingSystem user={user} />
+          </TabsContent>
+
+          {/* Activity Tab */}
           <TabsContent value="activity">
             <ActivityLogs user={user} />
           </TabsContent>
