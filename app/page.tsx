@@ -8,7 +8,7 @@ import { WorkflowManager } from "@/components/workflow-manager"
 import { MessagingSystem } from "@/components/messaging-system"
 import { ReportsAnalytics } from "@/components/reports-analytics"
 import { ActivityLogs } from "@/components/activity-logs"
-import { DashboardApplications } from "@/components/dashboard-applications"
+import { EnhancedDashboardApplications } from "@/components/enhanced-dashboard-applications"
 import { ChairpersonDashboard } from "@/components/chairperson-dashboard"
 import { PermitSupervisorDashboard } from "@/components/permit-supervisor-dashboard"
 import { ICTDashboard } from "@/components/ict-dashboard"
@@ -18,6 +18,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import type { User, PermitApplication } from "@/types"
 import { db } from "@/lib/database"
+import { PermittingOfficerAdvancedAnalytics } from "@/components/permitting-officer-advanced-analytics"
 
 export default function Home() {
   /* ------------------------------ state ------------------------------ */
@@ -107,12 +108,28 @@ export default function Home() {
     { value: "logs", label: "Activity Logs" },
   ]
 
-  const getUserTabs = () =>
-    !user
-      ? baseTabs
-      : baseTabs.filter(
-          (t) => t.value !== "reports" || ["permitting_officer", "permit_supervisor", "ict"].includes(user.userType),
-        )
+  const getUserTabs = () => {
+    if (!user) return baseTabs
+
+    const tabs = [
+      { value: "dashboard", label: "Dashboard & Applications" },
+      { value: "messages", label: "Messages" },
+    ]
+
+    // Add analytics tab for permitting officers
+    if (user.userType === "permitting_officer") {
+      tabs.push({ value: "analytics", label: "Analytics" })
+    }
+
+    // Add reports tab for specific roles
+    if (["permitting_officer", "permit_supervisor", "ict"].includes(user.userType)) {
+      tabs.push({ value: "reports", label: "Reports" })
+    }
+
+    tabs.push({ value: "logs", label: "Activity Logs" })
+
+    return tabs
+  }
 
   /* ------------------------------ UI -------------------------------- */
   if (!user) return <LoginForm onLogin={handleLogin} />
@@ -166,7 +183,7 @@ export default function Home() {
               ) : (
                 /* Default dashboard + tabs for permitting officers etc. */
                 <Tabs value={currentView} onValueChange={handleTabChange} className="w-full">
-                  <TabsList className="grid w-full grid-cols-4">
+                  <TabsList className={`grid w-full grid-cols-${getUserTabs().length}`}>
                     {getUserTabs().map((tab) => (
                       <TabsTrigger key={tab.value} value={tab.value} className="relative">
                         {tab.label}
@@ -188,13 +205,17 @@ export default function Home() {
                       <p className="text-gray-600">Manage your permit applications and track progress</p>
                     </div>
 
-                    <DashboardApplications
+                    <EnhancedDashboardApplications
                       ref={dashboardRef}
                       user={user}
                       onNewApplication={handleNewApp}
                       onEditApplication={handleEditApp}
                       onViewApplication={handleViewApp}
                     />
+                  </TabsContent>
+
+                  <TabsContent value="analytics">
+                    <PermittingOfficerAdvancedAnalytics user={user} />
                   </TabsContent>
 
                   <TabsContent value="messages">
