@@ -1,27 +1,273 @@
-import type React from "react"
-import { Box, Typography, Paper } from "@mui/material"
-import ChairpersonReviewWorkflow from "./ChairpersonReviewWorkflow"
+"use client"
 
-const ChairpersonDashboard: React.FC = () => {
-  return (
-    <Box p={3}>
-      <Typography variant="h4" gutterBottom>
-        Chairperson Dashboard
-      </Typography>
-      <Paper elevation={3} sx={{ p: 2, mb: 3 }}>
-        <Typography variant="h6" gutterBottom>
-          Instructions
-        </Typography>
-        <Typography variant="body1">
-          Welcome to the Chairperson Dashboard. Your primary responsibility is to review applications submitted to you
-          and either forward them to the next stage or reject them. Please carefully evaluate each application before
-          making a decision.
-        </Typography>
-      </Paper>
+import { useState, useEffect } from "react"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { FileText, Users, CheckCircle, Clock, AlertTriangle } from "lucide-react"
+import type { User, PermitApplication } from "@/types"
+import { db } from "@/lib/database"
+import { ChairpersonReviewWorkflow } from "./chairperson-review-workflow" // ✅ correct import
+import { ActivityLogs } from "./activity-logs"
+import { UnreadMessageNotification } from "./unread-message-notification"
 
-      <ChairpersonReviewWorkflow />
-    </Box>
-  )
+interface ChairpersonDashboardProps {
+  user: User
 }
 
-export default ChairpersonDashboard
+export function ChairpersonDashboard({ user }: ChairpersonDashboardProps) {
+  /* ───────────────────── state ───────────────────── */
+  const [applications, setApplications] = useState<PermitApplication[]>([])
+  const [selectedApplication, setSelectedApplication] = useState<PermitApplication | null>(null)
+  const [activeView, setActiveView] = useState("overview")
+  const [unreadMessageCount, setUnreadMessageCount] = useState(0)
+  const [stats, setStats] = useState({
+    totalApplications: 0,
+    pendingReview: 0,
+    reviewedThisMonth: 0,
+    approvalRate: 0,
+  })
+
+  /* ────────────────── data loading ────────────────── */
+  useEffect(() => {
+    loadDashboardData()
+    loadUnreadMessages()
+    const interval = setInterval(loadUnreadMessages, 30_000)
+    return () => clearInterval(interval)
+  }, [user.id])
+
+  const loadDashboardData = async () => {
+    const all = await db.getApplications()
+    const relevant = all.filter((a) => a.currentStage === 2 || (a.currentStage > 2 && a.status !== "unsubmitted"))
+
+    setApplications(relevant)
+
+    // statistics
+    const pendingReview = relevant.filter((a) => a.currentStage === 2 && a.status === "submitted").length
+
+    const monthStart = new Date()
+    monthStart.setDate(1)
+    monthStart.setHours(0, 0, 0, 0)
+
+    const reviewedThisMonth = relevant.filter((a) => a.updatedAt >= monthStart && a.currentStage > 2).length
+
+    const totalReviewed = relevant.filter((a) => a.currentStage > 2).length
+    const approved = relevant.filter((a) => a.status === "approved").length
+
+    setStats({
+      totalApplications: relevant.length,
+      pendingReview,
+      reviewedThisMonth,
+      approvalRate: totalReviewed > 0 ? Math.round((approved / totalReviewed) * 100) : 0,
+    })
+  }
+
+  const loadUnreadMessages = async () => {
+    const pub = await db.getMessages(user.id, true)
+    const priv = await db.getMessages(user.id, false)
+    setUnreadMessageCount(
+      pub.filter((m) => !m.readAt && m.senderId !== user.id).length +
+        priv.filter((m) => !m.readAt && m.senderId !== user.id).length,
+    )
+  }
+
+  /* ───────────────────── helpers ──────────────────── */
+  const StatCard = ({
+    title,
+    value,
+    icon: Icon,
+    color = "blue",
+  }: {
+    title: string
+    value: number | string
+    icon: any
+    color?: "blue" | "green" | "yellow" | "purple"
+  }) => {
+    const colors = {
+      blue: "bg-blue-100 text-blue-600",
+      green: "bg-green-100 text-green-600",
+      yellow: "bg-yellow-100 text-yellow-600",
+      purple: "bg-purple-100 text-purple-600",
+    } as const
+    return (
+      <Card>
+        <CardContent className="p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">{title}</p>
+              <p className="text-3xl font-bold">{value}</p>
+            </div>
+            <div className={`p-3 rounded-lg ${colors[color]}`}>
+              <Icon className="h-6 w-6" />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  /* ───────────────────── render ───────────────────── */
+  return (
+    <div className="space-y-6">
+      {/* header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold">Chairperson Dashboard</h1>
+          <p className="text-gray-600 mt-1">Upper Manyame Sub-Catchment Council</p>
+        </div>
+        <Badge variant="secondary" className="px-3 py-1">
+          <Users className="h-4 w-4 mr-1" />
+          Chairperson Access
+        </Badge>
+      </div>
+
+      {/* unread notification */}
+      {unreadMessageCount > 0 && (
+        <UnreadMessageNotification
+          unreadCount={unreadMessageCount}
+          onViewMessages={() => setActiveView("messages")}
+          className="mb-6"
+        />
+      )}
+
+      {/* main tabs */}
+      <Tabs value={activeView} onValueChange={setActiveView}>
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="applications">Applications</TabsTrigger>
+          <TabsTrigger value="messages">
+            Messages
+            {unreadMessageCount > 0 && (
+              <Badge
+                variant="destructive"
+                className="ml-2 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs"
+              >
+                {unreadMessageCount > 99 ? "99+" : unreadMessageCount}
+              </Badge>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="activity">Activity</TabsTrigger>
+        </TabsList>
+
+        {/* ─────────── overview tab ─────────── */}
+        <TabsContent value="overview" className="space-y-6">
+          <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
+            <StatCard title="Total Applications" value={stats.totalApplications} icon={FileText} color="blue" />
+            <StatCard title="Pending Review" value={stats.pendingReview} icon={Clock} color="yellow" />
+            <StatCard title="Reviewed This Month" value={stats.reviewedThisMonth} icon={CheckCircle} color="green" />
+            <StatCard title="Approval Rate" value={`${stats.approvalRate}%`} icon={AlertTriangle} color="purple" />
+          </div>
+
+          {/* recent pending list */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Recent Applications Requiring Review</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {applications
+                  .filter((a) => a.currentStage === 2 && a.status === "submitted")
+                  .slice(0, 5)
+                  .map((app) => (
+                    <div
+                      key={app.id}
+                      onClick={() => setSelectedApplication(app)}
+                      className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer"
+                    >
+                      <div className="flex items-center space-x-3">
+                        <FileText className="h-5 w-5 text-gray-500" />
+                        <div>
+                          <p className="font-medium">{app.applicationId}</p>
+                          <p className="text-sm text-gray-600">{app.applicantName}</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <Badge variant="outline" className="mb-1">
+                          {app.permitType.replace("_", " ").toUpperCase()}
+                        </Badge>
+                        <p className="text-xs text-gray-500">{app.createdAt.toLocaleDateString()}</p>
+                      </div>
+                    </div>
+                  ))}
+                {applications.filter((a) => a.currentStage === 2 && a.status === "submitted").length === 0 && (
+                  <p className="text-center text-gray-500 py-8">No applications pending review</p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ───────── applications tab ───────── */}
+        <TabsContent value="applications" className="space-y-6">
+          {selectedApplication ? (
+            <ChairpersonReviewWorkflow
+              user={user}
+              application={selectedApplication}
+              onUpdate={(app) => {
+                // refresh list and return to applications view
+                setSelectedApplication(null)
+                loadDashboardData()
+              }}
+            />
+          ) : (
+            <Card>
+              <CardHeader>
+                <CardTitle>All Applications</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {applications.map((app) => (
+                    <div
+                      key={app.id}
+                      onClick={() => setSelectedApplication(app)}
+                      className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50 cursor-pointer"
+                    >
+                      <div className="flex items-center space-x-3">
+                        <FileText className="h-5 w-5 text-gray-500" />
+                        <div>
+                          <p className="font-medium">{app.applicationId}</p>
+                          <p className="text-sm text-gray-600">{app.applicantName}</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="flex items-center space-x-2 mb-1">
+                          <Badge
+                            className={
+                              app.status === "approved"
+                                ? "bg-green-100 text-green-800"
+                                : app.status === "rejected"
+                                  ? "bg-red-100 text-red-800"
+                                  : app.status === "submitted"
+                                    ? "bg-blue-100 text-blue-800"
+                                    : "bg-gray-100 text-gray-800"
+                            }
+                          >
+                            {app.status.toUpperCase()}
+                          </Badge>
+                          <Badge variant="outline">Stage {app.currentStage}</Badge>
+                        </div>
+                        <p className="text-xs text-gray-500">{app.createdAt.toLocaleDateString()}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+
+        {/* ───────── messages tab ───────── */}
+        <TabsContent value="messages">
+          {/* MessagingSystem intentionally omitted
+              (read-only for chairperson in this workflow) */}
+          <p className="text-center text-gray-500 py-8">Messaging interface is disabled for Chairperson role.</p>
+        </TabsContent>
+
+        {/* ───────── activity tab ───────── */}
+        <TabsContent value="activity">
+          <ActivityLogs user={user} />
+        </TabsContent>
+      </Tabs>
+    </div>
+  )
+}
