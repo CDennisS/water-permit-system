@@ -303,35 +303,8 @@ export function CatchmentManagerReviewWorkflow({ user, application, onUpdate }: 
         <CardContent>
           {documents.length > 0 ? (
             <div className="space-y-4">
-              {/* Document Checklist */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {documents.map((doc, index) => (
-                  <div key={doc.id || index} className="border rounded-lg p-4 hover:bg-gray-50">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center space-x-2">
-                        <CheckCircle className="h-5 w-5 text-green-600" />
-                        <span className="font-medium text-sm">SUBMITTED</span>
-                      </div>
-                      <Button variant="outline" size="sm" className="flex items-center">
-                        <Eye className="h-4 w-4 mr-1" />
-                        View
-                      </Button>
-                    </div>
-                    <div className="space-y-2">
-                      <p className="font-medium">{getDocumentTypeLabel(doc.documentType)}</p>
-                      <p className="text-sm text-gray-600">{doc.fileName}</p>
-                      <div className="flex items-center justify-between text-xs text-gray-500">
-                        <span>{doc.fileType?.toUpperCase()}</span>
-                        <span>{(doc.fileSize / 1024).toFixed(1)} KB</span>
-                        <span>{doc.uploadedAt.toLocaleDateString()}</span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
               {/* Enhanced Document Viewer */}
-              <div className="mt-6">
+              <div>
                 <h5 className="font-medium mb-3">Document Viewer</h5>
                 <EnhancedDocumentViewer user={user} application={application} canUpload={false} canDelete={false} />
               </div>
