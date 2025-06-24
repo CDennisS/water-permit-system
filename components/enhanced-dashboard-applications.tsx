@@ -60,7 +60,7 @@ const statusColors: { [key: string]: string } = {
   draft: "bg-gray-100 text-gray-800",
 }
 
-export function EnhancedDashboardApplications({ data }: EnhancedDashboardApplicationsProps) {
+export function EnhancedDashboardApplications({ data = [] }: EnhancedDashboardApplicationsProps) {
   const router = useRouter()
   const [selectedApplication, setSelectedApplication] = useState<PermitApplication | null>(null)
   const [showDeleteAlert, setShowDeleteAlert] = useState(false)
@@ -177,7 +177,7 @@ export function EnhancedDashboardApplications({ data }: EnhancedDashboardApplica
   ]
 
   const table = useReactTable({
-    data,
+    data: data ?? [],
     columns,
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
