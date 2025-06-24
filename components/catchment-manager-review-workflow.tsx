@@ -21,7 +21,7 @@ import {
   MessageSquare,
   AlertTriangle,
 } from "lucide-react"
-import type { PermitApplication, User as UserType, WorkflowComment, Document } from "@/types"
+import type { PermitApplication, User as UserType, Document } from "@/types"
 import { db } from "@/lib/database"
 import { EnhancedDocumentViewer } from "./enhanced-document-viewer"
 
@@ -32,7 +32,6 @@ interface CatchmentManagerReviewWorkflowProps {
 }
 
 export function CatchmentManagerReviewWorkflow({ user, application, onUpdate }: CatchmentManagerReviewWorkflowProps) {
-  const [comments, setComments] = useState<WorkflowComment[]>([])
   const [documents, setDocuments] = useState<Document[]>([])
   const [isReviewed, setIsReviewed] = useState(false)
   const [reviewComment, setReviewComment] = useState("")
@@ -44,22 +43,19 @@ export function CatchmentManagerReviewWorkflow({ user, application, onUpdate }: 
   }, [application.id])
 
   const loadApplicationData = async () => {
-    // Load comments from previous stages
-    const appComments = await db.getCommentsByApplication(application.id)
-    setComments(appComments)
-
     // Load documents
     const appDocuments = await db.getDocumentsByApplication(application.id)
     setDocuments(appDocuments)
 
     // Check if already reviewed by catchment manager
-    const managerReview = appComments.find((c) => c.userType === "catchment_manager" && c.action === "review")
+    const comments = await db.getCommentsByApplication(application.id)
+    const managerReview = comments.find((c) => c.userType === "catchment_manager" && c.action === "review")
     setAlreadyReviewed(!!managerReview)
     setIsReviewed(!!managerReview)
 
     // Load existing review comment if available
     if (managerReview) {
-      setReviewComment(managerReview.comment)
+      setReviewComment(managerReview.comment.replace("TECHNICAL ASSESSMENT: ", ""))
     }
   }
 
@@ -142,8 +138,9 @@ export function CatchmentManagerReviewWorkflow({ user, application, onUpdate }: 
       <Alert className="border-blue-200 bg-blue-50">
         <Eye className="h-4 w-4 text-blue-600" />
         <AlertDescription className="text-blue-800">
-          <strong>Manyame Catchment Manager:</strong> Conduct technical review of all application details, documents,
-          and previous comments. <strong>Technical assessment comment is mandatory</strong> for all reviews.
+          <strong>Manyame Catchment Manager:</strong> Conduct technical review of application details and documents.
+          <strong> Technical assessment comment is mandatory</strong> for all reviews before submission to Catchment
+          Chairperson.
         </AlertDescription>
       </Alert>
 
@@ -152,7 +149,7 @@ export function CatchmentManagerReviewWorkflow({ user, application, onUpdate }: 
         <CardHeader>
           <CardTitle className="flex items-center">
             <FileText className="h-5 w-5 mr-2 text-blue-600" />
-            Complete Application Details
+            Application Details
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -303,43 +300,6 @@ export function CatchmentManagerReviewWorkflow({ user, application, onUpdate }: 
         </CardContent>
       </Card>
 
-      {/* Comments from Previous Stages */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center">
-            <FileText className="h-5 w-5 mr-2 text-purple-600" />
-            Comments from Previous Review Stages
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
-            {comments.length > 0 ? (
-              comments
-                .filter((comment) => comment.userType !== "catchment_manager")
-                .map((comment) => (
-                  <div key={comment.id} className="bg-gray-50 p-4 rounded-lg">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center space-x-2">
-                        <User className="h-4 w-4" />
-                        <Badge variant="outline" className="text-xs">
-                          {comment.userType.replace("_", " ").toUpperCase()}
-                        </Badge>
-                        <Badge variant="secondary" className="text-xs">
-                          {comment.action.toUpperCase()}
-                        </Badge>
-                      </div>
-                      <span className="text-xs text-gray-500">{comment.createdAt.toLocaleString()}</span>
-                    </div>
-                    <p className="text-sm text-gray-900">{comment.comment}</p>
-                  </div>
-                ))
-            ) : (
-              <p className="text-gray-500 text-center py-4">No comments from previous stages</p>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-
       {/* Document Checklist & Viewer */}
       <Card>
         <CardHeader>
@@ -393,7 +353,7 @@ export function CatchmentManagerReviewWorkflow({ user, application, onUpdate }: 
         </CardContent>
       </Card>
 
-      {/* Review Actions */}
+      {/* Technical Review Section */}
       {canReview() && (
         <Card>
           <CardHeader>

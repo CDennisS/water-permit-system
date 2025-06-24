@@ -263,11 +263,10 @@ Proceed with submission?`
         />
       )}
 
-      {/* Navigation Tabs */}
+      {/* Navigation Tabs - REMOVED Applications Tab */}
       <Tabs value={activeView} onValueChange={setActiveView} className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="applications">Applications</TabsTrigger>
           <TabsTrigger value="messages" className="relative">
             Messages
             {unreadMessageCount > 0 && (
@@ -321,7 +320,7 @@ Proceed with submission?`
           {/* Applications Requiring Review */}
           <Card>
             <CardHeader>
-              <CardTitle>Applications Requiring Review</CardTitle>
+              <CardTitle>Applications Requiring Technical Review</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
@@ -362,60 +361,26 @@ Proceed with submission?`
               </div>
             </CardContent>
           </Card>
-        </TabsContent>
 
-        {/* Applications Tab */}
-        <TabsContent value="applications" className="space-y-6">
-          {selectedApplication ? (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h2 className="text-xl font-semibold">Application Review</h2>
-                <Button variant="outline" onClick={() => setSelectedApplication(null)}>
-                  ← Back to List
-                </Button>
-              </div>
-              <CatchmentManagerReviewWorkflow
-                user={user}
-                application={selectedApplication}
-                onUpdate={handleApplicationUpdate}
-              />
-            </div>
-          ) : (
-            <Card>
-              <CardHeader>
-                <CardTitle>All Applications</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {applications.map((application) => {
-                    const status = getApplicationStatus(application)
-                    const isReviewed = reviewedApplications.has(application.id)
-                    return (
-                      <div
-                        key={application.id}
-                        className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50 cursor-pointer"
-                        onClick={() => setSelectedApplication(application)}
-                      >
-                        <div className="flex items-center space-x-3">
-                          <FileText className="h-5 w-5 text-gray-500" />
-                          <div>
-                            <p className="font-medium">{application.applicationId}</p>
-                            <p className="text-sm text-gray-600">{application.applicantName}</p>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <div className="flex items-center space-x-2 mb-1">
-                            <Badge className={status.color}>{status.text}</Badge>
-                            <Badge variant="outline">Stage {application.currentStage}</Badge>
-                          </div>
-                          <p className="text-xs text-gray-500">{application.waterAllocation} ML</p>
-                        </div>
-                      </div>
-                    )
-                  })}
+          {/* Review Modal/Overlay */}
+          {selectedApplication && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+              <div className="bg-white rounded-lg max-w-6xl w-full max-h-[90vh] overflow-y-auto">
+                <div className="p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-xl font-semibold">Technical Review</h2>
+                    <Button variant="outline" onClick={() => setSelectedApplication(null)}>
+                      ✕ Close
+                    </Button>
+                  </div>
+                  <CatchmentManagerReviewWorkflow
+                    user={user}
+                    application={selectedApplication}
+                    onUpdate={handleApplicationUpdate}
+                  />
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           )}
         </TabsContent>
 
