@@ -1,5 +1,7 @@
 "use client"
 
+import type React from "react"
+
 import { useState, useEffect, forwardRef, useImperativeHandle } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -18,6 +20,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  DropdownMenuCheckboxItem,
 } from "@/components/ui/dropdown-menu"
 import {
   AlertDialog,
@@ -30,6 +33,15 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
 import {
   Search,
   Download,
@@ -47,7 +59,10 @@ import {
   TrendingUp,
   Send,
   CheckSquare,
+  Settings,
+  GripVertical,
 } from "lucide-react"
+import { Textarea } from "@/components/ui/textarea"
 import type { PermitApplication, User } from "@/types"
 import { db } from "@/lib/database"
 import { PermittingOfficerAdvancedAnalytics } from "./permitting-officer-advanced-analytics"
@@ -57,6 +72,25 @@ interface EnhancedDashboardApplicationsProps {
   onNewApplication: () => void
   onEditApplication: (app: PermitApplication) => void
   onViewApplication: (app: PermitApplication) => void
+}
+
+interface ColumnConfig {
+  key: string
+  label: string
+  visible: boolean
+  width: number
+  resizable: boolean
+}
+
+interface EditFormData {
+  applicantName: string
+  physicalAddress: string
+  postalAddress: string
+  cellularNumber: string
+  customerAccountNumber: string
+  permitType: string
+  intendedUse: string
+  comments: string
 }
 
 export const EnhancedDashboardApplications = forwardRef<
@@ -70,6 +104,43 @@ export const EnhancedDashboardApplications = forwardRef<
   const [itemsPerPage, setItemsPerPage] = useState(25)
   const [isLoading, setIsLoading] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [editingApplication, setEditingApplication] = useState<PermitApplication | null>(null)
+  const [editFormData, setEditFormData] = useState<EditFormData>({
+    applicantName: "",
+    physicalAddress: "",
+    postalAddress: "",
+    cellularNumber: "",
+    customerAccountNumber: "",
+    permitType: "",
+    intendedUse: "",
+    comments: "",
+  })
+  const [isSavingEdit, setIsSavingEdit] = useState(false)
+
+  // Column management
+  const [columns, setColumns] = useState<ColumnConfig[]>([
+    { key: "checkbox", label: "", visible: true, width: 50, resizable: false },
+    { key: "applicationId", label: "Application ID", visible: true, width: 150, resizable: true },
+    { key: "applicantName", label: "Applicant Name", visible: true, width: 180, resizable: true },
+    { key: "address", label: "Address", visible: true, width: 200, resizable: true },
+    { key: "status", label: "Status", visible: true, width: 120, resizable: true },
+    { key: "stage", label: "Stage", visible: true, width: 80, resizable: true },
+    { key: "permitType", label: "Permit Type", visible: true, width: 140, resizable: true },
+    { key: "accountNumber", label: "Account Number", visible: true, width: 140, resizable: true },
+    { key: "created", label: "Created", visible: true, width: 100, resizable: true },
+    { key: "processingDays", label: "Processing Days", visible: true, width: 120, resizable: true },
+    { key: "waterAllocation", label: "Water (ML)", visible: false, width: 100, resizable: true },
+    { key: "landSize", label: "Land (ha)", visible: false, width: 100, resizable: true },
+    { key: "cellularNumber", label: "Phone", visible: false, width: 120, resizable: true },
+    { key: "intendedUse", label: "Intended Use", visible: false, width: 150, resizable: true },
+    { key: "actions", label: "Actions", visible: true, width: 180, resizable: false },
+  ])
+
+  // Resizing state
+  const [isResizing, setIsResizing] = useState(false)
+  const [resizingColumn, setResizingColumn] = useState<string | null>(null)
+  const [startX, setStartX] = useState(0)
+  const [startWidth, setStartWidth] = useState(0)
 
   // Simple filters
   const [searchTerm, setSearchTerm] = useState("")
@@ -146,9 +217,9 @@ export const EnhancedDashboardApplications = forwardRef<
           aValue = a.applicantName.toLowerCase()
           bValue = b.applicantName.toLowerCase()
           break
-        case "accountNumber":
-          aValue = a.accountNumber
-          bValue = b.accountNumber
+        case "customerAccountNumber":
+          aValue = a.customerAccountNumber
+          bValue = b.customerAccountNumber
           break
         case "status":
           aValue = a.status
@@ -238,30 +309,138 @@ export const EnhancedDashboardApplications = forwardRef<
     }
   }
 
+  const canEditApplication = (app: PermitApplication) => {
+    // Can edit if:
+    // 1. Application is not approved or rejected at final stage
+    // 2. User is ICT (can always edit)
+    // 3. Application is still in early stages
+    return user.userType === "ict" || (app.status !== "approved" && app.status !== "rejected") || app.currentStage < 5
+  }
+
+  const handleEditApplication = (app: PermitApplication) => {
+    setEditingApplication(app)
+    setEditFormData({
+      applicantName: app.applicantName,
+      physicalAddress: app.physicalAddress,
+      postalAddress: app.postalAddress,
+      cellularNumber: app.cellularNumber,
+      customerAccountNumber: app.customerAccountNumber,
+      permitType: app.permitType,
+      intendedUse: app.intendedUse,
+      comments: app.comments,
+    })
+  }
+
+  const handleSaveEdit = async () => {
+    if (!editingApplication) return
+
+    setIsSavingEdit(true)
+    try {
+      await db.updateApplication(editingApplication.id, {
+        applicantName: editFormData.applicantName,
+        physicalAddress: editFormData.physicalAddress,
+        postalAddress: editFormData.postalAddress,
+        cellularNumber: editFormData.cellularNumber,
+        customerAccountNumber: editFormData.customerAccountNumber,
+        permitType: editFormData.permitType,
+        intendedUse: editFormData.intendedUse,
+        comments: editFormData.comments,
+      })
+
+      await db.addLog({
+        userId: user.id,
+        userType: user.userType,
+        action: "Updated Application Details",
+        details: `Updated applicant details for application ${editingApplication.applicationId}`,
+        applicationId: editingApplication.id,
+      })
+
+      setEditingApplication(null)
+      await loadApplications()
+      console.log(`Successfully updated application ${editingApplication.applicationId}`)
+    } catch (error) {
+      console.error("Failed to update application:", error)
+    } finally {
+      setIsSavingEdit(false)
+    }
+  }
+
+  const handleColumnVisibilityChange = (columnKey: string, visible: boolean) => {
+    setColumns((prev) => prev.map((col) => (col.key === columnKey ? { ...col, visible } : col)))
+  }
+
+  const handleMouseDown = (e: React.MouseEvent, columnKey: string) => {
+    e.preventDefault()
+    setIsResizing(true)
+    setResizingColumn(columnKey)
+    setStartX(e.clientX)
+    const column = columns.find((col) => col.key === columnKey)
+    setStartWidth(column?.width || 100)
+  }
+
+  const handleMouseMove = (e: MouseEvent) => {
+    if (!isResizing || !resizingColumn) return
+
+    const diff = e.clientX - startX
+    const newWidth = Math.max(50, startWidth + diff)
+
+    setColumns((prev) => prev.map((col) => (col.key === resizingColumn ? { ...col, width: newWidth } : col)))
+  }
+
+  const handleMouseUp = () => {
+    setIsResizing(false)
+    setResizingColumn(null)
+  }
+
+  useEffect(() => {
+    if (isResizing) {
+      document.addEventListener("mousemove", handleMouseMove)
+      document.addEventListener("mouseup", handleMouseUp)
+      return () => {
+        document.removeEventListener("mousemove", handleMouseMove)
+        document.removeEventListener("mouseup", handleMouseUp)
+      }
+    }
+  }, [isResizing, resizingColumn, startX, startWidth])
+
   const exportFilteredData = () => {
+    const visibleColumns = columns.filter((col) => col.visible && col.key !== "checkbox" && col.key !== "actions")
     const csvData = [
-      [
-        "Application ID",
-        "Applicant Name",
-        "Physical Address",
-        "Status",
-        "Current Stage",
-        "Permit Type",
-        "Account Number",
-        "Physical Address",
-        "Created Date",
-      ],
-      ...filteredApplications.map((app) => [
-        app.applicationId,
-        app.applicantName,
-        app.physicalAddress,
-        app.status,
-        app.currentStage,
-        app.permitType,
-        app.accountNumber,
-        app.physicalAddress,
-        app.createdAt.toLocaleDateString(),
-      ]),
+      visibleColumns.map((col) => col.label),
+      ...filteredApplications.map((app) =>
+        visibleColumns.map((col) => {
+          switch (col.key) {
+            case "applicationId":
+              return app.applicationId
+            case "applicantName":
+              return app.applicantName
+            case "address":
+              return app.physicalAddress
+            case "status":
+              return app.status
+            case "stage":
+              return app.currentStage
+            case "permitType":
+              return app.permitType
+            case "customerAccountNumber":
+              return app.customerAccountNumber
+            case "created":
+              return app.createdAt.toLocaleDateString()
+            case "processingDays":
+              return getProcessingDays(app) || "N/A"
+            case "waterAllocation":
+              return app.waterAllocation
+            case "landSize":
+              return app.landSize
+            case "cellularNumber":
+              return app.cellularNumber
+            case "intendedUse":
+              return app.intendedUse
+            default:
+              return ""
+          }
+        }),
+      ),
     ]
 
     const csvContent = csvData.map((row) => row.join(",")).join("\n")
@@ -322,6 +501,250 @@ export const EnhancedDashboardApplications = forwardRef<
     )
   }
 
+  const renderCellContent = (app: PermitApplication, columnKey: string) => {
+    switch (columnKey) {
+      case "checkbox":
+        return (
+          <Checkbox
+            checked={selectedApplications.includes(app.id)}
+            onCheckedChange={(checked) => {
+              if (checked) {
+                setSelectedApplications([...selectedApplications, app.id])
+              } else {
+                setSelectedApplications(selectedApplications.filter((id) => id !== app.id))
+              }
+            }}
+          />
+        )
+      case "applicationId":
+        return (
+          <div className="flex items-center space-x-2">
+            {getStatusIcon(app.status)}
+            <span className="font-medium">{app.applicationId}</span>
+            {isOverdue(app) && <AlertTriangle className="h-4 w-4 text-red-500" />}
+          </div>
+        )
+      case "applicantName":
+        return <div className="font-medium">{app.applicantName}</div>
+      case "address":
+        return (
+          <div className="text-sm max-w-xs truncate" title={app.physicalAddress}>
+            {app.physicalAddress}
+          </div>
+        )
+      case "status":
+        return getStatusBadge(app.status)
+      case "stage":
+        return <Badge variant="outline">Stage {app.currentStage}</Badge>
+      case "permitType":
+        return <span className="capitalize">{app.permitType.replace("_", " ")}</span>
+      case "customerAccountNumber":
+        return app.customerAccountNumber
+      case "created":
+        return <span className="text-sm">{app.createdAt.toLocaleDateString()}</span>
+      case "processingDays":
+        return getProcessingDays(app) ? (
+          <span className={getProcessingDays(app)! > 30 ? "text-red-600 font-medium" : ""}>
+            {getProcessingDays(app)} days
+          </span>
+        ) : (
+          "N/A"
+        )
+      case "waterAllocation":
+        return `${app.waterAllocation} ML`
+      case "landSize":
+        return `${app.landSize} ha`
+      case "cellularNumber":
+        return app.cellularNumber
+      case "intendedUse":
+        return (
+          <div className="text-sm max-w-xs truncate" title={app.intendedUse}>
+            {app.intendedUse}
+          </div>
+        )
+      case "actions":
+        return (
+          <div className="flex items-center space-x-1">
+            {/* View Button - Always visible */}
+            <Button variant="ghost" size="sm" onClick={() => onViewApplication(app)} title="View application details">
+              <Eye className="h-4 w-4" />
+            </Button>
+
+            {/* Edit Button - Conditional visibility */}
+            {canEditApplication(app) && (
+              <Dialog>
+                <DialogTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleEditApplication(app)}
+                    title="Edit applicant details"
+                  >
+                    <Edit className="h-4 w-4" />
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-2xl">
+                  <DialogHeader>
+                    <DialogTitle>Edit Application Details</DialogTitle>
+                    <DialogDescription>
+                      Update applicant information for application {app.applicationId}
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="grid gap-4 py-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="applicantName">Applicant Name</Label>
+                        <Input
+                          id="applicantName"
+                          value={editFormData.applicantName}
+                          onChange={(e) => setEditFormData((prev) => ({ ...prev, applicantName: e.target.value }))}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="customerAccountNumber">Account Number</Label>
+                        <Input
+                          id="customerAccountNumber"
+                          value={editFormData.customerAccountNumber}
+                          onChange={(e) =>
+                            setEditFormData((prev) => ({ ...prev, customerAccountNumber: e.target.value }))
+                          }
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <Label htmlFor="physicalAddress">Physical Address</Label>
+                      <Textarea
+                        id="physicalAddress"
+                        value={editFormData.physicalAddress}
+                        onChange={(e) => setEditFormData((prev) => ({ ...prev, physicalAddress: e.target.value }))}
+                        rows={2}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="postalAddress">Postal Address</Label>
+                      <Input
+                        id="postalAddress"
+                        value={editFormData.postalAddress}
+                        onChange={(e) => setEditFormData((prev) => ({ ...prev, postalAddress: e.target.value }))}
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="cellularNumber">Phone Number</Label>
+                        <Input
+                          id="cellularNumber"
+                          value={editFormData.cellularNumber}
+                          onChange={(e) => setEditFormData((prev) => ({ ...prev, cellularNumber: e.target.value }))}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="permitType">Permit Type</Label>
+                        <Select
+                          value={editFormData.permitType}
+                          onValueChange={(value) => setEditFormData((prev) => ({ ...prev, permitType: value }))}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="urban">Urban</SelectItem>
+                            <SelectItem value="bulk_water">Bulk Water</SelectItem>
+                            <SelectItem value="irrigation">Irrigation</SelectItem>
+                            <SelectItem value="institution">Institution</SelectItem>
+                            <SelectItem value="industrial">Industrial</SelectItem>
+                            <SelectItem value="surface_water_storage">Surface Water (Storage)</SelectItem>
+                            <SelectItem value="surface_water_flow">Surface Water (Flow)</SelectItem>
+                            <SelectItem value="tempering">Tempering</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <div>
+                      <Label htmlFor="intendedUse">Intended Use</Label>
+                      <Input
+                        id="intendedUse"
+                        value={editFormData.intendedUse}
+                        onChange={(e) => setEditFormData((prev) => ({ ...prev, intendedUse: e.target.value }))}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="comments">Comments</Label>
+                      <Textarea
+                        id="comments"
+                        value={editFormData.comments}
+                        onChange={(e) => setEditFormData((prev) => ({ ...prev, comments: e.target.value }))}
+                        rows={3}
+                      />
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setEditingApplication(null)}>
+                      Cancel
+                    </Button>
+                    <Button onClick={handleSaveEdit} disabled={isSavingEdit}>
+                      {isSavingEdit ? "Saving..." : "Save Changes"}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            )}
+
+            {/* Submit Button - Only for unsubmitted */}
+            {app.status === "unsubmitted" && (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-green-600 hover:text-green-800"
+                    title="Submit application"
+                  >
+                    <Send className="h-4 w-4" />
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Submit Application</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Are you sure you want to submit application {app.applicationId} to the next level? This action
+                      cannot be undone and the application will move to the review stage.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={() => handleSubmitSingle(app)}>Submit Application</AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
+
+            {/* More Actions Menu */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="h-8 w-8 p-0">
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuLabel>More Actions</DropdownMenuLabel>
+                <DropdownMenuItem>
+                  <Download className="mr-2 h-4 w-4" />
+                  Export Details
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem>
+                  <FileText className="mr-2 h-4 w-4" />
+                  View Documents
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        )
+      default:
+        return null
+    }
+  }
+
   // Pagination
   const totalPages = Math.ceil(filteredApplications.length / itemsPerPage)
   const startIndex = (currentPage - 1) * itemsPerPage
@@ -345,6 +768,8 @@ export const EnhancedDashboardApplications = forwardRef<
     const app = applications.find((a) => a.id === id)
     return app?.status === "unsubmitted"
   }).length
+
+  const visibleColumns = columns.filter((col) => col.visible)
 
   return (
     <div className="space-y-6">
@@ -424,6 +849,30 @@ export const EnhancedDashboardApplications = forwardRef<
               <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
               Refresh
             </Button>
+            {/* Column Management */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline">
+                  <Settings className="h-4 w-4 mr-2" />
+                  Columns
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuLabel>Show/Hide Columns</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {columns
+                  .filter((col) => col.key !== "checkbox" && col.key !== "actions")
+                  .map((column) => (
+                    <DropdownMenuCheckboxItem
+                      key={column.key}
+                      checked={column.visible}
+                      onCheckedChange={(checked) => handleColumnVisibilityChange(column.key, checked)}
+                    >
+                      {column.label}
+                    </DropdownMenuCheckboxItem>
+                  ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
 
@@ -472,7 +921,7 @@ export const EnhancedDashboardApplications = forwardRef<
                     <SelectContent>
                       <SelectItem value="createdAt">Created Date</SelectItem>
                       <SelectItem value="applicantName">Applicant Name</SelectItem>
-                      <SelectItem value="accountNumber">Account Number</SelectItem>
+                      <SelectItem value="customerAccountNumber">Account Number</SelectItem>
                       <SelectItem value="status">Status</SelectItem>
                     </SelectContent>
                   </Select>
@@ -576,153 +1025,31 @@ export const EnhancedDashboardApplications = forwardRef<
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-[50px]">
-                        <Checkbox
-                          checked={selectedApplications.length === paginatedApplications.length}
-                          onCheckedChange={(checked) => {
-                            if (checked) {
-                              setSelectedApplications(paginatedApplications.map((app) => app.id))
-                            } else {
-                              setSelectedApplications([])
-                            }
-                          }}
-                        />
-                      </TableHead>
-                      <TableHead>Application ID</TableHead>
-                      <TableHead>Applicant Name</TableHead>
-                      <TableHead>Address</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Stage</TableHead>
-                      <TableHead>Permit Type</TableHead>
-                      <TableHead>Account Number</TableHead>
-                      <TableHead>Created</TableHead>
-                      <TableHead>Processing Days</TableHead>
-                      <TableHead className="w-[150px]">Actions</TableHead>
+                      {visibleColumns.map((column) => (
+                        <TableHead key={column.key} style={{ width: column.width }} className="relative">
+                          <div className="flex items-center justify-between">
+                            <span>{column.label}</span>
+                            {column.resizable && (
+                              <div
+                                className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-blue-500 opacity-0 hover:opacity-100"
+                                onMouseDown={(e) => handleMouseDown(e, column.key)}
+                              >
+                                <GripVertical className="h-4 w-4 text-gray-400" />
+                              </div>
+                            )}
+                          </div>
+                        </TableHead>
+                      ))}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {paginatedApplications.map((app) => (
                       <TableRow key={app.id} className={`${isOverdue(app) ? "bg-red-50" : ""}`}>
-                        <TableCell>
-                          <Checkbox
-                            checked={selectedApplications.includes(app.id)}
-                            onCheckedChange={(checked) => {
-                              if (checked) {
-                                setSelectedApplications([...selectedApplications, app.id])
-                              } else {
-                                setSelectedApplications(selectedApplications.filter((id) => id !== app.id))
-                              }
-                            }}
-                          />
-                        </TableCell>
-                        <TableCell className="font-medium">
-                          <div className="flex items-center space-x-2">
-                            {getStatusIcon(app.status)}
-                            <span>{app.applicationId}</span>
-                            {isOverdue(app) && <AlertTriangle className="h-4 w-4 text-red-500" />}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="font-medium">{app.applicantName}</div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="text-sm max-w-xs truncate" title={app.physicalAddress}>
-                            {app.physicalAddress}
-                          </div>
-                        </TableCell>
-                        <TableCell>{getStatusBadge(app.status)}</TableCell>
-                        <TableCell>
-                          <Badge variant="outline">Stage {app.currentStage}</Badge>
-                        </TableCell>
-                        <TableCell className="capitalize">{app.permitType.replace("_", " ")}</TableCell>
-                        <TableCell>{app.accountNumber}</TableCell>
-                        <TableCell className="text-sm">{app.createdAt.toLocaleDateString()}</TableCell>
-                        <TableCell>
-                          {getProcessingDays(app) ? (
-                            <span className={getProcessingDays(app)! > 30 ? "text-red-600 font-medium" : ""}>
-                              {getProcessingDays(app)} days
-                            </span>
-                          ) : (
-                            "N/A"
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center space-x-1">
-                            {/* View Button - Always visible */}
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => onViewApplication(app)}
-                              title="View application details"
-                            >
-                              <Eye className="h-4 w-4" />
-                            </Button>
-
-                            {/* Edit Button - Only for unsubmitted or ICT */}
-                            {(app.status === "unsubmitted" || user.userType === "ict") && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => onEditApplication(app)}
-                                title="Edit application"
-                              >
-                                <Edit className="h-4 w-4" />
-                              </Button>
-                            )}
-
-                            {/* Submit Button - Only for unsubmitted */}
-                            {app.status === "unsubmitted" && (
-                              <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="text-green-600 hover:text-green-800"
-                                    title="Submit application"
-                                  >
-                                    <Send className="h-4 w-4" />
-                                  </Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent>
-                                  <AlertDialogHeader>
-                                    <AlertDialogTitle>Submit Application</AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                      Are you sure you want to submit application {app.applicationId} to the next level?
-                                      This action cannot be undone and the application will move to the review stage.
-                                    </AlertDialogDescription>
-                                  </AlertDialogHeader>
-                                  <AlertDialogFooter>
-                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                    <AlertDialogAction onClick={() => handleSubmitSingle(app)}>
-                                      Submit Application
-                                    </AlertDialogAction>
-                                  </AlertDialogFooter>
-                                </AlertDialogContent>
-                              </AlertDialog>
-                            )}
-
-                            {/* More Actions Menu */}
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" className="h-8 w-8 p-0">
-                                  <MoreHorizontal className="h-4 w-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuLabel>More Actions</DropdownMenuLabel>
-                                <DropdownMenuItem>
-                                  <Download className="mr-2 h-4 w-4" />
-                                  Export Details
-                                </DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem>
-                                  <FileText className="mr-2 h-4 w-4" />
-                                  View Documents
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </div>
-                        </TableCell>
+                        {visibleColumns.map((column) => (
+                          <TableCell key={column.key} style={{ width: column.width }}>
+                            {renderCellContent(app, column.key)}
+                          </TableCell>
+                        ))}
                       </TableRow>
                     ))}
                   </TableBody>
