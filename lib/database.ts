@@ -73,8 +73,8 @@ class MockDatabase {
 
     const application: PermitApplication = {
       ...data,
-      id: `app_${Date.now()}`,
-      applicationId: `MC${new Date().getFullYear()}-${this.applicationCounter++}`,
+      id: `app_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`, // More unique ID
+      applicationId: `MC${new Date().getFullYear()}-${String(this.applicationCounter++).padStart(4, "0")}`,
       createdAt: new Date(),
       updatedAt: new Date(),
     }
@@ -84,7 +84,12 @@ class MockDatabase {
     console.log("Database: Total applications now:", this.applications.length) // Add debugging
     console.log(
       "Database: All applications:",
-      this.applications.map((app) => ({ id: app.applicationId, status: app.status, createdBy: app.createdBy })),
+      this.applications.map((app) => ({
+        id: app.applicationId,
+        status: app.status,
+        createdBy: app.createdBy,
+        applicantName: app.applicantName,
+      })),
     ) // Add debugging
 
     return application

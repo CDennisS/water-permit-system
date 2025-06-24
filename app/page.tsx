@@ -75,11 +75,21 @@ export default function Home() {
   }
 
   const handleSaveApp = async () => {
+    console.log("handleSaveApp called") // Add debugging
     setIsEditing(false)
     setSelectedApplication(null)
     setCurrentView("dashboard")
-    // refresh the applications list
-    dashboardRef.current?.refreshApplications()
+
+    // Add a small delay to ensure database operations are complete
+    await new Promise((resolve) => setTimeout(resolve, 200))
+
+    // Force refresh the applications list
+    if (dashboardRef.current?.refreshApplications) {
+      console.log("Refreshing applications...") // Add debugging
+      dashboardRef.current.refreshApplications()
+    } else {
+      console.warn("Dashboard ref not available for refresh") // Add debugging
+    }
   }
 
   const handleCancelEdit = () => {

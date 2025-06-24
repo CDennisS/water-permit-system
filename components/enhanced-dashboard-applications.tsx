@@ -45,6 +45,7 @@ import {
 import type { PermitApplication, User } from "@/types"
 import { db } from "@/lib/database"
 import { PermittingOfficerAdvancedAnalytics } from "./permitting-officer-advanced-analytics"
+import { ApplicationDebugPanel } from "./application-debug-panel"
 
 interface EnhancedDashboardApplicationsProps {
   user: User
@@ -170,7 +171,17 @@ export const EnhancedDashboardApplications = forwardRef<
   const loadApplications = async () => {
     setIsLoading(true)
     try {
+      console.log("Loading applications...") // Add debugging
       const apps = await db.getApplications()
+      console.log(
+        "Loaded applications:",
+        apps.length,
+        apps.map((app) => ({
+          id: app.applicationId,
+          applicant: app.applicantName,
+          status: app.status,
+        })),
+      ) // Add debugging
       setApplications(apps)
     } catch (error) {
       console.error("Failed to load applications:", error)
@@ -180,7 +191,14 @@ export const EnhancedDashboardApplications = forwardRef<
   }
 
   const applyFilters = () => {
+    console.log("Applying filters to", applications.length, "applications") // Add debugging
     let filtered = [...applications]
+
+    // Don't filter out unsubmitted applications by default for the creator
+    if (!filters.showDrafts && user.userType !== "ict") {
+      // Only hide drafts that aren't created by the current user
+      filtered = filtered.filter((app) => app.status !== "unsubmitted" || app.createdBy === user.id)
+    }
 
     // Search term filter (searches across multiple fields)
     if (filters.searchTerm) {
@@ -403,6 +421,7 @@ export const EnhancedDashboardApplications = forwardRef<
       }
     })
 
+    console.log("Filtered applications:", filtered.length) // Add debugging
     setFilteredApplications(filtered)
     setCurrentPage(1) // Reset to first page when filters change
   }
@@ -684,6 +703,9 @@ export const EnhancedDashboardApplications = forwardRef<
           </CardContent>
         </Card>
       </div>
+
+      {/* Debug Panel - Remove this in production */}
+      {process.env.NODE_ENV === "development" && <ApplicationDebugPanel user={user} onRefresh={loadApplications} />}
 
       {/* Main Content with Tabs */}
       <Tabs defaultValue="applications" className="space-y-4">
