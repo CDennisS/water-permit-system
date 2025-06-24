@@ -6,7 +6,6 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { FileText, CheckCircle, Clock, Droplets, Send } from "lucide-react"
-import { Alert, AlertDescription } from "@/components/ui/alert"
 import type { User, PermitApplication } from "@/types"
 import { db } from "@/lib/database"
 import { CatchmentManagerReviewWorkflow } from "./catchment-manager-review-workflow"
@@ -123,7 +122,7 @@ export function CatchmentManagerDashboard({ user }: CatchmentManagerDashboardPro
     const reviewedApps = applications.filter((app) => app.currentStage === 3 && reviewedApplications.has(app.id))
 
     if (reviewedApps.length === 0) {
-      alert("❌ No reviewed applications to submit. Please complete technical reviews with mandatory comments first.")
+      alert("❌ No reviewed applications to submit. Please complete reviews with catchment manager comments first.")
       return
     }
 
@@ -139,7 +138,7 @@ export function CatchmentManagerDashboard({ user }: CatchmentManagerDashboardPro
 
     if (missingComments > 0) {
       alert(
-        `❌ Cannot submit: ${missingComments} application(s) are missing mandatory technical assessment comments. Please complete all reviews before submitting.`,
+        `❌ Cannot submit: ${missingComments} application(s) are missing mandatory catchment manager comments. Please complete all reviews before submitting.`,
       )
       return
     }
@@ -149,11 +148,11 @@ export function CatchmentManagerDashboard({ user }: CatchmentManagerDashboardPro
     )
 
     const confirmMessage = `🚀 SUBMIT TO CATCHMENT CHAIRPERSON
-  
-✅ ${reviewedApps.length} application(s) with mandatory technical assessments ready for final decision.
-${unreviewed.length > 0 ? `\n⏳ ${unreviewed.length} application(s) still pending technical review.` : ""}
 
-All submitted applications include required technical assessment comments.
+✅ ${reviewedApps.length} application(s) with catchment manager comments ready for final review.
+${unreviewed.length > 0 ? `\n⏳ ${unreviewed.length} application(s) still pending review.` : ""}
+
+All submitted applications include required catchment manager comments and will be sent to the Catchment Chairperson dashboard for final approval/rejection decisions.
 
 Proceed with submission?`
 
@@ -171,14 +170,14 @@ Proceed with submission?`
         await db.addLog({
           userId: user.id,
           userType: user.userType,
-          action: "Submitted with Technical Assessment",
-          details: `Application ${app.applicationId} submitted to Catchment Chairperson with mandatory technical assessment comments`,
+          action: "Submitted to Catchment Chairperson",
+          details: `Application ${app.applicationId} submitted to Catchment Chairperson dashboard with catchment manager comments for final review`,
           applicationId: app.id,
         })
       }
 
       alert(
-        `✅ SUCCESS: ${reviewedApps.length} application(s) with technical assessments submitted to Catchment Chairperson`,
+        `✅ SUCCESS: ${reviewedApps.length} application(s) submitted to Catchment Chairperson dashboard for final review`,
       )
       loadDashboardData()
     } catch (error) {
@@ -296,25 +295,48 @@ Proceed with submission?`
             />
           </div>
 
-          {/* Bulk Submit Section */}
+          {/* Bulk Submit Section - Enhanced */}
           {applications.filter((app) => app.currentStage === 3 && reviewedApplications.has(app.id)).length > 0 && (
-            <Alert className="border-blue-200 bg-blue-50">
-              <Send className="h-4 w-4 text-blue-600" />
-              <AlertDescription className="flex items-center justify-between">
-                <div className="text-blue-800">
-                  <strong>Ready to Submit:</strong>{" "}
-                  {applications.filter((app) => app.currentStage === 3 && reviewedApplications.has(app.id)).length}{" "}
-                  reviewed application(s) ready for Catchment Chairperson decision.
+            <Card className="border-blue-200 bg-blue-50">
+              <CardHeader>
+                <CardTitle className="text-blue-800 flex items-center">
+                  <Send className="h-5 w-5 mr-2" />
+                  Ready for Final Review
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center justify-between">
+                  <div className="space-y-2">
+                    <p className="text-blue-800 font-medium">
+                      {applications.filter((app) => app.currentStage === 3 && reviewedApplications.has(app.id)).length}{" "}
+                      application(s) with catchment manager comments ready for submission
+                    </p>
+                    <p className="text-blue-600 text-sm">
+                      All applications include mandatory catchment manager comments and are ready for Catchment
+                      Chairperson final review.
+                    </p>
+                  </div>
+                  <Button
+                    onClick={handleBulkSubmit}
+                    disabled={isSubmittingBulk}
+                    className="ml-4 bg-blue-600 hover:bg-blue-700 px-6 py-3"
+                    size="lg"
+                  >
+                    {isSubmittingBulk ? (
+                      <>
+                        <Clock className="h-4 w-4 mr-2 animate-spin" />
+                        Submitting...
+                      </>
+                    ) : (
+                      <>
+                        <Send className="h-4 w-4 mr-2" />
+                        Submit All Reviewed Applications
+                      </>
+                    )}
+                  </Button>
                 </div>
-                <Button
-                  onClick={handleBulkSubmit}
-                  disabled={isSubmittingBulk}
-                  className="ml-4 bg-blue-600 hover:bg-blue-700"
-                >
-                  {isSubmittingBulk ? "Submitting..." : "Submit All Reviewed Applications to Next Stage"}
-                </Button>
-              </AlertDescription>
-            </Alert>
+              </CardContent>
+            </Card>
           )}
 
           {/* Applications Requiring Review */}
