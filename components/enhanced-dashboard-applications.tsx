@@ -146,9 +146,9 @@ export const EnhancedDashboardApplications = forwardRef<
           aValue = a.applicantName.toLowerCase()
           bValue = b.applicantName.toLowerCase()
           break
-        case "waterAllocation":
-          aValue = a.waterAllocation
-          bValue = b.waterAllocation
+        case "accountNumber":
+          aValue = a.accountNumber
+          bValue = b.accountNumber
           break
         case "status":
           aValue = a.status
@@ -246,8 +246,7 @@ export const EnhancedDashboardApplications = forwardRef<
         "Status",
         "Current Stage",
         "Permit Type",
-        "Water Allocation (ML)",
-        "Land Size (ha)",
+        "Account Number",
         "Physical Address",
         "Created Date",
       ],
@@ -257,8 +256,7 @@ export const EnhancedDashboardApplications = forwardRef<
         app.status,
         app.currentStage,
         app.permitType,
-        app.waterAllocation,
-        app.landSize,
+        app.accountNumber,
         app.physicalAddress,
         app.createdAt.toLocaleDateString(),
       ]),
@@ -472,7 +470,7 @@ export const EnhancedDashboardApplications = forwardRef<
                     <SelectContent>
                       <SelectItem value="createdAt">Created Date</SelectItem>
                       <SelectItem value="applicantName">Applicant Name</SelectItem>
-                      <SelectItem value="waterAllocation">Water Allocation</SelectItem>
+                      <SelectItem value="accountNumber">Account Number</SelectItem>
                       <SelectItem value="status">Status</SelectItem>
                     </SelectContent>
                   </Select>
@@ -593,8 +591,7 @@ export const EnhancedDashboardApplications = forwardRef<
                       <TableHead>Status</TableHead>
                       <TableHead>Stage</TableHead>
                       <TableHead>Permit Type</TableHead>
-                      <TableHead>Water (ML)</TableHead>
-                      <TableHead>Land (ha)</TableHead>
+                      <TableHead>Account Number</TableHead>
                       <TableHead>Created</TableHead>
                       <TableHead>Processing Days</TableHead>
                       <TableHead className="w-[150px]">Actions</TableHead>
@@ -635,8 +632,7 @@ export const EnhancedDashboardApplications = forwardRef<
                           <Badge variant="outline">Stage {app.currentStage}</Badge>
                         </TableCell>
                         <TableCell className="capitalize">{app.permitType.replace("_", " ")}</TableCell>
-                        <TableCell>{app.waterAllocation}</TableCell>
-                        <TableCell>{app.landSize}</TableCell>
+                        <TableCell>{app.accountNumber}</TableCell>
                         <TableCell className="text-sm">{app.createdAt.toLocaleDateString()}</TableCell>
                         <TableCell>
                           {getProcessingDays(app) ? (
