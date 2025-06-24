@@ -394,9 +394,7 @@ Proceed with submission?`
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle>Applications Requiring Technical Review</CardTitle>
-                {applicationsRequiringReview.length > 0 && (
-                  <EnhancedExportSystem applications={applicationsRequiringReview} user={user} title="Export" />
-                )}
+                <EnhancedExportSystem applications={applicationsRequiringReview} user={user} title="Export" />
               </div>
             </CardHeader>
             <CardContent>
