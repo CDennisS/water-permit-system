@@ -5,10 +5,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { FileText, CheckCircle, Clock, Droplets } from "lucide-react"
+import { FileText, CheckCircle, Clock, Droplets, Send } from "lucide-react"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 import type { User, PermitApplication } from "@/types"
 import { db } from "@/lib/database"
-import { StrictViewOnlyApplicationDetails } from "./strict-view-only-application-details"
+import { CatchmentManagerReviewWorkflow } from "./catchment-manager-review-workflow"
 import { MessagingSystem } from "./messaging-system"
 import { ActivityLogs } from "./activity-logs"
 import { UnreadMessageNotification } from "./unread-message-notification"
@@ -19,9 +20,11 @@ interface CatchmentManagerDashboardProps {
 
 export function CatchmentManagerDashboard({ user }: CatchmentManagerDashboardProps) {
   const [applications, setApplications] = useState<PermitApplication[]>([])
+  const [reviewedApplications, setReviewedApplications] = useState<Set<string>>(new Set())
   const [selectedApplication, setSelectedApplication] = useState<PermitApplication | null>(null)
   const [activeView, setActiveView] = useState("overview")
   const [unreadMessageCount, setUnreadMessageCount] = useState(0)
+  const [isSubmittingBulk, setIsSubmittingBulk] = useState(false)
   const [stats, setStats] = useState({
     totalApplications: 0,
     pendingReview: 0,
@@ -49,9 +52,18 @@ export function CatchmentManagerDashboard({ user }: CatchmentManagerDashboardPro
 
       setApplications(relevantApplications)
 
-      // Calculate statistics
+      // Load review status for each application
+      const reviewedSet = new Set<string>()
+      for (const app of relevantApplications) {
+        if (await isApplicationReviewed(app.id)) {
+          reviewedSet.add(app.id)
+        }
+      }
+      setReviewedApplications(reviewedSet)
+
+      // Calculate statistics - exclude already reviewed applications from pending count
       const pendingReview = relevantApplications.filter(
-        (app) => app.currentStage === 3 && app.status === "under_review",
+        (app) => app.currentStage === 3 && app.status === "under_review" && !reviewedSet.has(app.id),
       ).length
 
       const thisMonth = new Date()
@@ -77,6 +89,11 @@ export function CatchmentManagerDashboard({ user }: CatchmentManagerDashboardPro
     }
   }
 
+  const isApplicationReviewed = async (applicationId: string): Promise<boolean> => {
+    const comments = await db.getCommentsByApplication(applicationId)
+    return comments.some((c) => c.userType === "catchment_manager" && c.action === "review")
+  }
+
   const loadUnreadMessages = async () => {
     try {
       const publicMsgs = await db.getMessages(user.id, true)
@@ -94,6 +111,76 @@ export function CatchmentManagerDashboard({ user }: CatchmentManagerDashboardPro
   const handleViewMessages = () => {
     setActiveView("messages")
     setUnreadMessageCount(0)
+  }
+
+  const handleApplicationUpdate = () => {
+    loadDashboardData() // Refresh the dashboard data
+    setSelectedApplication(null) // Return to overview
+    setActiveView("overview")
+  }
+
+  const handleBulkSubmit = async () => {
+    const reviewedApps = applications.filter((app) => app.currentStage === 3 && reviewedApplications.has(app.id))
+
+    if (reviewedApps.length === 0) {
+      alert("No reviewed applications to submit. Please review applications first.")
+      return
+    }
+
+    const unreviewed = applications.filter(
+      (app) => app.currentStage === 3 && app.status === "under_review" && !reviewedApplications.has(app.id),
+    )
+
+    const confirmMessage = `Submit ${reviewedApps.length} reviewed application(s) to Catchment Chairperson?${
+      unreviewed.length > 0
+        ? `\n\n${unreviewed.length} application(s) are not yet reviewed and will remain pending.`
+        : ""
+    }`
+
+    if (!confirm(confirmMessage)) return
+
+    setIsSubmittingBulk(true)
+
+    try {
+      for (const app of reviewedApps) {
+        await db.updateApplication(app.id, {
+          currentStage: 4, // Move to Catchment Chairperson
+          status: "under_review",
+        })
+
+        await db.addLog({
+          userId: user.id,
+          userType: user.userType,
+          action: "Submitted to Catchment Chairperson",
+          details: `Application ${app.applicationId} submitted to final decision stage`,
+          applicationId: app.id,
+        })
+      }
+
+      alert(`Successfully submitted ${reviewedApps.length} application(s) to Catchment Chairperson`)
+      loadDashboardData()
+    } catch (error) {
+      console.error("Failed to submit applications:", error)
+      alert("Failed to submit applications. Please try again.")
+    } finally {
+      setIsSubmittingBulk(false)
+    }
+  }
+
+  const getApplicationStatus = (application: PermitApplication) => {
+    if (application.currentStage === 3 && reviewedApplications.has(application.id)) {
+      return { text: "Reviewed", color: "bg-green-100 text-green-800" }
+    }
+    if (application.currentStage === 3 && application.status === "under_review") {
+      return { text: "Pending Review", color: "bg-yellow-100 text-yellow-800" }
+    }
+    if (application.status === "approved") {
+      return { text: "Approved", color: "bg-green-100 text-green-800" }
+    }
+    if (application.status === "rejected") {
+      return { text: "Rejected", color: "bg-red-100 text-red-800" }
+    }
+    return { text: application.status.toUpperCase(), color: "bg-gray-100 text-gray-800" }
   }
 
   const StatCard = ({
@@ -137,7 +224,7 @@ export function CatchmentManagerDashboard({ user }: CatchmentManagerDashboardPro
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Catchment Manager Dashboard</h1>
-          <p className="text-gray-600 mt-1">Manyame Catchment Council</p>
+          <p className="text-gray-600 mt-1">Manyame Catchment Council - Technical Review Stage</p>
         </div>
         <Badge variant="secondary" className="px-3 py-1">
           <Droplets className="h-4 w-4 mr-1" />
@@ -188,7 +275,28 @@ export function CatchmentManagerDashboard({ user }: CatchmentManagerDashboardPro
             />
           </div>
 
-          {/* Recent Applications */}
+          {/* Bulk Submit Section */}
+          {applications.filter((app) => app.currentStage === 3 && reviewedApplications.has(app.id)).length > 0 && (
+            <Alert className="border-blue-200 bg-blue-50">
+              <Send className="h-4 w-4 text-blue-600" />
+              <AlertDescription className="flex items-center justify-between">
+                <div className="text-blue-800">
+                  <strong>Ready to Submit:</strong>{" "}
+                  {applications.filter((app) => app.currentStage === 3 && reviewedApplications.has(app.id)).length}{" "}
+                  reviewed application(s) ready for Catchment Chairperson decision.
+                </div>
+                <Button
+                  onClick={handleBulkSubmit}
+                  disabled={isSubmittingBulk}
+                  className="ml-4 bg-blue-600 hover:bg-blue-700"
+                >
+                  {isSubmittingBulk ? "Submitting..." : "Submit All Reviewed Applications to Next Stage"}
+                </Button>
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {/* Applications Requiring Review */}
           <Card>
             <CardHeader>
               <CardTitle>Applications Requiring Review</CardTitle>
@@ -197,28 +305,35 @@ export function CatchmentManagerDashboard({ user }: CatchmentManagerDashboardPro
               <div className="space-y-3">
                 {applications
                   .filter((app) => app.currentStage === 3 && app.status === "under_review")
-                  .slice(0, 5)
-                  .map((application) => (
-                    <div
-                      key={application.id}
-                      className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer"
-                      onClick={() => setSelectedApplication(application)}
-                    >
-                      <div className="flex items-center space-x-3">
-                        <FileText className="h-5 w-5 text-gray-500" />
-                        <div>
-                          <p className="font-medium">{application.applicationId}</p>
-                          <p className="text-sm text-gray-600">{application.applicantName}</p>
+                  .slice(0, 10)
+                  .map((application) => {
+                    const status = getApplicationStatus(application)
+                    const isReviewed = reviewedApplications.has(application.id)
+                    return (
+                      <div
+                        key={application.id}
+                        className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer"
+                        onClick={() => setSelectedApplication(application)}
+                      >
+                        <div className="flex items-center space-x-3">
+                          <FileText className="h-5 w-5 text-gray-500" />
+                          <div>
+                            <p className="font-medium">{application.applicationId}</p>
+                            <p className="text-sm text-gray-600">{application.applicantName}</p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="flex items-center space-x-2 mb-1">
+                            <Badge className={status.color}>{status.text}</Badge>
+                            <Badge variant="outline">{application.permitType.replace("_", " ").toUpperCase()}</Badge>
+                          </div>
+                          <Button variant="outline" size="sm">
+                            {isReviewed ? "View Review" : "Review Application"}
+                          </Button>
                         </div>
                       </div>
-                      <div className="text-right">
-                        <Badge variant="outline" className="mb-1">
-                          {application.permitType.replace("_", " ").toUpperCase()}
-                        </Badge>
-                        <p className="text-xs text-gray-500">{application.waterAllocation} ML</p>
-                      </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 {applications.filter((app) => app.currentStage === 3 && app.status === "under_review").length === 0 && (
                   <p className="text-center text-gray-500 py-8">No applications pending review</p>
                 )}
@@ -232,12 +347,16 @@ export function CatchmentManagerDashboard({ user }: CatchmentManagerDashboardPro
           {selectedApplication ? (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <h2 className="text-xl font-semibold">Application Details</h2>
+                <h2 className="text-xl font-semibold">Application Review</h2>
                 <Button variant="outline" onClick={() => setSelectedApplication(null)}>
                   ← Back to List
                 </Button>
               </div>
-              <StrictViewOnlyApplicationDetails user={user} application={selectedApplication} />
+              <CatchmentManagerReviewWorkflow
+                user={user}
+                application={selectedApplication}
+                onUpdate={handleApplicationUpdate}
+              />
             </div>
           ) : (
             <Card>
@@ -246,40 +365,32 @@ export function CatchmentManagerDashboard({ user }: CatchmentManagerDashboardPro
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {applications.map((application) => (
-                    <div
-                      key={application.id}
-                      className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50 cursor-pointer"
-                      onClick={() => setSelectedApplication(application)}
-                    >
-                      <div className="flex items-center space-x-3">
-                        <FileText className="h-5 w-5 text-gray-500" />
-                        <div>
-                          <p className="font-medium">{application.applicationId}</p>
-                          <p className="text-sm text-gray-600">{application.applicantName}</p>
+                  {applications.map((application) => {
+                    const status = getApplicationStatus(application)
+                    const isReviewed = reviewedApplications.has(application.id)
+                    return (
+                      <div
+                        key={application.id}
+                        className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50 cursor-pointer"
+                        onClick={() => setSelectedApplication(application)}
+                      >
+                        <div className="flex items-center space-x-3">
+                          <FileText className="h-5 w-5 text-gray-500" />
+                          <div>
+                            <p className="font-medium">{application.applicationId}</p>
+                            <p className="text-sm text-gray-600">{application.applicantName}</p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="flex items-center space-x-2 mb-1">
+                            <Badge className={status.color}>{status.text}</Badge>
+                            <Badge variant="outline">Stage {application.currentStage}</Badge>
+                          </div>
+                          <p className="text-xs text-gray-500">{application.waterAllocation} ML</p>
                         </div>
                       </div>
-                      <div className="text-right">
-                        <div className="flex items-center space-x-2 mb-1">
-                          <Badge
-                            className={
-                              application.status === "approved"
-                                ? "bg-green-100 text-green-800"
-                                : application.status === "rejected"
-                                  ? "bg-red-100 text-red-800"
-                                  : application.status === "under_review"
-                                    ? "bg-blue-100 text-blue-800"
-                                    : "bg-gray-100 text-gray-800"
-                            }
-                          >
-                            {application.status.toUpperCase()}
-                          </Badge>
-                          <Badge variant="outline">Stage {application.currentStage}</Badge>
-                        </div>
-                        <p className="text-xs text-gray-500">{application.waterAllocation} ML</p>
-                      </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               </CardContent>
             </Card>
