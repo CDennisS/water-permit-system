@@ -11,6 +11,7 @@ import { CatchmentChairpersonReviewWorkflow } from "./catchment-chairperson-revi
 import { ActivityLogs } from "./activity-logs"
 import { UnreadMessageNotification } from "./unread-message-notification"
 import { Button } from "@/components/ui/button"
+import { CatchmentChairpersonApplicationHistory } from "./catchment-chairperson-application-history"
 
 interface CatchmentChairpersonDashboardProps {
   user: User
@@ -168,8 +169,9 @@ export function CatchmentChairpersonDashboard({ user }: CatchmentChairpersonDash
       ) : (
         /* main tabs - only show when not reviewing an application */
         <Tabs value={activeView} onValueChange={setActiveView}>
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="history">Application History</TabsTrigger>
             <TabsTrigger value="messages">
               Messages
               {unreadMessageCount > 0 && (
@@ -324,6 +326,11 @@ export function CatchmentChairpersonDashboard({ user }: CatchmentChairpersonDash
                 </div>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* ───────── application history tab ───────── */}
+          <TabsContent value="history">
+            <CatchmentChairpersonApplicationHistory user={user} />
           </TabsContent>
 
           {/* ───────── messages tab ───────── */}
