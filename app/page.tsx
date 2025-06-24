@@ -5,16 +5,12 @@ import { useSession } from "next-auth/react"
 import { redirect } from "next/navigation"
 import { useEffect, useState } from "react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Dashboard } from "@/components/dashboard"
-import { Messages } from "@/components/messages"
 import { ActivityLogs } from "@/components/activity-logs"
-import { Analytics } from "@/components/analytics"
-import { Reports } from "@/components/reports"
 import { PermitPrintingTestSimple } from "@/components/permit-printing-test-simple"
 
 const baseTabs = [{ value: "logs", label: "Activity Logs" }]
 
-const getUserTabs = () => {
+const getUserTabs = (user: User | null) => {
   if (!user) return baseTabs
 
   const tabs = [
@@ -27,7 +23,7 @@ const getUserTabs = () => {
     tabs.push({ value: "analytics", label: "Analytics" })
   }
 
-  // Add print testing tab for authorized users
+  // Add print-testing tab for authorised roles
   if (["permitting_officer", "permit_supervisor", "ict"].includes(user.userType)) {
     tabs.push({ value: "print-testing", label: "🧪 Print Testing" })
   }
@@ -54,7 +50,7 @@ export default function Home() {
   }, [session])
 
   useEffect(() => {
-    setTabs(getUserTabs())
+    setTabs(getUserTabs(user))
   }, [user])
 
   if (status === "loading") {
@@ -77,21 +73,13 @@ export default function Home() {
             </TabsTrigger>
           ))}
         </TabsList>
-        <TabsContent value="dashboard">
-          <Dashboard user={user} />
-        </TabsContent>
-        <TabsContent value="messages">
-          <Messages user={user} />
-        </TabsContent>
+        <TabsContent value="dashboard">{/* <Dashboard user={user} /> */}</TabsContent>
+        <TabsContent value="messages">{/* <Messages user={user} /> */}</TabsContent>
         {user?.userType === "permitting_officer" && (
-          <TabsContent value="analytics">
-            <Analytics user={user} />
-          </TabsContent>
+          <TabsContent value="analytics">{/* <Analytics user={user} /> */}</TabsContent>
         )}
         {["permitting_officer", "permit_supervisor", "ict"].includes(user?.userType || "") && (
-          <TabsContent value="reports">
-            <Reports user={user} />
-          </TabsContent>
+          <TabsContent value="reports">{/* <Reports user={user} /> */}</TabsContent>
         )}
         <TabsContent value="logs">
           <ActivityLogs user={user} />
