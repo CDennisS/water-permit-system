@@ -18,7 +18,6 @@ import {
   Home,
   Droplets,
   Calendar,
-  MessageSquare,
   AlertTriangle,
 } from "lucide-react"
 import type { PermitApplication, User as UserType, Document } from "@/types"
@@ -357,7 +356,7 @@ export function CatchmentManagerReviewWorkflow({ user, application, onUpdate }: 
       {canReview() && (
         <Card>
           <CardHeader>
-            <CardTitle>Complete Technical Review</CardTitle>
+            <CardTitle>Catchment Manager Comments</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             {alreadyReviewed ? (
@@ -371,21 +370,9 @@ export function CatchmentManagerReviewWorkflow({ user, application, onUpdate }: 
               </Alert>
             ) : (
               <>
-                {/* Enhanced Mandatory Comment Section */}
-                <Alert className="border-orange-200 bg-orange-50">
-                  <MessageSquare className="h-4 w-4 text-orange-600" />
-                  <AlertDescription className="text-orange-800">
-                    <strong>🔒 MANDATORY TECHNICAL ASSESSMENT:</strong> Every application requires a detailed technical
-                    evaluation comment before submission to Catchment Chairperson.
-                    <br />
-                    <strong>Required elements:</strong> Water allocation analysis, environmental impact, technical
-                    feasibility, compliance assessment, and recommendations.
-                  </AlertDescription>
-                </Alert>
-
                 <div>
                   <label className="text-sm font-medium mb-2 block flex items-center">
-                    Technical Assessment Comment
+                    Catchment Manager Comments
                     <span className="text-red-500 ml-1">* MANDATORY</span>
                     <Badge variant="destructive" className="ml-2 text-xs">
                       REQUIRED
@@ -394,15 +381,7 @@ export function CatchmentManagerReviewWorkflow({ user, application, onUpdate }: 
                   <Textarea
                     value={reviewComment}
                     onChange={(e) => setReviewComment(e.target.value)}
-                    placeholder="🔍 MANDATORY TECHNICAL ASSESSMENT:
-
-1. WATER ALLOCATION ANALYSIS: Evaluate requested allocation against catchment capacity...
-2. ENVIRONMENTAL IMPACT: Assess potential environmental effects...
-3. TECHNICAL FEASIBILITY: Review borehole specifications and water source sustainability...
-4. REGULATORY COMPLIANCE: Verify compliance with water management regulations...
-5. RECOMMENDATIONS: Provide clear recommendation (approve/reject/modify) with justification...
-
-Minimum 20 characters required. Be thorough - this assessment guides the Chairperson's final decision."
+                    placeholder="Add your catchment manager comments for this application..."
                     rows={8}
                     className={`min-h-[200px] ${!reviewComment.trim() ? "border-red-300 focus:border-red-500" : "border-green-300"}`}
                   />
@@ -424,8 +403,7 @@ Minimum 20 characters required. Be thorough - this assessment guides the Chairpe
                     onCheckedChange={(checked) => setIsReviewed(checked as boolean)}
                   />
                   <label htmlFor="reviewed" className="text-sm font-medium">
-                    I have conducted a thorough technical review of all application details, documents, and provided my
-                    technical assessment
+                    I have reviewed all application details, documents, and provided my catchment manager comments
                   </label>
                 </div>
 
@@ -441,7 +419,7 @@ Minimum 20 characters required. Be thorough - this assessment guides the Chairpe
                     ) : (
                       <>
                         <Save className="h-4 w-4 mr-2" />
-                        Save Technical Review
+                        Save Comments
                       </>
                     )}
                   </Button>
@@ -452,7 +430,7 @@ Minimum 20 characters required. Be thorough - this assessment guides the Chairpe
                   <Alert className="border-red-200 bg-red-50">
                     <AlertTriangle className="h-4 w-4 text-red-600" />
                     <AlertDescription className="text-red-800">
-                      Technical assessment comment is mandatory before you can save this review.
+                      Catchment manager comment is mandatory before you can save this review.
                     </AlertDescription>
                   </Alert>
                 )}
