@@ -77,13 +77,6 @@ export function CatchmentManagerReviewWorkflow({ user, application, onUpdate }: 
       return
     }
 
-    if (reviewComment.trim().length < 20) {
-      alert(
-        "❌ Technical assessment comment must be at least 20 characters. Please provide a more detailed evaluation.",
-      )
-      return
-    }
-
     setIsLoading(true)
 
     try {
@@ -382,16 +375,13 @@ export function CatchmentManagerReviewWorkflow({ user, application, onUpdate }: 
                     value={reviewComment}
                     onChange={(e) => setReviewComment(e.target.value)}
                     placeholder="Add your catchment manager comments for this application..."
-                    rows={8}
-                    className={`min-h-[200px] ${!reviewComment.trim() ? "border-red-300 focus:border-red-500" : "border-green-300"}`}
+                    rows={4}
+                    className={`min-h-[100px] ${!reviewComment.trim() ? "border-red-300 focus:border-red-500" : "border-green-300"}`}
                   />
                   <div className="flex justify-between items-center mt-1">
                     <p className="text-xs text-gray-500">
                       This technical assessment will be reviewed by the Catchment Chairperson for final decision.
                     </p>
-                    <span className={`text-xs ${reviewComment.length < 20 ? "text-red-500" : "text-green-600"}`}>
-                      {reviewComment.length}/20 minimum characters
-                    </span>
                   </div>
                 </div>
 
