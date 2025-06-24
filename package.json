@@ -52,7 +52,6 @@
     "@radix-ui/react-toggle": "latest",
     "@radix-ui/react-toggle-group": "latest",
     "@radix-ui/react-tooltip": "latest",
-    "@tanstack/react-table": "latest",
     "@testing-library/dom": "latest",
     "@types/debug": "latest",
     "@vitest/browser": "latest",
