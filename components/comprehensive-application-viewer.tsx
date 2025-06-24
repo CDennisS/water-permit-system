@@ -430,64 +430,111 @@ export function ComprehensiveApplicationViewer({
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="flex flex-wrap gap-4">
+              <div className="space-y-6">
                 {canPrintPermit() && (
-                  <div className="flex items-center space-x-2">
-                    <CheckCircle className="h-5 w-5 text-green-600" />
-                    <div>
-                      <p className="font-medium text-green-800">Permit Approved - Ready to Print</p>
-                      <PermitPrinter application={application} />
+                  <div className="bg-green-50 border-2 border-green-200 rounded-lg p-6">
+                    <div className="flex items-center space-x-3 mb-4">
+                      <CheckCircle className="h-6 w-6 text-green-600" />
+                      <div>
+                        <h3 className="text-lg font-semibold text-green-800">Permit Approved & Ready for Printing</h3>
+                        <p className="text-green-700">
+                          This application has been fully approved through all workflow stages and is ready for official
+                          permit printing.
+                        </p>
+                      </div>
                     </div>
+                    <PermitPrinter application={application} />
                   </div>
                 )}
 
-                {canPrintComments() && (
-                  <div className="flex items-center space-x-2">
-                    <FileText className="h-5 w-5 text-blue-600" />
-                    <div>
-                      <p className="font-medium text-blue-800">
-                        {application.status === "rejected"
-                          ? "Application Rejected - Print Rejection Notice"
-                          : "Print Comments Report"}
-                      </p>
-                      <CommentsPrinter application={application} user={user} />
+                {canPrintComments() && !canPrintPermit() && (
+                  <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-6">
+                    <div className="flex items-center space-x-3 mb-4">
+                      <FileText className="h-6 w-6 text-blue-600" />
+                      <div>
+                        <h3 className="text-lg font-semibold text-blue-800">
+                          {application.status === "rejected"
+                            ? "Application Rejected - Print Rejection Notice"
+                            : "Print Comments Report"}
+                        </h3>
+                        <p className="text-blue-700">
+                          {application.status === "rejected"
+                            ? "Generate a professional rejection notice with all review comments for the applicant."
+                            : "Print a comprehensive report of all comments and review history."}
+                        </p>
+                      </div>
                     </div>
+                    <CommentsPrinter application={application} user={user} />
                   </div>
                 )}
 
                 {!canPrintPermit() && !canPrintComments() && (
-                  <div className="flex items-center space-x-2 text-gray-500">
-                    <Eye className="h-5 w-5" />
-                    <p>Application is under review - No printing actions available yet</p>
+                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-6">
+                    <div className="flex items-center space-x-3">
+                      <Eye className="h-6 w-6 text-gray-500" />
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-700">Application Under Review</h3>
+                        <p className="text-gray-600">
+                          This application is currently being reviewed. Printing actions will become available once the
+                          review process is complete.
+                        </p>
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
 
-              {application.status === "rejected" && (
-                <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-                  <div className="flex items-center space-x-2 mb-2">
-                    <XCircle className="h-5 w-5 text-red-600" />
-                    <p className="font-semibold text-red-800">Application Rejected</p>
+              {/* Status Information Cards */}
+              <div className="mt-6 space-y-4">
+                {application.status === "approved" && (
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                    <div className="flex items-center space-x-2 mb-2">
+                      <CheckCircle className="h-5 w-5 text-green-600" />
+                      <p className="font-semibold text-green-800">Application Approved</p>
+                    </div>
+                    <p className="text-green-700 text-sm">
+                      This application has been fully approved and is ready for permit printing. The permit can be
+                      printed immediately using the buttons above.
+                    </p>
+                    {application.approvedAt && (
+                      <p className="text-green-600 text-xs mt-2">
+                        Approved on: {application.approvedAt.toLocaleString()}
+                      </p>
+                    )}
                   </div>
-                  <p className="text-red-700 text-sm">
-                    This application has been rejected during the review process. Use the "Print Comments" button above
-                    to generate a rejection notice with all review comments for the applicant.
-                  </p>
-                </div>
-              )}
+                )}
 
-              {application.status === "approved" && (
-                <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
-                  <div className="flex items-center space-x-2 mb-2">
-                    <CheckCircle className="h-5 w-5 text-green-600" />
-                    <p className="font-semibold text-green-800">Application Approved</p>
+                {application.status === "rejected" && (
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                    <div className="flex items-center space-x-2 mb-2">
+                      <XCircle className="h-5 w-5 text-red-600" />
+                      <p className="font-semibold text-red-800">Application Rejected</p>
+                    </div>
+                    <p className="text-red-700 text-sm">
+                      This application has been rejected during the review process. Use the "Print Comments" button
+                      above to generate a rejection notice with all review comments for the applicant.
+                    </p>
+                    {application.rejectedAt && (
+                      <p className="text-red-600 text-xs mt-2">
+                        Rejected on: {application.rejectedAt.toLocaleString()}
+                      </p>
+                    )}
                   </div>
-                  <p className="text-green-700 text-sm">
-                    This application has been fully approved and is ready for permit printing. Use the "Print Permit"
-                    button above to generate the official permit document.
-                  </p>
-                </div>
-              )}
+                )}
+
+                {application.status === "under_review" && (
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                    <div className="flex items-center space-x-2 mb-2">
+                      <Clock className="h-5 w-5 text-yellow-600" />
+                      <p className="font-semibold text-yellow-800">Application Under Review</p>
+                    </div>
+                    <p className="text-yellow-700 text-sm">
+                      This application is currently at Stage {application.currentStage} of the review process. Printing
+                      actions will become available once the review is complete.
+                    </p>
+                  </div>
+                )}
+              </div>
             </CardContent>
           </Card>
         </div>
