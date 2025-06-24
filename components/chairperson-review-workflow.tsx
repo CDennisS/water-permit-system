@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Eye, FileText, CheckCircle, User, Clock } from "lucide-react"
+import { Eye, FileText, CheckCircle, User, Clock, X, Save } from "lucide-react"
 import type { PermitApplication, User as UserType, WorkflowComment } from "@/types"
 import { db } from "@/lib/database"
 import { ApplicationDetails } from "./application-details"
@@ -75,6 +75,96 @@ export function ChairpersonReviewWorkflow({ user, application, onUpdate }: Chair
     } catch (error) {
       console.error("Failed to submit:", error)
       alert("Failed to submit application. Please try again.")
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleSaveReview = async () => {
+    if (!isReviewed) {
+      alert("Please confirm you have reviewed the application")
+      return
+    }
+
+    setIsLoading(true)
+
+    try {
+      // Add review comment to track that chairperson has reviewed
+      await db.addComment({
+        applicationId: application.id,
+        userId: user.id,
+        userType: user.userType,
+        stage: 2,
+        comment: "Application reviewed by chairperson",
+        action: "review",
+      })
+
+      // Log the review action
+      await db.addLog({
+        userId: user.id,
+        userType: user.userType,
+        action: "Reviewed Application",
+        details: `Reviewed application ${application.applicationId}`,
+        applicationId: application.id,
+      })
+
+      alert("Review saved successfully")
+      onUpdate(application) // Refresh the parent component
+    } catch (error) {
+      console.error("Failed to save review:", error)
+      alert("Failed to save review. Please try again.")
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleRefuseApplication = async () => {
+    if (!isReviewed) {
+      alert("Please confirm you have reviewed the application")
+      return
+    }
+
+    if (!confirm("Are you sure you want to refuse this application?")) {
+      return
+    }
+
+    setIsLoading(true)
+
+    try {
+      // Update application status to rejected and return to stage 1
+      const updates: Partial<PermitApplication> = {
+        status: "rejected",
+        currentStage: 1,
+      }
+
+      const updatedApp = await db.updateApplication(application.id, updates)
+
+      // Add refusal comment
+      await db.addComment({
+        applicationId: application.id,
+        userId: user.id,
+        userType: user.userType,
+        stage: 2,
+        comment: "Application refused by chairperson",
+        action: "reject",
+      })
+
+      // Log the refusal action
+      await db.addLog({
+        userId: user.id,
+        userType: user.userType,
+        action: "Refused Application",
+        details: `Refused application ${application.applicationId}`,
+        applicationId: application.id,
+      })
+
+      alert("Application refused successfully")
+      if (updatedApp) {
+        onUpdate(updatedApp)
+      }
+    } catch (error) {
+      console.error("Failed to refuse application:", error)
+      alert("Failed to refuse application. Please try again.")
     } finally {
       setIsLoading(false)
     }
@@ -186,7 +276,7 @@ export function ChairpersonReviewWorkflow({ user, application, onUpdate }: Chair
       {canReview() && (
         <Card>
           <CardHeader>
-            <CardTitle>Complete Review</CardTitle>
+            <CardTitle>Review Decision</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             {/* Review Confirmation */}
@@ -197,15 +287,15 @@ export function ChairpersonReviewWorkflow({ user, application, onUpdate }: Chair
                 onCheckedChange={(checked) => setIsReviewed(checked as boolean)}
               />
               <label htmlFor="reviewed" className="text-sm font-medium">
-                I have reviewed this application, viewed all documents and comments, and confirm it is ready for the
-                next stage
+                I have reviewed this application, viewed all documents and comments
               </label>
             </div>
 
-            {/* Submit Button */}
-            <div className="flex justify-end">
+            {/* Action Buttons */}
+            <div className="flex justify-end space-x-2">
               <Button
-                onClick={handleSubmitToNextStage}
+                variant="destructive"
+                onClick={handleRefuseApplication}
                 disabled={!isReviewed || isLoading}
                 className="flex items-center"
               >
@@ -213,8 +303,19 @@ export function ChairpersonReviewWorkflow({ user, application, onUpdate }: Chair
                   "Processing..."
                 ) : (
                   <>
-                    <CheckCircle className="h-4 w-4 mr-2" />
-                    Submit to Catchment Manager
+                    <X className="h-4 w-4 mr-2" />
+                    Refuse
+                  </>
+                )}
+              </Button>
+
+              <Button onClick={handleSaveReview} disabled={!isReviewed || isLoading} className="flex items-center">
+                {isLoading ? (
+                  "Saving..."
+                ) : (
+                  <>
+                    <Save className="h-4 w-4 mr-2" />
+                    Save Review
                   </>
                 )}
               </Button>
@@ -223,9 +324,9 @@ export function ChairpersonReviewWorkflow({ user, application, onUpdate }: Chair
             {/* Instructions */}
             <Alert>
               <AlertDescription>
-                <strong>Instructions:</strong> Review the application details, documents, and any comments from the
-                permitting officer. Once you have completed your review, check the box above and submit to forward this
-                application to the Catchment Manager for their review and comments.
+                <strong>Instructions:</strong> Review the application details, documents, and comments. Check the review
+                box above, then either Save your review or Refuse the application. After reviewing all applications, you
+                can submit them all to the next stage from the main dashboard.
               </AlertDescription>
             </Alert>
           </CardContent>

@@ -4,12 +4,13 @@ import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { FileText, Users, CheckCircle, Clock, AlertTriangle } from "lucide-react"
+import { FileText, Users, CheckCircle, Clock, AlertTriangle, Eye, X } from "lucide-react"
 import type { User, PermitApplication } from "@/types"
 import { db } from "@/lib/database"
 import { ChairpersonReviewWorkflow } from "./chairperson-review-workflow" // ✅ correct import
 import { ActivityLogs } from "./activity-logs"
 import { UnreadMessageNotification } from "./unread-message-notification"
+import { Button } from "@/components/ui/button"
 
 interface ChairpersonDashboardProps {
   user: User
@@ -27,6 +28,8 @@ export function ChairpersonDashboard({ user }: ChairpersonDashboardProps) {
     reviewedThisMonth: 0,
     approvalRate: 0,
   })
+
+  const [reviewedApplications, setReviewedApplications] = useState<Set<string>>(new Set())
 
   /* ────────────────── data loading ────────────────── */
   useEffect(() => {
@@ -106,6 +109,67 @@ export function ChairpersonDashboard({ user }: ChairpersonDashboardProps) {
     )
   }
 
+  const handleBulkSubmit = async () => {
+    const pendingApps = applications.filter((a) => a.currentStage === 2 && a.status === "submitted")
+
+    const allReviewed = pendingApps.every((app) =>
+      app.workflowComments.some((c) => c.userType === "chairperson" && c.action === "review"),
+    )
+
+    if (!allReviewed) {
+      alert("Please review all applications before submitting to next stage")
+      return
+    }
+
+    try {
+      for (const app of pendingApps) {
+        await db.updateApplication(app.id, {
+          currentStage: 3,
+          status: "under_review",
+        })
+      }
+
+      await db.addLog({
+        userId: user.id,
+        userType: user.userType,
+        action: "Bulk Submit Applications",
+        details: `Submitted ${pendingApps.length} applications to Catchment Manager`,
+      })
+
+      alert(`Successfully submitted ${pendingApps.length} applications to Catchment Manager`)
+      loadDashboardData()
+    } catch (error) {
+      alert("Failed to submit applications. Please try again.")
+    }
+  }
+
+  const handleBulkRefuse = async () => {
+    const pendingApps = applications.filter((a) => a.currentStage === 2 && a.status === "submitted")
+
+    if (confirm(`Are you sure you want to refuse ${pendingApps.length} applications?`)) {
+      try {
+        for (const app of pendingApps) {
+          await db.updateApplication(app.id, {
+            status: "rejected",
+            currentStage: 1,
+          })
+        }
+
+        await db.addLog({
+          userId: user.id,
+          userType: user.userType,
+          action: "Bulk Refuse Applications",
+          details: `Refused ${pendingApps.length} applications`,
+        })
+
+        alert(`Successfully refused ${pendingApps.length} applications`)
+        loadDashboardData()
+      } catch (error) {
+        alert("Failed to refuse applications. Please try again.")
+      }
+    }
+  }
+
   /* ───────────────────── render ───────────────────── */
   return (
     <div className="space-y-6">
@@ -167,32 +231,71 @@ export function ChairpersonDashboard({ user }: ChairpersonDashboardProps) {
               <div className="space-y-3">
                 {applications
                   .filter((a) => a.currentStage === 2 && a.status === "submitted")
-                  .slice(0, 5)
-                  .map((app) => (
-                    <div
-                      key={app.id}
-                      onClick={() => setSelectedApplication(app)}
-                      className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer"
-                    >
-                      <div className="flex items-center space-x-3">
-                        <FileText className="h-5 w-5 text-gray-500" />
-                        <div>
-                          <p className="font-medium">{app.applicationId}</p>
-                          <p className="text-sm text-gray-600">{app.applicantName}</p>
+                  .slice(0, 10)
+                  .map((app) => {
+                    const isReviewed = app.workflowComments.some(
+                      (c) => c.userType === "chairperson" && c.action === "review",
+                    )
+                    return (
+                      <div
+                        key={app.id}
+                        className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100"
+                      >
+                        <div className="flex items-center space-x-3">
+                          <FileText className="h-5 w-5 text-gray-500" />
+                          <div>
+                            <p className="font-medium">{app.applicationId}</p>
+                            <p className="text-sm text-gray-600">{app.applicantName}</p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center space-x-4">
+                          {/* Review Status Column */}
+                          <div className="text-center">
+                            <Badge
+                              variant={isReviewed ? "default" : "secondary"}
+                              className={isReviewed ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"}
+                            >
+                              {isReviewed ? "Reviewed" : "Pending Review"}
+                            </Badge>
+                          </div>
+
+                          {/* Application Details */}
+                          <div className="text-right">
+                            <Badge variant="outline" className="mb-1">
+                              {app.permitType.replace("_", " ").toUpperCase()}
+                            </Badge>
+                            <p className="text-xs text-gray-500">{app.createdAt.toLocaleDateString()}</p>
+                          </div>
+
+                          {/* Review Button */}
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setSelectedApplication(app)}
+                            className="flex items-center"
+                          >
+                            <Eye className="h-4 w-4 mr-1" />
+                            Review
+                          </Button>
                         </div>
                       </div>
-                      <div className="text-right">
-                        <Badge variant="outline" className="mb-1">
-                          {app.permitType.replace("_", " ").toUpperCase()}
-                        </Badge>
-                        <p className="text-xs text-gray-500">{app.createdAt.toLocaleDateString()}</p>
-                      </div>
-                    </div>
-                  ))}
-                {applications.filter((a) => a.currentStage === 2 && a.status === "submitted").length === 0 && (
-                  <p className="text-center text-gray-500 py-8">No applications pending review</p>
-                )}
+                    )
+                  })}
               </div>
+              {/* Bulk Actions */}
+              {applications.filter((a) => a.currentStage === 2 && a.status === "submitted").length > 0 && (
+                <div className="flex justify-end space-x-2 mt-4 pt-4 border-t">
+                  <Button variant="destructive" onClick={handleBulkRefuse} className="flex items-center">
+                    <X className="h-4 w-4 mr-2" />
+                    Refuse All Applications
+                  </Button>
+                  <Button onClick={handleBulkSubmit} className="flex items-center">
+                    <CheckCircle className="h-4 w-4 mr-2" />
+                    Submit All to Next Stage
+                  </Button>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
