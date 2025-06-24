@@ -243,6 +243,7 @@ export const EnhancedDashboardApplications = forwardRef<
       [
         "Application ID",
         "Applicant Name",
+        "Physical Address",
         "Status",
         "Current Stage",
         "Permit Type",
@@ -253,6 +254,7 @@ export const EnhancedDashboardApplications = forwardRef<
       ...filteredApplications.map((app) => [
         app.applicationId,
         app.applicantName,
+        app.physicalAddress,
         app.status,
         app.currentStage,
         app.permitType,
@@ -587,7 +589,8 @@ export const EnhancedDashboardApplications = forwardRef<
                         />
                       </TableHead>
                       <TableHead>Application ID</TableHead>
-                      <TableHead>Applicant</TableHead>
+                      <TableHead>Applicant Name</TableHead>
+                      <TableHead>Address</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Stage</TableHead>
                       <TableHead>Permit Type</TableHead>
@@ -620,11 +623,11 @@ export const EnhancedDashboardApplications = forwardRef<
                           </div>
                         </TableCell>
                         <TableCell>
-                          <div>
-                            <div className="font-medium">{app.applicantName}</div>
-                            <div className="text-sm text-gray-500 max-w-xs truncate" title={app.physicalAddress}>
-                              {app.physicalAddress}
-                            </div>
+                          <div className="font-medium">{app.applicantName}</div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="text-sm max-w-xs truncate" title={app.physicalAddress}>
+                            {app.physicalAddress}
                           </div>
                         </TableCell>
                         <TableCell>{getStatusBadge(app.status)}</TableCell>
