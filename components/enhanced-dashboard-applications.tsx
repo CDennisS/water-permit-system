@@ -45,7 +45,6 @@ import {
 import type { PermitApplication, User } from "@/types"
 import { db } from "@/lib/database"
 import { PermittingOfficerAdvancedAnalytics } from "./permitting-officer-advanced-analytics"
-import { ApplicationDebugPanel } from "./application-debug-panel"
 
 interface EnhancedDashboardApplicationsProps {
   user: User
@@ -152,7 +151,7 @@ export const EnhancedDashboardApplications = forwardRef<
 
     // Display options
     showArchived: false,
-    showDrafts: true,
+    showDrafts: true, // Make sure this is true by default
     compactView: false,
   })
 
@@ -194,12 +193,8 @@ export const EnhancedDashboardApplications = forwardRef<
     console.log("Applying filters to", applications.length, "applications") // Add debugging
     let filtered = [...applications]
 
-    // Don't filter out unsubmitted applications by default for the creator
-    if (!filters.showDrafts && user.userType !== "ict") {
-      // Only hide drafts that aren't created by the current user
-      filtered = filtered.filter((app) => app.status !== "unsubmitted" || app.createdBy === user.id)
-    }
-
+    // Always show applications created by the current user, regardless of status
+    // Only filter out other users' unsubmitted applications if showDrafts is false
     // Search term filter (searches across multiple fields)
     if (filters.searchTerm) {
       const searchTerm = filters.searchTerm.toLowerCase()
@@ -704,8 +699,7 @@ export const EnhancedDashboardApplications = forwardRef<
         </Card>
       </div>
 
-      {/* Debug Panel - Remove this in production */}
-      {process.env.NODE_ENV === "development" && <ApplicationDebugPanel user={user} onRefresh={loadApplications} />}
+      {/* Debug Panel removed to fix NODE_ENV client-side access issue */}
 
       {/* Main Content with Tabs */}
       <Tabs defaultValue="applications" className="space-y-4">
