@@ -33,15 +33,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import {
   Search,
   Download,
@@ -61,8 +53,8 @@ import {
   CheckSquare,
   Settings,
   GripVertical,
+  Lock,
 } from "lucide-react"
-import { Textarea } from "@/components/ui/textarea"
 import type { PermitApplication, User } from "@/types"
 import { db } from "@/lib/database"
 import { PermittingOfficerAdvancedAnalytics } from "./permitting-officer-advanced-analytics"
@@ -82,17 +74,6 @@ interface ColumnConfig {
   resizable: boolean
 }
 
-interface EditFormData {
-  applicantName: string
-  physicalAddress: string
-  postalAddress: string
-  cellularNumber: string
-  customerAccountNumber: string
-  permitType: string
-  intendedUse: string
-  comments: string
-}
-
 export const EnhancedDashboardApplications = forwardRef<
   { refreshApplications: () => void },
   EnhancedDashboardApplicationsProps
@@ -104,18 +85,6 @@ export const EnhancedDashboardApplications = forwardRef<
   const [itemsPerPage, setItemsPerPage] = useState(25)
   const [isLoading, setIsLoading] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [editingApplication, setEditingApplication] = useState<PermitApplication | null>(null)
-  const [editFormData, setEditFormData] = useState<EditFormData>({
-    applicantName: "",
-    physicalAddress: "",
-    postalAddress: "",
-    cellularNumber: "",
-    customerAccountNumber: "",
-    permitType: "",
-    intendedUse: "",
-    comments: "",
-  })
-  const [isSavingEdit, setIsSavingEdit] = useState(false)
 
   // Column management
   const [columns, setColumns] = useState<ColumnConfig[]>([
@@ -126,14 +95,14 @@ export const EnhancedDashboardApplications = forwardRef<
     { key: "status", label: "Status", visible: true, width: 120, resizable: true },
     { key: "stage", label: "Stage", visible: true, width: 80, resizable: true },
     { key: "permitType", label: "Permit Type", visible: true, width: 140, resizable: true },
-    { key: "accountNumber", label: "Account Number", visible: true, width: 140, resizable: true },
+    { key: "customerAccountNumber", label: "Account Number", visible: true, width: 140, resizable: true },
     { key: "created", label: "Created", visible: true, width: 100, resizable: true },
     { key: "processingDays", label: "Processing Days", visible: true, width: 120, resizable: true },
     { key: "waterAllocation", label: "Water (ML)", visible: false, width: 100, resizable: true },
     { key: "landSize", label: "Land (ha)", visible: false, width: 100, resizable: true },
     { key: "cellularNumber", label: "Phone", visible: false, width: 120, resizable: true },
     { key: "intendedUse", label: "Intended Use", visible: false, width: 150, resizable: true },
-    { key: "actions", label: "Actions", visible: true, width: 180, resizable: false },
+    { key: "actions", label: "Actions", visible: true, width: 200, resizable: false },
   ])
 
   // Resizing state
@@ -310,59 +279,18 @@ export const EnhancedDashboardApplications = forwardRef<
   }
 
   const canEditApplication = (app: PermitApplication) => {
-    // Can edit if:
-    // 1. Application is not approved or rejected at final stage
-    // 2. User is ICT (can always edit)
-    // 3. Application is still in early stages
-    return user.userType === "ict" || (app.status !== "approved" && app.status !== "rejected") || app.currentStage < 5
+    // Can only edit if application is unsubmitted or user is ICT
+    return app.status === "unsubmitted" || user.userType === "ict"
   }
 
-  const handleEditApplication = (app: PermitApplication) => {
-    setEditingApplication(app)
-    setEditFormData({
-      applicantName: app.applicantName,
-      physicalAddress: app.physicalAddress,
-      postalAddress: app.postalAddress,
-      cellularNumber: app.cellularNumber,
-      customerAccountNumber: app.customerAccountNumber,
-      permitType: app.permitType,
-      intendedUse: app.intendedUse,
-      comments: app.comments,
-    })
-  }
-
-  const handleSaveEdit = async () => {
-    if (!editingApplication) return
-
-    setIsSavingEdit(true)
-    try {
-      await db.updateApplication(editingApplication.id, {
-        applicantName: editFormData.applicantName,
-        physicalAddress: editFormData.physicalAddress,
-        postalAddress: editFormData.postalAddress,
-        cellularNumber: editFormData.cellularNumber,
-        customerAccountNumber: editFormData.customerAccountNumber,
-        permitType: editFormData.permitType,
-        intendedUse: editFormData.intendedUse,
-        comments: editFormData.comments,
-      })
-
-      await db.addLog({
-        userId: user.id,
-        userType: user.userType,
-        action: "Updated Application Details",
-        details: `Updated applicant details for application ${editingApplication.applicationId}`,
-        applicationId: editingApplication.id,
-      })
-
-      setEditingApplication(null)
-      await loadApplications()
-      console.log(`Successfully updated application ${editingApplication.applicationId}`)
-    } catch (error) {
-      console.error("Failed to update application:", error)
-    } finally {
-      setIsSavingEdit(false)
+  const getEditTooltipText = (app: PermitApplication) => {
+    if (app.status === "unsubmitted") {
+      return "Edit application details"
     }
+    if (user.userType === "ict") {
+      return "Edit application details (ICT access)"
+    }
+    return "Cannot edit - application has been submitted"
   }
 
   const handleColumnVisibilityChange = (columnKey: string, visible: boolean) => {
@@ -564,181 +492,112 @@ export const EnhancedDashboardApplications = forwardRef<
         )
       case "actions":
         return (
-          <div className="flex items-center space-x-1">
-            {/* View Button - Always visible */}
-            <Button variant="ghost" size="sm" onClick={() => onViewApplication(app)} title="View application details">
-              <Eye className="h-4 w-4" />
-            </Button>
-
-            {/* Edit Button - Conditional visibility */}
-            {canEditApplication(app) && (
-              <Dialog>
-                <DialogTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleEditApplication(app)}
-                    title="Edit applicant details"
-                  >
-                    <Edit className="h-4 w-4" />
+          <TooltipProvider>
+            <div className="flex items-center space-x-1">
+              {/* View Button - Always visible */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="outline" size="sm" onClick={() => onViewApplication(app)} className="h-8 px-2">
+                    <Eye className="h-4 w-4" />
                   </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-2xl">
-                  <DialogHeader>
-                    <DialogTitle>Edit Application Details</DialogTitle>
-                    <DialogDescription>
-                      Update applicant information for application {app.applicationId}
-                    </DialogDescription>
-                  </DialogHeader>
-                  <div className="grid gap-4 py-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <Label htmlFor="applicantName">Applicant Name</Label>
-                        <Input
-                          id="applicantName"
-                          value={editFormData.applicantName}
-                          onChange={(e) => setEditFormData((prev) => ({ ...prev, applicantName: e.target.value }))}
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="customerAccountNumber">Account Number</Label>
-                        <Input
-                          id="customerAccountNumber"
-                          value={editFormData.customerAccountNumber}
-                          onChange={(e) =>
-                            setEditFormData((prev) => ({ ...prev, customerAccountNumber: e.target.value }))
-                          }
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <Label htmlFor="physicalAddress">Physical Address</Label>
-                      <Textarea
-                        id="physicalAddress"
-                        value={editFormData.physicalAddress}
-                        onChange={(e) => setEditFormData((prev) => ({ ...prev, physicalAddress: e.target.value }))}
-                        rows={2}
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="postalAddress">Postal Address</Label>
-                      <Input
-                        id="postalAddress"
-                        value={editFormData.postalAddress}
-                        onChange={(e) => setEditFormData((prev) => ({ ...prev, postalAddress: e.target.value }))}
-                      />
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <Label htmlFor="cellularNumber">Phone Number</Label>
-                        <Input
-                          id="cellularNumber"
-                          value={editFormData.cellularNumber}
-                          onChange={(e) => setEditFormData((prev) => ({ ...prev, cellularNumber: e.target.value }))}
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="permitType">Permit Type</Label>
-                        <Select
-                          value={editFormData.permitType}
-                          onValueChange={(value) => setEditFormData((prev) => ({ ...prev, permitType: value }))}
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="urban">Urban</SelectItem>
-                            <SelectItem value="bulk_water">Bulk Water</SelectItem>
-                            <SelectItem value="irrigation">Irrigation</SelectItem>
-                            <SelectItem value="institution">Institution</SelectItem>
-                            <SelectItem value="industrial">Industrial</SelectItem>
-                            <SelectItem value="surface_water_storage">Surface Water (Storage)</SelectItem>
-                            <SelectItem value="surface_water_flow">Surface Water (Flow)</SelectItem>
-                            <SelectItem value="tempering">Tempering</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                    <div>
-                      <Label htmlFor="intendedUse">Intended Use</Label>
-                      <Input
-                        id="intendedUse"
-                        value={editFormData.intendedUse}
-                        onChange={(e) => setEditFormData((prev) => ({ ...prev, intendedUse: e.target.value }))}
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="comments">Comments</Label>
-                      <Textarea
-                        id="comments"
-                        value={editFormData.comments}
-                        onChange={(e) => setEditFormData((prev) => ({ ...prev, comments: e.target.value }))}
-                        rows={3}
-                      />
-                    </div>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>View application details</p>
+                </TooltipContent>
+              </Tooltip>
+
+              {/* Edit Button - Conditional visibility with clear restrictions */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => (canEditApplication(app) ? onEditApplication(app) : undefined)}
+                      disabled={!canEditApplication(app)}
+                      className={`h-8 px-2 ${
+                        canEditApplication(app)
+                          ? "hover:bg-blue-50 hover:border-blue-300"
+                          : "opacity-50 cursor-not-allowed"
+                      }`}
+                    >
+                      {canEditApplication(app) ? <Edit className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
+                    </Button>
                   </div>
-                  <DialogFooter>
-                    <Button variant="outline" onClick={() => setEditingApplication(null)}>
-                      Cancel
-                    </Button>
-                    <Button onClick={handleSaveEdit} disabled={isSavingEdit}>
-                      {isSavingEdit ? "Saving..." : "Save Changes"}
-                    </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
-            )}
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{getEditTooltipText(app)}</p>
+                </TooltipContent>
+              </Tooltip>
 
-            {/* Submit Button - Only for unsubmitted */}
-            {app.status === "unsubmitted" && (
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-green-600 hover:text-green-800"
-                    title="Submit application"
-                  >
-                    <Send className="h-4 w-4" />
+              {/* Submit Button - Only for unsubmitted */}
+              {app.status === "unsubmitted" && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8 px-2 text-green-600 hover:text-green-800 hover:bg-green-50 hover:border-green-300"
+                        >
+                          <Send className="h-4 w-4" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Submit Application</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Are you sure you want to submit application {app.applicationId} to the next level?
+                            <br />
+                            <strong className="text-red-600">
+                              Warning: Once submitted, the application cannot be edited.
+                            </strong>
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction onClick={() => handleSubmitSingle(app)}>
+                            Submit Application
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Submit application for review</p>
+                  </TooltipContent>
+                </Tooltip>
+              )}
+
+              {/* More Actions Menu */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="h-8 w-8 p-0">
+                    <MoreHorizontal className="h-4 w-4" />
                   </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Submit Application</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Are you sure you want to submit application {app.applicationId} to the next level? This action
-                      cannot be undone and the application will move to the review stage.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={() => handleSubmitSingle(app)}>Submit Application</AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            )}
-
-            {/* More Actions Menu */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="h-8 w-8 p-0">
-                  <MoreHorizontal className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuLabel>More Actions</DropdownMenuLabel>
-                <DropdownMenuItem>
-                  <Download className="mr-2 h-4 w-4" />
-                  Export Details
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem>
-                  <FileText className="mr-2 h-4 w-4" />
-                  View Documents
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuLabel>More Actions</DropdownMenuLabel>
+                  <DropdownMenuItem>
+                    <Download className="mr-2 h-4 w-4" />
+                    Export Details
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem>
+                    <FileText className="mr-2 h-4 w-4" />
+                    View Documents
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem className="text-gray-500">
+                    <span className="text-xs">
+                      Status: {app.status} | Stage: {app.currentStage}
+                    </span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </TooltipProvider>
         )
       default:
         return null
@@ -981,7 +840,10 @@ export const EnhancedDashboardApplications = forwardRef<
                           <AlertDialogTitle>Submit Applications</AlertDialogTitle>
                           <AlertDialogDescription>
                             Are you sure you want to submit {selectedUnsubmittedCount} application(s) to the next level?
-                            This action will move them to the review stage and they cannot be edited afterwards.
+                            <br />
+                            <strong className="text-red-600">
+                              Warning: Once submitted, applications cannot be edited.
+                            </strong>
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
