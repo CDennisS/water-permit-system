@@ -115,30 +115,34 @@ export function PermitPrinter({ application, disabled = false }: PermitPrinterPr
   return (
     <div className="space-y-4">
       {/* Approved Status Indicator */}
-      <div className="flex items-center space-x-2 p-3 bg-green-50 border border-green-200 rounded-lg">
-        <CheckCircle className="h-5 w-5 text-green-600" />
-        <div>
-          <p className="font-semibold text-green-800">Permit Ready for Printing</p>
-          <p className="text-sm text-green-600">Application has been fully approved through all stages</p>
+      <div className="flex items-center space-x-2 p-4 bg-green-100 border-2 border-green-300 rounded-lg">
+        <CheckCircle className="h-6 w-6 text-green-600" />
+        <div className="flex-1">
+          <p className="font-bold text-green-800 text-lg">🎉 Permit Ready for Printing</p>
+          <p className="text-sm text-green-700">Application has been fully approved through all stages</p>
         </div>
-        <Badge className="bg-green-100 text-green-800 ml-auto">APPROVED</Badge>
+        <Badge className="bg-green-600 text-white text-lg px-3 py-1">APPROVED</Badge>
       </div>
 
-      {/* Action Buttons */}
-      <div className="flex flex-wrap gap-3">
+      {/* Large Action Buttons */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
           <DialogTrigger asChild>
-            <Button variant="default" size="sm" className="bg-blue-600 hover:bg-blue-700">
-              <Eye className="h-4 w-4 mr-2" />
-              Preview Permit
+            <Button
+              variant="default"
+              size="lg"
+              className="bg-blue-600 hover:bg-blue-700 text-white h-16 text-lg font-semibold"
+            >
+              <Eye className="h-6 w-6 mr-3" />🔍 Print Preview
+              <div className="text-sm font-normal ml-2">(Review Before Print)</div>
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="flex items-center justify-between">
-                <span>Permit Preview - {permitData.permitNumber}</span>
-                <Badge className="bg-green-100 text-green-800">
-                  <CheckCircle className="h-4 w-4 mr-1" />
+                <span className="text-xl">🖨️ Permit Print Preview - {permitData.permitNumber}</span>
+                <Badge className="bg-green-100 text-green-800 text-lg px-3 py-1">
+                  <CheckCircle className="h-5 w-5 mr-1" />
                   APPROVED
                 </Badge>
               </DialogTitle>
@@ -146,69 +150,81 @@ export function PermitPrinter({ application, disabled = false }: PermitPrinterPr
 
             <div className="space-y-4">
               {/* Preview Notice */}
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <div className="flex items-center space-x-2">
-                  <Eye className="h-5 w-5 text-blue-600" />
+              <div className="bg-blue-50 border-2 border-blue-300 rounded-lg p-4">
+                <div className="flex items-center space-x-3">
+                  <Eye className="h-6 w-6 text-blue-600" />
                   <div>
-                    <p className="font-semibold text-blue-800">Permit Print Preview</p>
-                    <p className="text-sm text-blue-600">
+                    <p className="font-bold text-blue-800 text-lg">📋 Permit Print Preview</p>
+                    <p className="text-blue-700">
                       Review the permit details below before printing. This is exactly how the permit will appear when
-                      printed.
+                      printed on A4 paper.
                     </p>
                   </div>
                 </div>
               </div>
 
               {/* Permit Template */}
-              <div id="permit-template" className="border rounded-lg bg-white">
+              <div id="permit-template" className="border-2 border-gray-300 rounded-lg bg-white shadow-lg">
                 <PermitTemplate permitData={permitData} />
               </div>
 
               {/* Action Buttons */}
-              <div className="flex justify-end space-x-2 mt-6 no-print border-t pt-4">
-                <Button onClick={handleDownload} variant="outline">
-                  <Download className="h-4 w-4 mr-2" />
-                  Download
+              <div className="flex justify-end space-x-3 mt-6 no-print border-t-2 pt-6">
+                <Button onClick={handleDownload} variant="outline" size="lg">
+                  <Download className="h-5 w-5 mr-2" />💾 Download PDF
                 </Button>
-                <Button onClick={handlePrint} className="bg-green-600 hover:bg-green-700">
-                  <Printer className="h-4 w-4 mr-2" />
-                  Print Permit
+                <Button onClick={handlePrint} size="lg" className="bg-green-600 hover:bg-green-700 text-lg">
+                  <Printer className="h-5 w-5 mr-2" />
+                  🖨️ Print Permit Now
                 </Button>
               </div>
             </div>
           </DialogContent>
         </Dialog>
 
-        <Button onClick={handlePrint} size="sm" className="bg-green-600 hover:bg-green-700">
-          <Printer className="h-4 w-4 mr-2" />
-          Print Now
+        <Button
+          onClick={handlePrint}
+          size="lg"
+          className="bg-green-600 hover:bg-green-700 text-white h-16 text-lg font-semibold"
+        >
+          <Printer className="h-6 w-6 mr-3" />
+          🖨️ Print Permit Now
+          <div className="text-sm font-normal ml-2">(Direct Print)</div>
         </Button>
+      </div>
 
-        <Button onClick={handleDownload} variant="outline" size="sm">
-          <Download className="h-4 w-4 mr-2" />
-          Download
+      {/* Additional Options */}
+      <div className="flex justify-center">
+        <Button onClick={handleDownload} variant="outline" size="lg" className="w-full md:w-auto">
+          <Download className="h-5 w-5 mr-2" />💾 Download Permit (PDF)
         </Button>
       </div>
 
       {/* Permit Information Summary */}
-      <div className="bg-gray-50 border rounded-lg p-3">
-        <h4 className="font-semibold text-gray-800 mb-2">Permit Information</h4>
-        <div className="grid grid-cols-2 gap-4 text-sm">
-          <div>
-            <span className="text-gray-600">Permit Number:</span>
-            <span className="font-semibold ml-2">{permitData.permitNumber}</span>
+      <div className="bg-gray-50 border-2 border-gray-200 rounded-lg p-4">
+        <h4 className="font-bold text-gray-800 mb-3 text-lg">📄 Permit Information Summary</h4>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+          <div className="space-y-2">
+            <div className="flex justify-between">
+              <span className="text-gray-600 font-medium">Permit Number:</span>
+              <span className="font-bold text-blue-600">{permitData.permitNumber}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600 font-medium">Applicant:</span>
+              <span className="font-semibold">{permitData.applicantName}</span>
+            </div>
           </div>
-          <div>
-            <span className="text-gray-600">Valid Until:</span>
-            <span className="font-semibold ml-2">{permitData.validUntil}</span>
-          </div>
-          <div>
-            <span className="text-gray-600">Applicant:</span>
-            <span className="font-semibold ml-2">{permitData.applicantName}</span>
-          </div>
-          <div>
-            <span className="text-gray-600">Water Allocation:</span>
-            <span className="font-semibold ml-2">{permitData.totalAllocatedAbstraction.toLocaleString()} m³/annum</span>
+          <div className="space-y-2">
+            <div className="flex justify-between">
+              <span className="text-gray-600 font-medium">Valid Until:</span>
+              <span className="font-bold text-green-600">{permitData.validUntil}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600 font-medium">Water Allocation:</span>
+              <span className="font-bold text-blue-600">
+                {permitData.totalAllocatedAbstraction.toLocaleString()} m³/annum
+              </span>
+            </div>
           </div>
         </div>
       </div>

@@ -433,17 +433,23 @@ export function ComprehensiveApplicationViewer({
               <div className="space-y-6">
                 {canPrintPermit() && (
                   <div className="bg-green-50 border-2 border-green-200 rounded-lg p-6">
-                    <div className="flex items-center space-x-3 mb-4">
-                      <CheckCircle className="h-6 w-6 text-green-600" />
+                    <div className="flex items-center space-x-3 mb-6">
+                      <CheckCircle className="h-8 w-8 text-green-600" />
                       <div>
-                        <h3 className="text-lg font-semibold text-green-800">Permit Approved & Ready for Printing</h3>
-                        <p className="text-green-700">
+                        <h3 className="text-xl font-bold text-green-800">✅ Permit Approved & Ready for Printing</h3>
+                        <p className="text-green-700 text-lg">
                           This application has been fully approved through all workflow stages and is ready for official
                           permit printing.
                         </p>
                       </div>
+                      <Badge className="bg-green-600 text-white text-lg px-4 py-2 ml-auto">APPROVED</Badge>
                     </div>
-                    <PermitPrinter application={application} />
+
+                    {/* Prominent Print Buttons */}
+                    <div className="bg-white border-2 border-green-300 rounded-lg p-4">
+                      <h4 className="font-semibold text-green-800 mb-4 text-lg">🖨️ Permit Printing Options</h4>
+                      <PermitPrinter application={application} />
+                    </div>
                   </div>
                 )}
 
