@@ -110,17 +110,41 @@ export function ChairpersonDashboard({ user }: ChairpersonDashboardProps) {
   const handleBulkSubmit = async () => {
     const pendingApps = applications.filter((a) => a.currentStage === 2 && a.status === "submitted")
 
+    console.log("Pending applications:", pendingApps.length)
+    console.log(
+      "Applications to check:",
+      pendingApps.map((app) => ({
+        id: app.applicationId,
+        comments: app.workflowComments?.length || 0,
+        hasChairpersonReview: app.workflowComments?.some((c) => c.userType === "chairperson" && c.action === "review"),
+      })),
+    )
+
     const allReviewed = pendingApps.every(
       (app) => app.workflowComments?.some((c) => c.userType === "chairperson" && c.action === "review") ?? false,
     )
 
+    console.log("All applications reviewed:", allReviewed)
+
     if (!allReviewed) {
-      alert("Please review all applications before submitting to next stage")
+      const unreviewed = pendingApps.filter(
+        (app) => !(app.workflowComments?.some((c) => c.userType === "chairperson" && c.action === "review") ?? false),
+      )
+      alert(
+        `Please review all applications before submitting to next stage. Unreviewed: ${unreviewed.map((a) => a.applicationId).join(", ")}`,
+      )
+      return
+    }
+
+    if (!confirm(`Are you sure you want to submit ${pendingApps.length} applications to the Catchment Manager?`)) {
       return
     }
 
     try {
+      console.log("Starting bulk submission...")
+
       for (const app of pendingApps) {
+        console.log(`Updating application ${app.applicationId}...`)
         await db.updateApplication(app.id, {
           currentStage: 3,
           status: "under_review",
@@ -134,9 +158,11 @@ export function ChairpersonDashboard({ user }: ChairpersonDashboardProps) {
         details: `Submitted ${pendingApps.length} applications to Catchment Manager`,
       })
 
+      console.log("Bulk submission completed successfully")
       alert(`Successfully submitted ${pendingApps.length} applications to Catchment Manager`)
       loadDashboardData()
     } catch (error) {
+      console.error("Bulk submission failed:", error)
       alert("Failed to submit applications. Please try again.")
     }
   }
