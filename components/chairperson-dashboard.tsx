@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { FileText, Users, CheckCircle, Clock, AlertTriangle, Eye, ArrowLeft } from "lucide-react"
+import { FileText, Users, CheckCircle, Clock, AlertTriangle, Eye, ArrowLeft, MapPin, Phone } from "lucide-react"
 import type { User, PermitApplication } from "@/types"
 import { db } from "@/lib/database"
 import { ChairpersonReviewWorkflow } from "./chairperson-review-workflow"
@@ -216,7 +216,7 @@ export function ChairpersonDashboard({ user }: ChairpersonDashboardProps) {
                 <CardTitle>Applications Requiring Review</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-3">
+                <div className="space-y-4">
                   {applications
                     .filter((a) => a.currentStage === 2 && a.status === "submitted")
                     .map((app) => {
@@ -226,52 +226,111 @@ export function ChairpersonDashboard({ user }: ChairpersonDashboardProps) {
                       return (
                         <div
                           key={app.id}
-                          className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100"
+                          className="border rounded-lg p-4 bg-gray-50 hover:bg-gray-100 transition-colors"
                         >
-                          <div className="flex items-center space-x-4">
-                            <FileText className="h-5 w-5 text-gray-500" />
-                            <div>
-                              <p className="font-medium">{app.applicationId}</p>
-                              <p className="text-sm text-gray-600">{app.applicantName}</p>
-                              <p className="text-xs text-gray-500">{app.createdAt.toLocaleDateString()}</p>
-                            </div>
-                          </div>
+                          <div className="flex items-start justify-between">
+                            {/* Application Details */}
+                            <div className="flex-1 space-y-3">
+                              {/* Header Row */}
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center space-x-3">
+                                  <FileText className="h-5 w-5 text-blue-600" />
+                                  <div>
+                                    <p className="font-semibold text-lg">{app.applicationId}</p>
+                                    <Badge variant="outline" className="text-xs">
+                                      {app.permitType.replace("_", " ").toUpperCase()}
+                                    </Badge>
+                                  </div>
+                                </div>
+                                <Badge
+                                  variant={isReviewed ? "default" : "secondary"}
+                                  className={
+                                    isReviewed ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"
+                                  }
+                                >
+                                  {isReviewed ? "Reviewed" : "Pending Review"}
+                                </Badge>
+                              </div>
 
-                          <div className="flex items-center space-x-4">
-                            {/* Review Status */}
-                            <div className="text-center">
-                              <Badge
-                                variant={isReviewed ? "default" : "secondary"}
-                                className={isReviewed ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"}
-                              >
-                                {isReviewed ? "Reviewed" : "Pending Review"}
-                              </Badge>
-                            </div>
+                              {/* Applicant Information */}
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                  <div className="flex items-center space-x-2">
+                                    <Users className="h-4 w-4 text-gray-500" />
+                                    <span className="font-medium">Applicant:</span>
+                                    <span>{app.applicantName}</span>
+                                  </div>
+                                  <div className="flex items-center space-x-2">
+                                    <Phone className="h-4 w-4 text-gray-500" />
+                                    <span className="font-medium">Contact:</span>
+                                    <span>{app.cellularNumber}</span>
+                                  </div>
+                                </div>
+                                <div className="space-y-2">
+                                  <div className="flex items-start space-x-2">
+                                    <MapPin className="h-4 w-4 text-gray-500 mt-0.5" />
+                                    <div>
+                                      <span className="font-medium">Physical Address:</span>
+                                      <p className="text-sm text-gray-600">{app.physicalAddress}</p>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
 
-                            {/* Permit Type */}
-                            <div className="text-right">
-                              <Badge variant="outline" className="mb-1">
-                                {app.permitType.replace("_", " ").toUpperCase()}
-                              </Badge>
+                              {/* Additional Details */}
+                              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                                <div>
+                                  <span className="font-medium text-gray-600">Land Size:</span>
+                                  <p>{app.landSize} ha</p>
+                                </div>
+                                <div>
+                                  <span className="font-medium text-gray-600">Water Allocation:</span>
+                                  <p>{app.waterAllocation} ML</p>
+                                </div>
+                                <div>
+                                  <span className="font-medium text-gray-600">Boreholes:</span>
+                                  <p>{app.numberOfBoreholes}</p>
+                                </div>
+                                <div>
+                                  <span className="font-medium text-gray-600">Submitted:</span>
+                                  <p>{app.createdAt.toLocaleDateString()}</p>
+                                </div>
+                              </div>
+
+                              {/* GPS Coordinates */}
+                              {(app.gpsLatitude || app.gpsLongitude) && (
+                                <div className="text-sm">
+                                  <span className="font-medium text-gray-600">GPS Coordinates:</span>
+                                  <p>
+                                    Lat: {app.gpsLatitude?.toFixed(6) || "N/A"}, Lng:{" "}
+                                    {app.gpsLongitude?.toFixed(6) || "N/A"}
+                                  </p>
+                                </div>
+                              )}
                             </div>
 
                             {/* Review Button */}
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => setSelectedApplication(app)}
-                              className="flex items-center"
-                            >
-                              <Eye className="h-4 w-4 mr-1" />
-                              Review
-                            </Button>
+                            <div className="ml-4">
+                              <Button
+                                variant="outline"
+                                onClick={() => setSelectedApplication(app)}
+                                className="flex items-center"
+                              >
+                                <Eye className="h-4 w-4 mr-2" />
+                                Review Application
+                              </Button>
+                            </div>
                           </div>
                         </div>
                       )
                     })}
 
                   {applications.filter((a) => a.currentStage === 2 && a.status === "submitted").length === 0 && (
-                    <p className="text-center text-gray-500 py-8">No applications pending review</p>
+                    <div className="text-center py-12">
+                      <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                      <p className="text-gray-500 text-lg">No applications pending review</p>
+                      <p className="text-gray-400 text-sm">All submitted applications have been reviewed</p>
+                    </div>
                   )}
                 </div>
 
