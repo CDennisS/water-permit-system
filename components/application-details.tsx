@@ -4,7 +4,9 @@ import type React from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
+import { CheckCircle, Printer } from "lucide-react"
 import type { PermitApplication, User } from "@/types"
+import { PermitPrinter } from "./permit-printer"
 
 interface ApplicationDetailsProps {
   user: User
@@ -37,6 +39,10 @@ const ApplicationDetails: React.FC<ApplicationDetailsProps> = ({ user, applicati
     }).format(date)
   }
 
+  const canPrintPermit = () => {
+    return application.status === "approved" && user.userType === "permitting_officer"
+  }
+
   return (
     <div className="space-y-6">
       {/* Header with Application ID and Status */}
@@ -50,6 +56,34 @@ const ApplicationDetails: React.FC<ApplicationDetailsProps> = ({ user, applicati
           </div>
         </CardHeader>
       </Card>
+
+      {/* Print Permit Section for Approved Applications */}
+      {canPrintPermit() && (
+        <Card className="border-2 border-green-200 bg-green-50">
+          <CardHeader>
+            <CardTitle className="flex items-center text-green-800">
+              <CheckCircle className="h-6 w-6 mr-2" />🎉 Permit Approved & Ready for Printing
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="bg-white border-2 border-green-300 rounded-lg p-6">
+              <div className="flex items-center space-x-3 mb-4">
+                <Printer className="h-8 w-8 text-green-600" />
+                <div>
+                  <h3 className="text-xl font-bold text-green-800">🖨️ Permit Printing Options</h3>
+                  <p className="text-green-700 text-lg">
+                    This application has been fully approved through all workflow stages and is ready for official
+                    permit printing.
+                  </p>
+                </div>
+                <Badge className="bg-green-600 text-white text-lg px-4 py-2 ml-auto">READY TO PRINT</Badge>
+              </div>
+
+              <PermitPrinter application={application} />
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Applicant Information */}
       <Card>
@@ -181,7 +215,13 @@ const ApplicationDetails: React.FC<ApplicationDetailsProps> = ({ user, applicati
             {application.approvedAt && (
               <div>
                 <label className="text-sm font-medium text-gray-600">Approved Date</label>
-                <p className="text-base">{formatDate(application.approvedAt)}</p>
+                <p className="text-base text-green-600 font-semibold">{formatDate(application.approvedAt)}</p>
+              </div>
+            )}
+            {application.rejectedAt && (
+              <div>
+                <label className="text-sm font-medium text-gray-600">Rejected Date</label>
+                <p className="text-base text-red-600 font-semibold">{formatDate(application.rejectedAt)}</p>
               </div>
             )}
           </div>
@@ -207,6 +247,72 @@ const ApplicationDetails: React.FC<ApplicationDetailsProps> = ({ user, applicati
         </Card>
       )}
 
+      {/* Status-Specific Information */}
+      {application.status === "approved" && (
+        <Card className="border-2 border-green-200 bg-green-50">
+          <CardHeader>
+            <CardTitle className="text-lg font-semibold text-green-800 flex items-center">
+              <CheckCircle className="h-5 w-5 mr-2" />✅ Application Status: APPROVED
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              <p className="text-green-700">
+                🎉 <strong>Congratulations!</strong> This application has been fully approved through all workflow
+                stages.
+              </p>
+              <p className="text-green-700">
+                📅 <strong>Approved on:</strong> {application.approvedAt ? formatDate(application.approvedAt) : "N/A"}
+              </p>
+              {user.userType === "permitting_officer" && (
+                <p className="text-green-700">
+                  🖨️ <strong>Action Required:</strong> The permit is ready for printing. Use the printing options above
+                  to generate the official permit document.
+                </p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {application.status === "rejected" && (
+        <Card className="border-2 border-red-200 bg-red-50">
+          <CardHeader>
+            <CardTitle className="text-lg font-semibold text-red-800">❌ Application Status: REJECTED</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              <p className="text-red-700">⚠️ This application has been rejected during the review process.</p>
+              <p className="text-red-700">
+                📅 <strong>Rejected on:</strong> {application.rejectedAt ? formatDate(application.rejectedAt) : "N/A"}
+              </p>
+              <p className="text-red-700">📄 Review the comments section for detailed rejection reasons.</p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {application.status === "under_review" && (
+        <Card className="border-2 border-yellow-200 bg-yellow-50">
+          <CardHeader>
+            <CardTitle className="text-lg font-semibold text-yellow-800">⏳ Application Status: UNDER REVIEW</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              <p className="text-yellow-700">
+                🔄 This application is currently being reviewed at Stage {application.currentStage}.
+              </p>
+              <p className="text-yellow-700">
+                📅 <strong>Last Updated:</strong> {formatDate(application.updatedAt)}
+              </p>
+              <p className="text-yellow-700">
+                ⏰ Please wait for the review process to complete before printing options become available.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* User Permissions (for debugging/admin purposes) */}
       {user.userType === "ict" && (
         <Card className="border-dashed border-gray-300">
@@ -219,6 +325,7 @@ const ApplicationDetails: React.FC<ApplicationDetailsProps> = ({ user, applicati
               <p>Can Upload: {user.userType === "permitting_officer" ? "Yes" : "No"}</p>
               <p>Can Delete: {user.userType === "permitting_officer" ? "Yes" : "No"}</p>
               <p>Is Owner: Yes</p>
+              <p>Can Print Permit: {canPrintPermit() ? "Yes" : "No"}</p>
             </div>
           </CardContent>
         </Card>
