@@ -13,6 +13,7 @@ import { CatchmentManagerReviewWorkflow } from "./catchment-manager-review-workf
 import { MessagingSystem } from "./messaging-system"
 import { ActivityLogs } from "./activity-logs"
 import { UnreadMessageNotification } from "./unread-message-notification"
+import { EnhancedExportSystem } from "./enhanced-export-system"
 
 interface CatchmentManagerDashboardProps {
   user: User
@@ -391,7 +392,16 @@ Proceed with submission?`
           {/* Applications Requiring Review */}
           <Card>
             <CardHeader>
-              <CardTitle>Applications Requiring Technical Review</CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle>Applications Requiring Technical Review</CardTitle>
+                {applicationsRequiringReview.length > 0 && (
+                  <EnhancedExportSystem
+                    applications={applicationsRequiringReview}
+                    user={user}
+                    title="Technical Review Applications"
+                  />
+                )}
+              </div>
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
