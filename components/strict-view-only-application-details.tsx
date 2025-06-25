@@ -58,7 +58,7 @@ export function StrictViewOnlyApplicationDetails({ user, application }: StrictVi
               <div className="flex items-center text-sm">
                 <Phone className="h-4 w-4 mr-2 text-gray-500" />
                 <span className="font-medium">Contact:</span>
-                <span className="ml-2">{application.contactNumber}</span>
+                <span className="ml-2">{application.cellularNumber ?? "N/A"}</span>
               </div>
             </div>
 
@@ -103,11 +103,11 @@ export function StrictViewOnlyApplicationDetails({ user, application }: StrictVi
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="flex items-center text-sm">
               <span className="font-medium">Latitude (X):</span>
-              <span className="ml-2 font-mono">{application.gpsCoordinates.latitude}</span>
+              <span className="ml-2 font-mono">{application.gpsLatitude ?? "N/A"}</span>
             </div>
             <div className="flex items-center text-sm">
               <span className="font-medium">Longitude (Y):</span>
-              <span className="ml-2 font-mono">{application.gpsCoordinates.longitude}</span>
+              <span className="ml-2 font-mono">{application.gpsLongitude ?? "N/A"}</span>
             </div>
           </div>
         </CardContent>
@@ -145,16 +145,18 @@ export function StrictViewOnlyApplicationDetails({ user, application }: StrictVi
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
-            {application.comments && application.comments.length > 0 ? (
-              application.comments.map((comment, index) => (
+            {application.workflowComments && application.workflowComments.length > 0 ? (
+              application.workflowComments.map((workflowComment, index) => (
                 <div key={index} className="bg-gray-50 p-3 rounded-lg">
                   <div className="flex items-center justify-between mb-2">
                     <Badge variant="outline" className="text-xs">
-                      {comment.userType.replace("_", " ").toUpperCase()}
+                      {workflowComment.userType.replace("_", " ").toUpperCase()}
                     </Badge>
-                    <span className="text-xs text-gray-500">{comment.createdAt.toLocaleDateString()}</span>
+                    <span className="text-xs text-gray-500">
+                      {new Date(workflowComment.createdAt).toLocaleDateString()}
+                    </span>
                   </div>
-                  <p className="text-sm text-gray-700">{comment.comment}</p>
+                  <p className="text-sm text-gray-700">{workflowComment.comment}</p>
                 </div>
               ))
             ) : (

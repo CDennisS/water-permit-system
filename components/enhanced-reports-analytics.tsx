@@ -25,6 +25,7 @@ import { FileText, Download, AlertTriangle, Clock, TrendingUp, BarChart3, PieCha
 import type { PermitApplication } from "@/types"
 import { db } from "@/lib/database"
 import { AdvancedDashboardFilters, type DashboardFilterState } from "./advanced-dashboard-filters"
+import { ChartOrPlaceholder } from "./chart-or-placeholder"
 
 interface ReportFilters {
   dateRange: string
@@ -513,38 +514,40 @@ export function EnhancedReportsAnalytics() {
                 <CardTitle>Application Trends Over Time</CardTitle>
               </CardHeader>
               <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <AreaChart data={monthlyTrends}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="month" />
-                    <YAxis />
-                    <Tooltip />
-                    <Area
-                      type="monotone"
-                      dataKey="applications"
-                      stackId="1"
-                      stroke="#3B82F6"
-                      fill="#3B82F6"
-                      fillOpacity={0.6}
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="approved"
-                      stackId="2"
-                      stroke="#10B981"
-                      fill="#10B981"
-                      fillOpacity={0.6}
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="rejected"
-                      stackId="3"
-                      stroke="#EF4444"
-                      fill="#EF4444"
-                      fillOpacity={0.6}
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
+                <ChartOrPlaceholder data={monthlyTrends}>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <AreaChart data={monthlyTrends}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="month" />
+                      <YAxis />
+                      <Tooltip />
+                      <Area
+                        type="monotone"
+                        dataKey="applications"
+                        stackId="1"
+                        stroke="#3B82F6"
+                        fill="#3B82F6"
+                        fillOpacity={0.6}
+                      />
+                      <Area
+                        type="monotone"
+                        dataKey="approved"
+                        stackId="2"
+                        stroke="#10B981"
+                        fill="#10B981"
+                        fillOpacity={0.6}
+                      />
+                      <Area
+                        type="monotone"
+                        dataKey="rejected"
+                        stackId="3"
+                        stroke="#EF4444"
+                        fill="#EF4444"
+                        fillOpacity={0.6}
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </ChartOrPlaceholder>
               </CardContent>
             </Card>
 
@@ -553,17 +556,19 @@ export function EnhancedReportsAnalytics() {
                 <CardTitle>Monthly Application Volume</CardTitle>
               </CardHeader>
               <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <LineChart data={monthlyTrends}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="month" />
-                    <YAxis />
-                    <Tooltip />
-                    <Line type="monotone" dataKey="applications" stroke="#3B82F6" strokeWidth={3} />
-                    <Line type="monotone" dataKey="approved" stroke="#10B981" strokeWidth={2} />
-                    <Line type="monotone" dataKey="rejected" stroke="#EF4444" strokeWidth={2} />
-                  </LineChart>
-                </ResponsiveContainer>
+                <ChartOrPlaceholder data={monthlyTrends}>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <LineChart data={monthlyTrends}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="month" />
+                      <YAxis />
+                      <Tooltip />
+                      <Line type="monotone" dataKey="applications" stroke="#3B82F6" strokeWidth={3} />
+                      <Line type="monotone" dataKey="approved" stroke="#10B981" strokeWidth={2} />
+                      <Line type="monotone" dataKey="rejected" stroke="#EF4444" strokeWidth={2} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </ChartOrPlaceholder>
               </CardContent>
             </Card>
           </div>
@@ -576,25 +581,27 @@ export function EnhancedReportsAnalytics() {
                 <CardTitle>Permit Type Distribution</CardTitle>
               </CardHeader>
               <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <PieChart>
-                    <Pie
-                      data={permitDistribution}
-                      cx="50%"
-                      cy="50%"
-                      labelLine={false}
-                      label={({ name, percentage }) => `${name} ${percentage}%`}
-                      outerRadius={80}
-                      fill="#8884d8"
-                      dataKey="value"
-                    >
-                      {permitDistribution.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                  </PieChart>
-                </ResponsiveContainer>
+                <ChartOrPlaceholder data={permitDistribution}>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <PieChart>
+                      <Pie
+                        data={permitDistribution}
+                        cx="50%"
+                        cy="50%"
+                        labelLine={false}
+                        label={({ name, percentage }) => `${name} ${percentage}%`}
+                        outerRadius={80}
+                        fill="#8884d8"
+                        dataKey="value"
+                      >
+                        {permitDistribution.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </ChartOrPlaceholder>
               </CardContent>
             </Card>
 
@@ -603,25 +610,27 @@ export function EnhancedReportsAnalytics() {
                 <CardTitle>Status Distribution</CardTitle>
               </CardHeader>
               <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <PieChart>
-                    <Pie
-                      data={statusDistribution}
-                      cx="50%"
-                      cy="50%"
-                      labelLine={false}
-                      label={({ name, percentage }) => `${name} ${percentage}%`}
-                      outerRadius={80}
-                      fill="#8884d8"
-                      dataKey="value"
-                    >
-                      {statusDistribution.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                  </PieChart>
-                </ResponsiveContainer>
+                <ChartOrPlaceholder data={statusDistribution}>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <PieChart>
+                      <Pie
+                        data={statusDistribution}
+                        cx="50%"
+                        cy="50%"
+                        labelLine={false}
+                        label={({ name, percentage }) => `${name} ${percentage}%`}
+                        outerRadius={80}
+                        fill="#8884d8"
+                        dataKey="value"
+                      >
+                        {statusDistribution.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </ChartOrPlaceholder>
               </CardContent>
             </Card>
           </div>
@@ -633,17 +642,19 @@ export function EnhancedReportsAnalytics() {
               <CardTitle>Processing Performance Metrics</CardTitle>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={monthlyTrends}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="month" />
-                  <YAxis />
-                  <Tooltip />
-                  <Bar dataKey="approved" fill="#10B981" name="Approved" />
-                  <Bar dataKey="rejected" fill="#EF4444" name="Rejected" />
-                  <Bar dataKey="pending" fill="#F59E0B" name="Pending" />
-                </BarChart>
-              </ResponsiveContainer>
+              <ChartOrPlaceholder data={monthlyTrends}>
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={monthlyTrends}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="month" />
+                    <YAxis />
+                    <Tooltip />
+                    <Bar dataKey="approved" fill="#10B981" name="Approved" />
+                    <Bar dataKey="rejected" fill="#EF4444" name="Rejected" />
+                    <Bar dataKey="pending" fill="#F59E0B" name="Pending" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </ChartOrPlaceholder>
             </CardContent>
           </Card>
         </TabsContent>
@@ -654,16 +665,18 @@ export function EnhancedReportsAnalytics() {
               <CardTitle>Water Allocation Trends</CardTitle>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <AreaChart data={waterAllocationTrends}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="month" />
-                  <YAxis />
-                  <Tooltip />
-                  <Area type="monotone" dataKey="allocation" stroke="#0088FE" fill="#0088FE" fillOpacity={0.6} />
-                  <Area type="monotone" dataKey="avgAllocation" stroke="#00C49F" fill="#00C49F" fillOpacity={0.4} />
-                </AreaChart>
-              </ResponsiveContainer>
+              <ChartOrPlaceholder data={waterAllocationTrends}>
+                <ResponsiveContainer width="100%" height={300}>
+                  <AreaChart data={waterAllocationTrends}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="month" />
+                    <YAxis />
+                    <Tooltip />
+                    <Area type="monotone" dataKey="allocation" stroke="#0088FE" fill="#0088FE" fillOpacity={0.6} />
+                    <Area type="monotone" dataKey="avgAllocation" stroke="#00C49F" fill="#00C49F" fillOpacity={0.4} />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </ChartOrPlaceholder>
             </CardContent>
           </Card>
         </TabsContent>

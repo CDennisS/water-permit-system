@@ -172,6 +172,8 @@ export function ApplicationForm({ user, application, onSave, onCancel }: Applica
     setError("")
 
     try {
+      console.log("Submitting application with data:", formData) // Add debugging
+
       // Validate required documents
       const requirements = getDocumentRequirements()
       const missingRequired = requirements.filter((req) => req.required && !documentChecklist[req.type])
@@ -190,6 +192,7 @@ export function ApplicationForm({ user, application, onSave, onCancel }: Applica
         currentStage: 1,
         documents: [],
         workflowComments: [],
+        createdBy: user.id, // Add this line to ensure createdBy is set
       }
 
       let savedApplication: PermitApplication
@@ -197,6 +200,7 @@ export function ApplicationForm({ user, application, onSave, onCancel }: Applica
       if (application) {
         // Update existing application
         savedApplication = (await db.updateApplication(application.id, applicationData)) as PermitApplication
+        console.log("Updated application:", savedApplication) // Add debugging
         await db.addLog({
           userId: user.id,
           userType: user.userType,
@@ -206,7 +210,9 @@ export function ApplicationForm({ user, application, onSave, onCancel }: Applica
         })
       } else {
         // Create new application
+        console.log("Creating application with data:", applicationData) // Add debugging
         savedApplication = await db.createApplication(applicationData)
+        console.log("Created application:", savedApplication) // Add debugging
         await db.addLog({
           userId: user.id,
           userType: user.userType,
@@ -237,8 +243,11 @@ export function ApplicationForm({ user, application, onSave, onCancel }: Applica
         applicationId: savedApplication.id,
       })
 
+      // Force a small delay to ensure database operations complete
+      await new Promise((resolve) => setTimeout(resolve, 100))
       onSave(savedApplication)
     } catch (err) {
+      console.error("Error saving application:", err) // Add debugging
       setError("Failed to save application. Please try again.")
     } finally {
       setIsLoading(false)
@@ -635,3 +644,5 @@ export function ApplicationForm({ user, application, onSave, onCancel }: Applica
     </div>
   )
 }
+
+export default ApplicationForm

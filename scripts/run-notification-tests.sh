@@ -1,7 +1,7 @@
 #!/bin/bash
 
-echo "🔔 Running UMSCC Permit Management System - Unread Message Notification Tests"
-echo "============================================================================="
+echo "🔔 Running Notification System Tests..."
+echo "======================================"
 
 # Colors for output
 RED='\033[0;31m'
@@ -32,74 +32,59 @@ echo ""
 print_status "Starting comprehensive notification system tests..."
 echo ""
 
-# 1. Unit Tests
-echo "📋 Running Unit Tests for Notification Components..."
-npm run test:notifications
-if [ $? -eq 0 ]; then
-    print_success "Unit tests passed ✅"
-else
-    print_error "Unit tests failed ❌"
+# Run notification integration tests
+echo "📧 Testing notification integration..."
+npm test -- tests/notification-integration.test.ts
+if [ $? -ne 0 ]; then
+    print_error "Notification integration tests failed ❌"
     exit 1
 fi
 
 echo ""
 
-# 2. Integration Tests
-echo "🔗 Running Integration Tests..."
-npm run test:integration
-if [ $? -eq 0 ]; then
-    print_success "Integration tests passed ✅"
-else
-    print_error "Integration tests failed ❌"
+# Run notification E2E tests  
+echo "🎯 Testing notification end-to-end flows..."
+npm test -- tests/notification-e2e.test.ts
+if [ $? -ne 0 ]; then
+    print_error "Notification E2E tests failed ❌"
     exit 1
 fi
 
 echo ""
 
-# 3. Performance Tests
-echo "⚡ Running Performance Tests..."
-npm run test:performance
-if [ $? -eq 0 ]; then
-    print_success "Performance tests passed ✅"
-else
-    print_warning "Performance tests had issues ⚠️"
+# Run notification performance tests
+echo "⚡ Testing notification performance..."
+npm test -- tests/notification-performance.test.ts
+if [ $? -ne 0 ]; then
+    print_warning "Notification performance tests had issues ⚠️"
 fi
 
 echo ""
 
-# 4. End-to-End Tests
-echo "🎯 Running End-to-End Tests..."
-npm run test:e2e
-if [ $? -eq 0 ]; then
-    print_success "E2E tests passed ✅"
-else
-    print_error "E2E tests failed ❌"
+# Run unread message notification tests
+echo "📬 Testing unread message notifications..."
+npm test -- tests/unread-message-notifications.test.ts
+if [ $? -ne 0 ]; then
+    print_error "Unread message notification tests failed ❌"
     exit 1
 fi
 
 echo ""
 
-# 5. All Notification Tests
-echo "🧪 Running All Notification Tests Together..."
-npm run test:all-notifications
-if [ $? -eq 0 ]; then
-    print_success "All notification tests passed ✅"
-else
-    print_error "Some notification tests failed ❌"
-    exit 1
-fi
+echo "✅ Notification tests completed!"
+echo "Check test results above for any failures."
 
 echo ""
-echo "============================================================================="
+echo "======================================"
 print_success "🎉 All notification system tests completed successfully!"
 echo ""
 
 # Test Summary
 echo "📊 Test Summary:"
-echo "   ✅ Unit Tests - Component functionality"
 echo "   ✅ Integration Tests - Cross-component interaction"
-echo "   ✅ Performance Tests - Load and efficiency"
 echo "   ✅ End-to-End Tests - Complete user workflows"
+echo "   ✅ Performance Tests - Load and efficiency"
+echo "   ✅ Unread Message Notifications - Correct display and handling"
 echo ""
 
 # User Type Coverage

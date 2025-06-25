@@ -3,21 +3,22 @@
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { FileText, CheckCircle, Clock, AlertTriangle, Award } from "lucide-react"
+import { FileText, Users, CheckCircle, Clock, AlertTriangle, Eye, ArrowLeft, MapPin, Phone } from "lucide-react"
 import type { User, PermitApplication } from "@/types"
 import { db } from "@/lib/database"
-import { StrictViewOnlyApplicationDetails } from "./strict-view-only-application-details"
-import { MessagingSystem } from "./messaging-system"
+import { CatchmentChairpersonReviewWorkflow } from "./catchment-chairperson-review-workflow"
 import { ActivityLogs } from "./activity-logs"
 import { UnreadMessageNotification } from "./unread-message-notification"
+import { Button } from "@/components/ui/button"
+import { CatchmentChairpersonApplicationHistory } from "./catchment-chairperson-application-history"
 
 interface CatchmentChairpersonDashboardProps {
   user: User
 }
 
 export function CatchmentChairpersonDashboard({ user }: CatchmentChairpersonDashboardProps) {
+  /* ───────────────────── state ───────────────────── */
   const [applications, setApplications] = useState<PermitApplication[]>([])
   const [selectedApplication, setSelectedApplication] = useState<PermitApplication | null>(null)
   const [activeView, setActiveView] = useState("overview")
@@ -25,81 +26,54 @@ export function CatchmentChairpersonDashboard({ user }: CatchmentChairpersonDash
   const [stats, setStats] = useState({
     totalApplications: 0,
     pendingDecision: 0,
-    decisionsThisMonth: 0,
-    approvalRate: 0,
+    approvedThisMonth: 0,
+    rejectedThisMonth: 0,
   })
 
+  /* ────────────────── data loading ────────────────── */
   useEffect(() => {
     loadDashboardData()
     loadUnreadMessages()
-
-    // Set up polling for unread messages
-    const messageInterval = setInterval(loadUnreadMessages, 30000)
-    return () => clearInterval(messageInterval)
+    const interval = setInterval(loadUnreadMessages, 30_000)
+    return () => clearInterval(interval)
   }, [user.id])
 
   const loadDashboardData = async () => {
-    try {
-      const allApplications = await db.getApplications()
+    const all = await db.getApplications()
+    // Stage 4 applications (submitted by Catchment Manager) and completed applications
+    const relevant = all.filter((a) => a.currentStage === 4 || (a.currentStage > 4 && a.status !== "unsubmitted"))
 
-      // Filter applications that are at stage 4 (catchment chairperson decision) or have been decided
-      const relevantApplications = allApplications.filter(
-        (app) => app.currentStage === 4 || app.status === "approved" || app.status === "rejected",
-      )
+    setApplications(relevant)
 
-      setApplications(relevantApplications)
+    // Calculate statistics
+    const pendingDecision = relevant.filter((a) => a.currentStage === 4 && a.status === "under_review").length
 
-      // Calculate statistics
-      const pendingDecision = relevantApplications.filter(
-        (app) => app.currentStage === 4 && app.status === "under_review",
-      ).length
+    const monthStart = new Date()
+    monthStart.setDate(1)
+    monthStart.setHours(0, 0, 0, 0)
 
-      const thisMonth = new Date()
-      thisMonth.setDate(1)
-      thisMonth.setHours(0, 0, 0, 0)
+    const approvedThisMonth = relevant.filter((a) => a.status === "approved" && a.updatedAt >= monthStart).length
 
-      const decisionsThisMonth = relevantApplications.filter(
-        (app) =>
-          app.updatedAt >= thisMonth &&
-          (app.status === "approved" || app.status === "rejected") &&
-          app.currentStage === 1,
-      ).length
+    const rejectedThisMonth = relevant.filter((a) => a.status === "rejected" && a.updatedAt >= monthStart).length
 
-      const totalDecisions = relevantApplications.filter(
-        (app) => app.status === "approved" || app.status === "rejected",
-      ).length
-      const approvedDecisions = relevantApplications.filter((app) => app.status === "approved").length
-
-      setStats({
-        totalApplications: relevantApplications.length,
-        pendingDecision,
-        decisionsThisMonth,
-        approvalRate: totalDecisions > 0 ? Math.round((approvedDecisions / totalDecisions) * 100) : 0,
-      })
-    } catch (error) {
-      console.error("Failed to load dashboard data:", error)
-    }
+    setStats({
+      totalApplications: relevant.length,
+      pendingDecision,
+      approvedThisMonth,
+      rejectedThisMonth,
+    })
   }
 
   const loadUnreadMessages = async () => {
-    try {
-      const publicMsgs = await db.getMessages(user.id, true)
-      const privateMsgs = await db.getMessages(user.id, false)
-
-      const unreadPublic = publicMsgs.filter((m) => m.senderId !== user.id && !m.readAt).length
-      const unreadPrivate = privateMsgs.filter((m) => m.senderId !== user.id && !m.readAt).length
-
-      setUnreadMessageCount(unreadPublic + unreadPrivate)
-    } catch (error) {
-      console.error("Failed to load unread messages:", error)
-    }
+    const pub = await db.getMessages(user.id, true)
+    const priv = await db.getMessages(user.id, false)
+    setUnreadMessageCount(
+      pub.filter((m) => !m.readAt && m.senderId !== user.id).length +
+        priv.filter((m) => !m.readAt && m.senderId !== user.id).length,
+    )
   }
 
-  const handleViewMessages = () => {
-    setActiveView("messages")
-    setUnreadMessageCount(0)
-  }
-
+  /* ───────────────────── helpers ──────────────────── */
   const StatCard = ({
     title,
     value,
@@ -109,15 +83,14 @@ export function CatchmentChairpersonDashboard({ user }: CatchmentChairpersonDash
     title: string
     value: number | string
     icon: any
-    color?: "blue" | "green" | "yellow" | "purple"
+    color?: "blue" | "green" | "yellow" | "red"
   }) => {
-    const colorClasses = {
+    const colors = {
       blue: "bg-blue-100 text-blue-600",
       green: "bg-green-100 text-green-600",
       yellow: "bg-yellow-100 text-yellow-600",
-      purple: "bg-purple-100 text-purple-600",
-    }
-
+      red: "bg-red-100 text-red-600",
+    } as const
     return (
       <Card>
         <CardContent className="p-6">
@@ -126,7 +99,7 @@ export function CatchmentChairpersonDashboard({ user }: CatchmentChairpersonDash
               <p className="text-sm font-medium text-gray-600">{title}</p>
               <p className="text-3xl font-bold">{value}</p>
             </div>
-            <div className={`p-3 rounded-lg ${colorClasses[color]}`}>
+            <div className={`p-3 rounded-lg ${colors[color]}`}>
               <Icon className="h-6 w-6" />
             </div>
           </div>
@@ -135,170 +108,244 @@ export function CatchmentChairpersonDashboard({ user }: CatchmentChairpersonDash
     )
   }
 
+  const handleBackToOverview = () => {
+    setSelectedApplication(null)
+    loadDashboardData() // Refresh data to show updated status
+  }
+
+  const getStatusBadge = (application: PermitApplication) => {
+    if (application.status === "approved") {
+      return <Badge className="bg-green-100 text-green-800">Approved</Badge>
+    }
+    if (application.status === "rejected") {
+      return <Badge className="bg-red-100 text-red-800">Rejected</Badge>
+    }
+    if (application.currentStage === 4 && application.status === "under_review") {
+      return <Badge className="bg-yellow-100 text-yellow-800">Pending Decision</Badge>
+    }
+    return <Badge variant="secondary">{application.status}</Badge>
+  }
+
+  /* ───────────────────── render ───────────────────── */
   return (
     <div className="space-y-6">
-      {/* Header */}
+      {/* header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Catchment Chairperson Dashboard</h1>
-          <p className="text-gray-600 mt-1">Manyame Catchment Council - Final Decision Authority</p>
+          <h1 className="text-3xl font-bold">Manyame Catchment Chairperson Dashboard</h1>
+          <p className="text-gray-600 mt-1">Final Review and Decision Authority</p>
         </div>
         <Badge variant="secondary" className="px-3 py-1">
-          <Award className="h-4 w-4 mr-1" />
-          Chairperson Access
+          <Users className="h-4 w-4 mr-1" />
+          Catchment Chairperson Access
         </Badge>
       </div>
 
-      {/* Unread Messages Notification */}
+      {/* unread notification */}
       {unreadMessageCount > 0 && (
         <UnreadMessageNotification
           unreadCount={unreadMessageCount}
-          onViewMessages={handleViewMessages}
+          onViewMessages={() => setActiveView("messages")}
           className="mb-6"
         />
       )}
 
-      {/* Navigation Tabs */}
-      <Tabs value={activeView} onValueChange={setActiveView} className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="applications">Applications</TabsTrigger>
-          <TabsTrigger value="messages" className="relative">
-            Messages
-            {unreadMessageCount > 0 && (
-              <Badge
-                variant="destructive"
-                className="ml-2 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs"
-              >
-                {unreadMessageCount > 99 ? "99+" : unreadMessageCount}
-              </Badge>
-            )}
-          </TabsTrigger>
-          <TabsTrigger value="activity">Activity</TabsTrigger>
-        </TabsList>
-
-        {/* Overview Tab */}
-        <TabsContent value="overview" className="space-y-6">
-          {/* Statistics Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <StatCard title="Total Applications" value={stats.totalApplications} icon={FileText} color="blue" />
-            <StatCard title="Pending Decision" value={stats.pendingDecision} icon={Clock} color="yellow" />
-            <StatCard title="Decisions This Month" value={stats.decisionsThisMonth} icon={CheckCircle} color="green" />
-            <StatCard title="Approval Rate" value={`${stats.approvalRate}%`} icon={AlertTriangle} color="purple" />
+      {/* Show review workflow if application is selected */}
+      {selectedApplication ? (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-semibold">Final Review: {selectedApplication.applicationId}</h2>
+            <Button variant="outline" onClick={handleBackToOverview} className="flex items-center">
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to Overview
+            </Button>
           </div>
+          <CatchmentChairpersonReviewWorkflow
+            user={user}
+            application={selectedApplication}
+            onUpdate={handleBackToOverview}
+          />
+        </div>
+      ) : (
+        /* main tabs - only show when not reviewing an application */
+        <Tabs value={activeView} onValueChange={setActiveView}>
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="history">Application History</TabsTrigger>
+            <TabsTrigger value="messages">
+              Messages
+              {unreadMessageCount > 0 && (
+                <Badge
+                  variant="destructive"
+                  className="ml-2 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs"
+                >
+                  {unreadMessageCount > 99 ? "99+" : unreadMessageCount}
+                </Badge>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="activity">Activity</TabsTrigger>
+          </TabsList>
 
-          {/* Recent Applications */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Applications Awaiting Final Decision</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {applications
-                  .filter((app) => app.currentStage === 4 && app.status === "under_review")
-                  .slice(0, 5)
-                  .map((application) => (
-                    <div
-                      key={application.id}
-                      className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer"
-                      onClick={() => setSelectedApplication(application)}
-                    >
-                      <div className="flex items-center space-x-3">
-                        <FileText className="h-5 w-5 text-gray-500" />
-                        <div>
-                          <p className="font-medium">{application.applicationId}</p>
-                          <p className="text-sm text-gray-600">{application.applicantName}</p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <Badge variant="outline" className="mb-1">
-                          {application.permitType.replace("_", " ").toUpperCase()}
-                        </Badge>
-                        <p className="text-xs text-gray-500">Final Decision Required</p>
-                      </div>
-                    </div>
-                  ))}
-                {applications.filter((app) => app.currentStage === 4 && app.status === "under_review").length === 0 && (
-                  <p className="text-center text-gray-500 py-8">No applications awaiting final decision</p>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Applications Tab */}
-        <TabsContent value="applications" className="space-y-6">
-          {selectedApplication ? (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h2 className="text-xl font-semibold">Application Details</h2>
-                <Button variant="outline" onClick={() => setSelectedApplication(null)}>
-                  ← Back to List
-                </Button>
-              </div>
-              <StrictViewOnlyApplicationDetails user={user} application={selectedApplication} />
+          {/* ─────────── overview tab ─────────── */}
+          <TabsContent value="overview" className="space-y-6">
+            <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
+              <StatCard title="Total Applications" value={stats.totalApplications} icon={FileText} color="blue" />
+              <StatCard title="Pending Decision" value={stats.pendingDecision} icon={Clock} color="yellow" />
+              <StatCard title="Approved This Month" value={stats.approvedThisMonth} icon={CheckCircle} color="green" />
+              <StatCard title="Rejected This Month" value={stats.rejectedThisMonth} icon={AlertTriangle} color="red" />
             </div>
-          ) : (
+
+            {/* Applications requiring final decision */}
             <Card>
               <CardHeader>
-                <CardTitle>All Applications</CardTitle>
+                <CardTitle>Applications Requiring Final Decision</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-3">
-                  {applications.map((application) => (
-                    <div
-                      key={application.id}
-                      className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50 cursor-pointer"
-                      onClick={() => setSelectedApplication(application)}
-                    >
-                      <div className="flex items-center space-x-3">
-                        <FileText className="h-5 w-5 text-gray-500" />
-                        <div>
-                          <p className="font-medium">{application.applicationId}</p>
-                          <p className="text-sm text-gray-600">{application.applicantName}</p>
+                <div className="space-y-4">
+                  {applications
+                    .filter((a) => a.currentStage === 4 && a.status === "under_review")
+                    .map((app) => (
+                      <div
+                        key={app.id}
+                        className="border rounded-lg p-4 bg-gray-50 hover:bg-gray-100 transition-colors"
+                      >
+                        <div className="flex items-start justify-between">
+                          {/* Application Details */}
+                          <div className="flex-1 space-y-3">
+                            {/* Header Row */}
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center space-x-3">
+                                <FileText className="h-5 w-5 text-blue-600" />
+                                <div>
+                                  <p className="font-semibold text-lg">{app.applicationId}</p>
+                                  <Badge variant="outline" className="text-xs">
+                                    {app.permitType.replace("_", " ").toUpperCase()}
+                                  </Badge>
+                                </div>
+                              </div>
+                              {getStatusBadge(app)}
+                            </div>
+
+                            {/* Applicant Information */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div className="space-y-2">
+                                <div className="flex items-center space-x-2">
+                                  <Users className="h-4 w-4 text-gray-500" />
+                                  <span className="font-medium">Applicant:</span>
+                                  <span>{app.applicantName}</span>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <Phone className="h-4 w-4 text-gray-500" />
+                                  <span className="font-medium">Contact:</span>
+                                  <span>{app.cellularNumber}</span>
+                                </div>
+                              </div>
+                              <div className="space-y-2">
+                                <div className="flex items-start space-x-2">
+                                  <MapPin className="h-4 w-4 text-gray-500 mt-0.5" />
+                                  <div>
+                                    <span className="font-medium">Physical Address:</span>
+                                    <p className="text-sm text-gray-600">{app.physicalAddress}</p>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Additional Details */}
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                              <div>
+                                <span className="font-medium text-gray-600">Land Size:</span>
+                                <p>{app.landSize} ha</p>
+                              </div>
+                              <div>
+                                <span className="font-medium text-gray-600">Water Allocation:</span>
+                                <p>{app.waterAllocation} ML</p>
+                              </div>
+                              <div>
+                                <span className="font-medium text-gray-600">Boreholes:</span>
+                                <p>{app.numberOfBoreholes}</p>
+                              </div>
+                              <div>
+                                <span className="font-medium text-gray-600">Submitted:</span>
+                                <p>{app.createdAt.toLocaleDateString()}</p>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Review Button */}
+                          <div className="ml-4">
+                            <Button
+                              variant="outline"
+                              onClick={() => setSelectedApplication(app)}
+                              className="flex items-center"
+                            >
+                              <Eye className="h-4 w-4 mr-2" />
+                              Review Application
+                            </Button>
+                          </div>
                         </div>
                       </div>
-                      <div className="text-right">
-                        <div className="flex items-center space-x-2 mb-1">
-                          <Badge
-                            className={
-                              application.status === "approved"
-                                ? "bg-green-100 text-green-800"
-                                : application.status === "rejected"
-                                  ? "bg-red-100 text-red-800"
-                                  : application.status === "under_review"
-                                    ? "bg-blue-100 text-blue-800"
-                                    : "bg-gray-100 text-gray-800"
-                            }
-                          >
-                            {application.status.toUpperCase()}
-                          </Badge>
-                          <Badge variant="outline">Stage {application.currentStage}</Badge>
-                        </div>
-                        <p className="text-xs text-gray-500">
-                          {application.status === "approved" || application.status === "rejected"
-                            ? "Decision Made"
-                            : "Awaiting Decision"}
-                        </p>
-                      </div>
+                    ))}
+
+                  {applications.filter((a) => a.currentStage === 4 && a.status === "under_review").length === 0 && (
+                    <div className="text-center py-12">
+                      <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                      <p className="text-gray-500 text-lg">No applications pending final decision</p>
+                      <p className="text-gray-400 text-sm">All submitted applications have been processed</p>
                     </div>
-                  ))}
+                  )}
                 </div>
               </CardContent>
             </Card>
-          )}
-        </TabsContent>
 
-        {/* Messages Tab */}
-        <TabsContent value="messages">
-          <MessagingSystem user={user} />
-        </TabsContent>
+            {/* Recent Decisions */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Recent Decisions</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {applications
+                    .filter((a) => a.status === "approved" || a.status === "rejected")
+                    .slice(0, 5)
+                    .map((app) => (
+                      <div key={app.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                        <div className="flex items-center space-x-3">
+                          <FileText className="h-4 w-4 text-gray-500" />
+                          <div>
+                            <p className="font-medium">{app.applicationId}</p>
+                            <p className="text-sm text-gray-600">{app.applicantName}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          {getStatusBadge(app)}
+                          <span className="text-xs text-gray-500">{app.updatedAt.toLocaleDateString()}</span>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
 
-        {/* Activity Tab */}
-        <TabsContent value="activity">
-          <ActivityLogs user={user} />
-        </TabsContent>
-      </Tabs>
+          {/* ───────── application history tab ───────── */}
+          <TabsContent value="history">
+            <CatchmentChairpersonApplicationHistory user={user} />
+          </TabsContent>
+
+          {/* ───────── messages tab ───────── */}
+          <TabsContent value="messages">
+            <p className="text-center text-gray-500 py-8">
+              Messaging interface is disabled for Catchment Chairperson role.
+            </p>
+          </TabsContent>
+
+          {/* ───────── activity tab ───────── */}
+          <TabsContent value="activity">
+            <ActivityLogs user={user} />
+          </TabsContent>
+        </Tabs>
+      )}
     </div>
   )
 }
