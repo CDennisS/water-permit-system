@@ -32,7 +32,6 @@ export function ApplicationsTable({
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [isLoading, setIsLoading] = useState(true)
-  const [selectedApplications, setSelectedApplications] = useState<Set<string>>(new Set())
 
   const [advancedFilters, setAdvancedFilters] = useState<FilterState>({
     searchTerm: "",
@@ -289,66 +288,6 @@ export function ApplicationsTable({
     loadApplications()
   }
 
-  const handleSelectApplication = (applicationId: string, checked: boolean) => {
-    const newSelected = new Set(selectedApplications)
-    if (checked) {
-      newSelected.add(applicationId)
-    } else {
-      newSelected.delete(applicationId)
-    }
-    setSelectedApplications(newSelected)
-  }
-
-  const handleSelectAll = (checked: boolean) => {
-    if (checked) {
-      const unsubmittedIds = filteredApplications.filter((app) => app.status === "unsubmitted").map((app) => app.id)
-      setSelectedApplications(new Set(unsubmittedIds))
-    } else {
-      setSelectedApplications(new Set())
-    }
-  }
-
-  const handleSubmitSelected = async () => {
-    const selectedApps = applications.filter((app) => selectedApplications.has(app.id))
-
-    for (const app of selectedApps) {
-      await db.updateApplication(app.id, {
-        status: "submitted",
-        currentStage: 2,
-        submittedAt: new Date(),
-      })
-
-      await db.addLog({
-        userId: user.id,
-        userType: user.userType,
-        action: "Submitted Application",
-        details: `Submitted application ${app.applicationId} for review`,
-        applicationId: app.id,
-      })
-    }
-
-    setSelectedApplications(new Set())
-    loadApplications()
-  }
-
-  const handleIndividualSubmit = async (application: PermitApplication) => {
-    await db.updateApplication(application.id, {
-      status: "submitted",
-      currentStage: 2,
-      submittedAt: new Date(),
-    })
-
-    await db.addLog({
-      userId: user.id,
-      userType: user.userType,
-      action: "Submitted Application",
-      details: `Submitted application ${application.applicationId} for review`,
-      applicationId: application.id,
-    })
-
-    loadApplications()
-  }
-
   const exportToExcel = () => {
     const csvContent = [
       ["Application ID", "Applicant Name", "Permit Type", "Status", "Created Date"],
@@ -375,12 +314,20 @@ export function ApplicationsTable({
   }
 
   const getStatusBadge = (status: string) => {
+    const variants = {
+      unsubmitted: "secondary",
+      submitted: "default",
+      under_review: "default",
+      approved: "default",
+      rejected: "destructive",
+    } as const
+
     const colors = {
-      unsubmitted: "bg-red-100 text-red-800 border-red-200",
-      submitted: "bg-blue-100 text-blue-800 border-blue-200",
-      under_review: "bg-yellow-100 text-yellow-800 border-yellow-200",
-      approved: "bg-green-100 text-green-800 border-green-200",
-      rejected: "bg-red-100 text-red-800 border-red-200",
+      unsubmitted: "bg-gray-100 text-gray-800",
+      submitted: "bg-blue-100 text-blue-800",
+      under_review: "bg-yellow-100 text-yellow-800",
+      approved: "bg-green-100 text-green-800",
+      rejected: "bg-red-100 text-red-800",
     }
 
     return <Badge className={colors[status as keyof typeof colors]}>{status.replace("_", " ").toUpperCase()}</Badge>
@@ -445,19 +392,10 @@ export function ApplicationsTable({
           </Button>
 
           {user.userType === "permitting_officer" && (
-            <>
-              <Button onClick={handleSubmitAll} className="bg-green-600 hover:bg-green-700">
-                <Send className="h-4 w-4 mr-2" />
-                Submit All Unsubmitted ({applications.filter((app) => app.status === "unsubmitted").length})
-              </Button>
-
-              {selectedApplications.size > 0 && (
-                <Button onClick={handleSubmitSelected} className="bg-blue-600 hover:bg-blue-700">
-                  <Send className="h-4 w-4 mr-2" />
-                  Submit Selected ({selectedApplications.size})
-                </Button>
-              )}
-            </>
+            <Button onClick={handleSubmitAll}>
+              <Send className="h-4 w-4 mr-2" />
+              Submit All
+            </Button>
           )}
 
           {["chairperson", "catchment_manager", "catchment_chairperson"].includes(user.userType) && (
@@ -510,54 +448,26 @@ export function ApplicationsTable({
           <Table>
             <TableHeader>
               <TableRow>
-                {user.userType === "permitting_officer" && (
-                  <TableHead className="w-12">
-                    <input
-                      type="checkbox"
-                      checked={
-                        selectedApplications.size > 0 &&
-                        selectedApplications.size ===
-                          filteredApplications.filter((app) => app.status === "unsubmitted").length
-                      }
-                      onChange={(e) => handleSelectAll(e.target.checked)}
-                      className="rounded border-gray-300"
-                    />
-                  </TableHead>
-                )}
                 <TableHead>Application ID</TableHead>
                 <TableHead>Applicant Name</TableHead>
-                <TableHead>Address</TableHead>
                 <TableHead>Permit Type</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Stage</TableHead>
+                <TableHead>Created</TableHead>
                 <TableHead>Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredApplications.map((application) => (
                 <TableRow key={application.id}>
-                  {user.userType === "permitting_officer" && (
-                    <TableCell>
-                      {application.status === "unsubmitted" && (
-                        <input
-                          type="checkbox"
-                          checked={selectedApplications.has(application.id)}
-                          onChange={(e) => handleSelectApplication(application.id, e.target.checked)}
-                          className="rounded border-gray-300"
-                        />
-                      )}
-                    </TableCell>
-                  )}
                   <TableCell className="font-medium">{application.applicationId}</TableCell>
                   <TableCell>{application.applicantName}</TableCell>
-                  <TableCell className="max-w-xs truncate" title={application.physicalAddress}>
-                    {application.physicalAddress}
-                  </TableCell>
                   <TableCell className="capitalize">{application.permitType.replace("_", " ")}</TableCell>
                   <TableCell>{getStatusBadge(application.status)}</TableCell>
                   <TableCell>
                     <Badge variant="outline">Stage {application.currentStage}</Badge>
                   </TableCell>
+                  <TableCell>{application.createdAt.toLocaleDateString()}</TableCell>
                   <TableCell>
                     <div className="flex items-center space-x-2">
                       <Button variant="ghost" size="sm" onClick={() => onViewApplication(application)}>
@@ -565,23 +475,9 @@ export function ApplicationsTable({
                       </Button>
 
                       {canEdit(application) && (
-                        <>
-                          <Button variant="ghost" size="sm" onClick={() => onEditApplication(application)}>
-                            <Edit className="h-4 w-4" />
-                          </Button>
-
-                          {application.status === "unsubmitted" && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleIndividualSubmit(application)}
-                              className="text-green-600 hover:text-green-800"
-                              title="Submit for review"
-                            >
-                              <Send className="h-4 w-4" />
-                            </Button>
-                          )}
-                        </>
+                        <Button variant="ghost" size="sm" onClick={() => onEditApplication(application)}>
+                          <Edit className="h-4 w-4" />
+                        </Button>
                       )}
 
                       <Button

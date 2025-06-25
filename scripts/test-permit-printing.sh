@@ -1,6 +1,6 @@
 #!/bin/bash
 
-echo "🖨️ Running Permit Printing Tests..."
+echo "🧪 TESTING PERMIT PRINTING WORKFLOW"
 echo "=================================="
 
 # Colors for output
@@ -30,49 +30,43 @@ run_test() {
 total_tests=0
 passed_tests=0
 
-# Test 1: Permit Printing Integration Tests
+# Test 1: Permit Printing Workflow Tests
 total_tests=$((total_tests + 1))
-if run_test "Permit Printing Integration Tests" "npm test -- tests/permit-printing-integration.test.ts"; then
+if run_test "Permit Printing Workflow Tests" "npm run test tests/permit-printing-workflow.test.ts"; then
     passed_tests=$((passed_tests + 1))
 fi
 
 # Test 2: End-to-End Permit Printing Tests
 total_tests=$((total_tests + 1))
-if run_test "End-to-End Permit Printing Tests" "npm test -- tests/permit-printing-e2e.test.ts"; then
+if run_test "End-to-End Permit Printing Tests" "npm run test tests/permit-printing-e2e.test.ts"; then
     passed_tests=$((passed_tests + 1))
 fi
 
-# Test 3: Permit Printing Workflow Tests
-total_tests=$((total_tests + 1))
-if run_test "Permit Printing Workflow Tests" "npm test -- tests/permit-printing-workflow.test.ts"; then
-    passed_tests=$((passed_tests + 1))
-fi
-
-# Test 4: Permit Generation Tests
+# Test 3: Permit Generation Tests
 total_tests=$((total_tests + 1))
 if run_test "Permit Generation Tests" "npm run test -- --testNamePattern='Permit Data Generation'"; then
     passed_tests=$((passed_tests + 1))
 fi
 
-# Test 5: Authorization Tests
+# Test 4: Authorization Tests
 total_tests=$((total_tests + 1))
 if run_test "Permit Printing Authorization Tests" "npm run test -- --testNamePattern='Permit Printing Authorization'"; then
     passed_tests=$((passed_tests + 1))
 fi
 
-# Test 6: Workflow Integration Tests
+# Test 5: Workflow Integration Tests
 total_tests=$((total_tests + 1))
 if run_test "Workflow Integration Tests" "npm run test -- --testNamePattern='Workflow Integration'"; then
     passed_tests=$((passed_tests + 1))
 fi
 
-# Test 7: Print Functionality Tests
+# Test 6: Print Functionality Tests
 total_tests=$((total_tests + 1))
 if run_test "Print Functionality Tests" "npm run test -- --testNamePattern='Print Functionality'"; then
     passed_tests=$((passed_tests + 1))
 fi
 
-# Test 8: Performance Tests
+# Test 7: Performance Tests
 total_tests=$((total_tests + 1))
 if run_test "Performance and Edge Cases" "npm run test -- --testNamePattern='Performance and Edge Cases'"; then
     passed_tests=$((passed_tests + 1))

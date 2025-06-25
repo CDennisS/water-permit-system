@@ -284,7 +284,6 @@ export function WorkflowManager({ user, application, onUpdate }: WorkflowManager
                 onChange={(e) => setNewComment(e.target.value)}
                 placeholder="Enter your comments about this application..."
                 rows={3}
-                readOnly={user.userType === "chairperson"}
               />
             </div>
 
@@ -338,7 +337,7 @@ export function WorkflowManager({ user, application, onUpdate }: WorkflowManager
                   (decision === "rejected" && !rejectionReason.trim())
                 }
               >
-                {isLoading ? "Processing..." : user.userType === "chairperson" ? "Review Complete" : "Submit"}
+                {isLoading ? "Processing..." : "Submit"}
               </Button>
             </div>
 
