@@ -1,53 +1,53 @@
+// components/application-details.tsx
+
 import type React from "react"
 
-interface User {
-  userType: string
-}
-
-type Application = {}
-
-interface DocumentViewerProps {
-  user: User
-  application: Application
-  canUpload: boolean
-  canDelete: boolean
-  isOwner: boolean
-}
-
-const DocumentViewer: React.FC<DocumentViewerProps> = ({ user, application, canUpload, canDelete, isOwner }) => {
-  return (
-    <div>
-      {/* Document Viewer Content */}
-      <p>User Type: {user.userType}</p>
-      <p>Can Upload: {canUpload ? "Yes" : "No"}</p>
-      <p>Can Delete: {canDelete ? "Yes" : "No"}</p>
-      <p>Is Owner: {isOwner ? "Yes" : "No"}</p>
-    </div>
-  )
-}
-
 interface ApplicationDetailsProps {
-  user: User
-  application: Application
+  application: any // Replace 'any' with the actual type of your application object
+  user: any // Replace 'any' with the actual type of your user object
 }
 
-const ApplicationDetails: React.FC<ApplicationDetailsProps> = ({ user, application }) => {
+const ApplicationDetails: React.FC<ApplicationDetailsProps> = ({ application, user }) => {
   return (
     <div>
-      <h1>Application Details</h1>
-      <DocumentViewer
-        user={user}
-        application={application}
-        canUpload={user.userType === "permitting_officer"}
-        canDelete={user.userType === "permitting_officer"}
-        isOwner={true}
-      />
+      <h2>Application Details</h2>
+      {/* Display application details here */}
+      <p>Application ID: {application?.id}</p>
+      <p>Applicant Name: {application?.applicantName}</p>
+
+      {/* Permit Printer Component */}
+      <PermitPrinter application={application} user={user} />
+
+      {/* Enhanced Permit Printer Component */}
+      <EnhancedPermitPrinter application={application} user={user} />
+
+      {/* Add more details as needed */}
     </div>
   )
 }
 
-/* Named export for existing imports */
-export { ApplicationDetails }
+// Dummy PermitPrinter component
+const PermitPrinter: React.FC<{ application: any; user: any }> = ({ application, user }) => {
+  return (
+    <div>
+      <h3>Permit Printer</h3>
+      <p>
+        Printing permit for application {application?.id} for user {user?.name}
+      </p>
+    </div>
+  )
+}
 
-/* Optional: keep default export for flexibility */
+// Dummy EnhancedPermitPrinter component
+const EnhancedPermitPrinter: React.FC<{ application: any; user: any }> = ({ application, user }) => {
+  return (
+    <div>
+      <h3>Enhanced Permit Printer</h3>
+      <p>
+        Enhanced printing permit for application {application?.id} for user {user?.name}
+      </p>
+    </div>
+  )
+}
+
 export default ApplicationDetails
