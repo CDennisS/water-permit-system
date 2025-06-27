@@ -5,66 +5,32 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Textarea } from "@/components/ui/textarea"
-import { Label } from "@/components/ui/label"
-import {
-  FileText,
-  Download,
-  Eye,
-  MapPin,
-  Calendar,
-  CheckCircle,
-  XCircle,
-  Clock,
-  AlertTriangle,
-  MessageSquare,
-  FileCheck,
-  ArrowLeft,
-  Hash,
-  Briefcase,
-} from "lucide-react"
-import type { PermitApplication, ActivityLog, ApplicationDocument } from "@/types"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { ArrowLeft, Download, ExternalLink, FileText, MessageSquare, User, MapPin, Droplets } from "lucide-react"
+import type { PermitApplication, User as UserType, WorkflowComment, Document } from "@/types"
 import { db } from "@/lib/database"
+import { cn } from "@/lib/utils"
 import { PermitPrinter } from "./permit-printer"
 
 interface ComprehensiveApplicationDetailsProps {
   application: PermitApplication
-  user: any
+  user: UserType
   onBack: () => void
-  onStatusUpdate?: () => void
 }
 
-const statusColors = {
-  unsubmitted: "bg-orange-100 text-orange-800 border-orange-200",
-  draft: "bg-orange-100 text-orange-800 border-orange-200",
-  submitted: "bg-blue-100 text-blue-800 border-blue-200",
-  pending: "bg-yellow-100 text-yellow-800 border-yellow-200",
-  under_review: "bg-purple-100 text-purple-800 border-purple-200",
-  approved: "bg-green-100 text-green-800 border-green-200",
-  rejected: "bg-red-100 text-red-800 border-red-200",
+const statusColor: Record<string, string> = {
+  unsubmitted: "bg-orange-600",
+  draft: "bg-orange-600",
+  submitted: "bg-blue-600",
+  pending: "bg-blue-600",
+  under_review: "bg-yellow-500",
+  approved: "bg-green-600",
+  rejected: "bg-red-600",
 }
 
-const statusIcons = {
-  unsubmitted: <FileText className="h-4 w-4" />,
-  draft: <FileText className="h-4 w-4" />,
-  submitted: <Clock className="h-4 w-4" />,
-  pending: <Clock className="h-4 w-4" />,
-  under_review: <Eye className="h-4 w-4" />,
-  approved: <CheckCircle className="h-4 w-4" />,
-  rejected: <XCircle className="h-4 w-4" />,
-}
-
-export function ComprehensiveApplicationDetails({
-  application,
-  user,
-  onBack,
-  onStatusUpdate,
-}: ComprehensiveApplicationDetailsProps) {
-  const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([])
-  const [applicationDocuments, setApplicationDocuments] = useState<ApplicationDocument[]>([])
-  const [comments, setComments] = useState("")
-  const [isSubmitting, setIsSubmitting] = useState(false)
+export function ComprehensiveApplicationDetails({ application, user, onBack }: ComprehensiveApplicationDetailsProps) {
+  const [comments, setComments] = useState<WorkflowComment[]>([])
+  const [documents, setDocuments] = useState<Document[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -74,18 +40,12 @@ export function ComprehensiveApplicationDetails({
   const loadApplicationData = async () => {
     try {
       setLoading(true)
-
-      // Resolve the correct activity-log fetcher (if any)
-      const logFetcher =
-        (db as any).getActivityLogs ?? (db as any).getLogsByApplication ?? (db as any).getActivityLogsByApplication
-
-      const [logsData, docsData] = await Promise.all([
-        typeof logFetcher === "function" ? logFetcher(application.id) : Promise.resolve([]),
+      const [commentsData, documentsData] = await Promise.all([
+        db.getCommentsByApplication(application.id),
         db.getDocumentsByApplication(application.id),
       ])
-
-      setActivityLogs(logsData ?? [])
-      setApplicationDocuments(docsData ?? [])
+      setComments(commentsData)
+      setDocuments(documentsData)
     } catch (error) {
       console.error("Error loading application data:", error)
     } finally {
@@ -93,265 +53,190 @@ export function ComprehensiveApplicationDetails({
     }
   }
 
-  const handleStatusUpdate = async (newStatus: string, comments: string) => {
-    if (!comments.trim()) {
-      alert("Please provide comments for this action.")
-      return
-    }
-
-    setIsSubmitting(true)
-    try {
-      await db.updateApplication(application.id, {
-        status: newStatus,
-        currentStage: newStatus === "approved" ? 5 : newStatus === "rejected" ? 6 : application.currentStage + 1,
-      })
-
-      await db.addLog({
-        userId: user.id,
-        userType: user.userType,
-        action: `Application ${newStatus}`,
-        details: comments,
-        applicationId: application.id,
-      })
-
-      alert(`Application ${newStatus} successfully!`)
-      onStatusUpdate?.()
-    } catch (error) {
-      console.error("Error updating application:", error)
-      alert("Error updating application. Please try again.")
-    } finally {
-      setIsSubmitting(false)
-      setComments("")
-    }
-  }
-
-  const handleDocumentDownload = async (doc: ApplicationDocument) => {
-    try {
-      // Create a temporary link and trigger download
-      const link = window.document.createElement("a")
-      link.href = doc.fileUrl
-      link.download = doc.fileName
-      link.target = "_blank"
-      window.document.body.appendChild(link)
-      link.click()
-      window.document.body.removeChild(link)
-    } catch (error) {
-      console.error("Error downloading document:", error)
-      alert("Error downloading document. Please try again.")
-    }
-  }
-
-  const canApproveReject = () => {
-    return (
-      (user.userType === "chairman" && application.status === "submitted") ||
-      (user.userType === "catchment_manager" && application.status === "pending") ||
-      (user.userType === "permit_supervisor" && application.status === "under_review")
-    )
-  }
-
-  const canPrintPermit = () => {
-    return (
-      application.status === "approved" &&
-      (user.userType === "permitting_officer" || user.userType === "permit_supervisor" || user.userType === "ict")
-    )
-  }
-
-  const formatDate = (date: Date | string) => {
-    const dateObj = typeof date === "string" ? new Date(date) : date
+  const formatDate = (date: Date) => {
     return new Intl.DateTimeFormat("en-ZA", {
       year: "numeric",
       month: "long",
-      day: "numeric",
+      day: "2-digit",
       hour: "2-digit",
       minute: "2-digit",
-    }).format(dateObj)
+    }).format(date)
   }
 
-  const getWorkflowStage = () => {
-    const stages = [
-      { stage: 1, title: "Application Created", status: "completed" },
-      { stage: 2, title: "Submitted to Chairman", status: application.currentStage >= 2 ? "completed" : "pending" },
-      { stage: 3, title: "Chairman Review", status: application.currentStage >= 3 ? "completed" : "pending" },
-      { stage: 4, title: "Catchment Manager Review", status: application.currentStage >= 4 ? "completed" : "pending" },
-      { stage: 5, title: "Final Approval", status: application.currentStage >= 5 ? "completed" : "pending" },
-    ]
-    return stages
+  const formatFileSize = (bytes: number) => {
+    if (bytes === 0) return "0 Bytes"
+    const k = 1024
+    const sizes = ["Bytes", "KB", "MB", "GB"]
+    const i = Math.floor(Math.log(bytes) / Math.log(k))
+    return Number.parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i]
   }
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-2 text-gray-600">Loading application details...</p>
-        </div>
-      </div>
-    )
+  const handleDocumentView = (doc: Document) => {
+    // Create a mock document URL for demonstration
+    const documentUrl = `/documents/${doc.fileName}`
+
+    // Open in new window
+    const newWindow = window.open("", "_blank", "width=800,height=600,scrollbars=yes,resizable=yes")
+
+    if (newWindow) {
+      newWindow.document.write(`
+        <html>
+          <head>
+            <title>${doc.fileName}</title>
+            <style>
+              body { font-family: Arial, sans-serif; padding: 20px; text-align: center; }
+              .document-viewer { max-width: 100%; height: 80vh; border: 1px solid #ccc; }
+              .error { color: #666; margin-top: 50px; }
+            </style>
+          </head>
+          <body>
+            <h2>${doc.fileName}</h2>
+            <p>File Type: ${doc.fileType} | Size: ${formatFileSize(doc.fileSize)}</p>
+            <div class="error">
+              <p>Document viewer would display the actual document content here.</p>
+              <p>In a real implementation, this would show the PDF, image, or other document content.</p>
+            </div>
+          </body>
+        </html>
+      `)
+      newWindow.document.close()
+    } else {
+      alert("Please allow popups to view documents in a new window.")
+    }
   }
+
+  const handleDocumentDownload = (doc: Document) => {
+    const blob = new Blob([`Mock content for ${doc.fileName}`], { type: doc.fileType })
+    const url = URL.createObjectURL(blob)
+    const link = window.document.createElement("a")
+    link.href = url
+    link.download = doc.fileName
+    window.document.body.appendChild(link)
+    link.click()
+    window.document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+  }
+
+  const permittingOfficerComments = comments.filter((comment) => comment.userType === "permitting_officer")
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
-          <Button variant="outline" onClick={onBack} size="sm">
+          <Button variant="outline" onClick={onBack}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to Applications
           </Button>
           <div>
             <h1 className="text-2xl font-bold text-gray-900">{application.applicationId}</h1>
-            <p className="text-gray-600">Application Details</p>
+            <p className="text-gray-600">Comprehensive Application Details</p>
           </div>
         </div>
-        <div className="flex items-center space-x-2">
-          <Badge className={statusColors[application.status]} variant="outline">
-            {statusIcons[application.status]}
-            <span className="ml-1 capitalize">{application.status.replace("_", " ")}</span>
-          </Badge>
-          <Badge variant="outline">Stage {application.currentStage}</Badge>
-        </div>
+        <Badge className={cn(statusColor[application.status], "text-white capitalize")}>
+          {application.status.replace("_", " ")}
+        </Badge>
       </div>
 
-      <Tabs defaultValue="details" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="details">Application Details</TabsTrigger>
+      {/* Main Content */}
+      <Tabs defaultValue="applicant" className="w-full">
+        <TabsList className="grid w-full grid-cols-5">
+          <TabsTrigger value="applicant">Applicant Details</TabsTrigger>
+          <TabsTrigger value="technical">Technical Information</TabsTrigger>
           <TabsTrigger value="documents">Documents</TabsTrigger>
-          <TabsTrigger value="workflow">Workflow</TabsTrigger>
-          <TabsTrigger value="activity">Activity Log</TabsTrigger>
+          <TabsTrigger value="comments">Comments</TabsTrigger>
+          <TabsTrigger value="workflow">Workflow & Actions</TabsTrigger>
         </TabsList>
 
-        {/* Application Details Tab */}
-        <TabsContent value="details" className="space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Applicant Information */}
+        {/* Applicant Details Tab */}
+        <TabsContent value="applicant" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <User className="h-5 w-5 mr-2" />
+                Applicant Information
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium text-gray-500">Applicant Name</label>
+                  <p className="text-lg font-semibold">{application.applicantName}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-500">Customer Account Number</label>
+                  <p className="font-mono">{application.customerAccountNumber}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-500">Cellular Number</label>
+                  <p>{application.cellularNumber}</p>
+                </div>
+              </div>
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium text-gray-500">Physical Address</label>
+                  <p>{application.physicalAddress}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-500">Postal Address</label>
+                  <p>{application.postalAddress}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Technical Information Tab */}
+        <TabsContent value="technical" className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center">
-                  <Hash className="h-5 w-5 mr-2 text-blue-600" />
-                  Applicant Information
+                  <MapPin className="h-5 w-5 mr-2" />
+                  Property Information
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label className="text-sm font-medium text-gray-600">Full Name</Label>
-                    <p className="text-gray-900 font-medium">{application.applicantName}</p>
-                  </div>
-                  <div>
-                    <Label className="text-sm font-medium text-gray-600">Account Number</Label>
-                    <p className="text-gray-900 font-medium">{application.customerAccountNumber}</p>
-                  </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-500">Size of Property</label>
+                  <p className="text-lg font-semibold">{application.landSize} hectares</p>
                 </div>
                 <div>
-                  <Label className="text-sm font-medium text-gray-600">Physical Address</Label>
-                  <p className="text-gray-900">{application.physicalAddress}</p>
+                  <label className="text-sm font-medium text-gray-500">Number of Drilled Holes</label>
+                  <p className="text-lg font-semibold">{application.numberOfBoreholes}</p>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label className="text-sm font-medium text-gray-600">Phone Number</Label>
-                    <p className="text-gray-900">{application.cellularNumber}</p>
-                  </div>
-                  <div>
-                    <Label className="text-sm font-medium text-gray-600">Email</Label>
-                    <p className="text-gray-900">{application.emailAddress || "Not provided"}</p>
-                  </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-500">GPS Coordinates</label>
+                  <p>Latitude: {application.gpsLatitude}</p>
+                  <p>Longitude: {application.gpsLongitude}</p>
                 </div>
               </CardContent>
             </Card>
 
-            {/* Permit Information */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center">
-                  <FileCheck className="h-5 w-5 mr-2 text-green-600" />
-                  Permit Information
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label className="text-sm font-medium text-gray-600">Permit Type</Label>
-                    <p className="text-gray-900 font-medium capitalize">{application.permitType.replace("_", " ")}</p>
-                  </div>
-                  <div>
-                    <Label className="text-sm font-medium text-gray-600">Water Source</Label>
-                    <p className="text-gray-900 font-medium capitalize">{application.waterSource.replace("_", " ")}</p>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label className="text-sm font-medium text-gray-600">Water Allocation</Label>
-                    <p className="text-gray-900 font-medium">{application.waterAllocation} ML</p>
-                  </div>
-                  <div>
-                    <Label className="text-sm font-medium text-gray-600">Land Size</Label>
-                    <p className="text-gray-900 font-medium">{application.landSize} hectares</p>
-                  </div>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium text-gray-600">Intended Use</Label>
-                  <p className="text-gray-900">{application.intendedUse}</p>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Location Information */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <MapPin className="h-5 w-5 mr-2 text-red-600" />
-                  Location Information
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label className="text-sm font-medium text-gray-600">GPS Coordinates X</Label>
-                    <p className="text-gray-900 font-mono">{application.gpsCoordinatesX}</p>
-                  </div>
-                  <div>
-                    <Label className="text-sm font-medium text-gray-600">GPS Coordinates Y</Label>
-                    <p className="text-gray-900 font-mono">{application.gpsCoordinatesY}</p>
-                  </div>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium text-gray-600">Nearest Landmark</Label>
-                  <p className="text-gray-900">{application.nearestLandmark || "Not specified"}</p>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Application Timeline */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <Calendar className="h-5 w-5 mr-2 text-purple-600" />
-                  Application Timeline
+                  <Droplets className="h-5 w-5 mr-2" />
+                  Water Information
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
-                  <Label className="text-sm font-medium text-gray-600">Created</Label>
-                  <p className="text-gray-900">{formatDate(application.createdAt)}</p>
+                  <label className="text-sm font-medium text-gray-500">Water Source</label>
+                  <p className="text-lg font-semibold">{application.waterSource}</p>
                 </div>
-                {application.submittedAt && (
-                  <div>
-                    <Label className="text-sm font-medium text-gray-600">Submitted</Label>
-                    <p className="text-gray-900">{formatDate(application.submittedAt)}</p>
-                  </div>
-                )}
-                {application.approvedAt && (
-                  <div>
-                    <Label className="text-sm font-medium text-gray-600">Approved</Label>
-                    <p className="text-gray-900">{formatDate(application.approvedAt)}</p>
-                  </div>
-                )}
-                {application.rejectedAt && (
-                  <div>
-                    <Label className="text-sm font-medium text-gray-600">Rejected</Label>
-                    <p className="text-gray-900">{formatDate(application.rejectedAt)}</p>
-                  </div>
-                )}
+                <div>
+                  <label className="text-sm font-medium text-gray-500">Permit Type</label>
+                  <p className="capitalize">{application.permitType.replace("_", " ")}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-500">Intended Use</label>
+                  <p>{application.intendedUse}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-500">Water Allocation</label>
+                  <p className="text-lg font-semibold">{application.waterAllocation} ML/year</p>
+                </div>
               </CardContent>
             </Card>
           </div>
@@ -362,194 +247,175 @@ export function ComprehensiveApplicationDetails({
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center">
-                <FileText className="h-5 w-5 mr-2 text-blue-600" />
-                Application Documents ({applicationDocuments.length})
+                <FileText className="h-5 w-5 mr-2" />
+                Uploaded Documents ({documents.length})
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {applicationDocuments.length > 0 ? (
-                <div className="space-y-4">
-                  {applicationDocuments.map((doc) => (
-                    <div
-                      key={doc.id}
-                      className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50"
-                    >
-                      <div className="flex items-center space-x-3">
-                        <FileText className="h-8 w-8 text-blue-500" />
-                        <div>
-                          <p className="font-medium text-gray-900">{doc.fileName}</p>
-                          <p className="text-sm text-gray-600">
-                            {doc.fileType} • {Math.round(doc.fileSize / 1024)} KB
-                          </p>
-                          <p className="text-xs text-gray-500">Uploaded: {formatDate(doc.uploadedAt)}</p>
-                        </div>
-                      </div>
-                      <div className="flex space-x-2">
-                        <Button variant="outline" size="sm" onClick={() => window.open(doc.fileUrl, "_blank")}>
-                          <Eye className="h-4 w-4 mr-2" />
-                          View
-                        </Button>
-                        <Button variant="outline" size="sm" onClick={() => handleDocumentDownload(doc)}>
-                          <Download className="h-4 w-4 mr-2" />
-                          Download
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+              {documents.length > 0 ? (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Document Name</TableHead>
+                      <TableHead>Type</TableHead>
+                      <TableHead>Size</TableHead>
+                      <TableHead>Upload Date</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {documents.map((doc) => (
+                      <TableRow key={doc.id}>
+                        <TableCell className="font-medium">{doc.fileName}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline">{doc.fileType}</Badge>
+                        </TableCell>
+                        <TableCell>{formatFileSize(doc.fileSize)}</TableCell>
+                        <TableCell>{formatDate(doc.uploadedAt)}</TableCell>
+                        <TableCell className="text-right space-x-2">
+                          <Button size="sm" variant="outline" onClick={() => handleDocumentView(doc)}>
+                            <ExternalLink className="h-4 w-4 mr-1" />
+                            View
+                          </Button>
+                          <Button size="sm" variant="secondary" onClick={() => handleDocumentDownload(doc)}>
+                            <Download className="h-4 w-4 mr-1" />
+                            Download
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               ) : (
-                <div className="text-center py-8">
-                  <FileText className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-                  <p className="text-gray-500">No documents uploaded</p>
+                <div className="text-center py-8 text-gray-500">
+                  <FileText className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                  <p>No documents uploaded for this application.</p>
                 </div>
               )}
             </CardContent>
           </Card>
         </TabsContent>
 
-        {/* Workflow Tab */}
-        <TabsContent value="workflow" className="space-y-6">
+        {/* Comments Tab */}
+        <TabsContent value="comments" className="space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Workflow Progress */}
+            {/* Permitting Officer Comments */}
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center">
-                  <Briefcase className="h-5 w-5 mr-2 text-blue-600" />
-                  Workflow Progress
+                <CardTitle className="flex items-center text-blue-600">
+                  <MessageSquare className="h-5 w-5 mr-2" />
+                  Permitting Officer Comments ({permittingOfficerComments.length})
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  {getWorkflowStage().map((stage, index) => (
-                    <div key={stage.stage} className="flex items-center space-x-3">
-                      <div
-                        className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
-                          stage.status === "completed" ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-600"
-                        }`}
-                      >
-                        {stage.status === "completed" ? <CheckCircle className="h-4 w-4" /> : stage.stage}
+                {permittingOfficerComments.length > 0 ? (
+                  <div className="space-y-4">
+                    {permittingOfficerComments.map((comment) => (
+                      <div key={comment.id} className="border-l-4 border-blue-500 pl-4 py-2">
+                        <div className="flex items-center justify-between mb-2">
+                          <Badge variant="outline" className="text-blue-600 border-blue-600">
+                            Stage {comment.stage}
+                          </Badge>
+                          <span className="text-xs text-gray-500">{formatDate(comment.createdAt)}</span>
+                        </div>
+                        <p className="text-sm">{comment.comment}</p>
                       </div>
-                      <div className="flex-1">
-                        <p
-                          className={`font-medium ${stage.status === "completed" ? "text-green-800" : "text-gray-600"}`}
-                        >
-                          {stage.title}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-center text-gray-500 py-4">No permitting officer comments yet.</p>
+                )}
               </CardContent>
             </Card>
 
-            {/* Available Actions */}
+            {/* All Comments */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center">
-                  <MessageSquare className="h-5 w-5 mr-2 text-green-600" />
-                  Available Actions
+                  <MessageSquare className="h-5 w-5 mr-2" />
+                  All Workflow Comments ({comments.length})
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
-                {canApproveReject() && (
-                  <div className="space-y-4">
-                    <div>
-                      <Label htmlFor="comments" className="text-sm font-medium">
-                        Comments *
-                      </Label>
-                      <Textarea
-                        id="comments"
-                        placeholder="Enter your comments for this action..."
-                        value={comments}
-                        onChange={(e) => setComments(e.target.value)}
-                        className="mt-1"
-                        rows={3}
-                      />
-                    </div>
-                    <div className="flex space-x-2">
-                      <Button
-                        onClick={() => handleStatusUpdate("approved", comments)}
-                        disabled={isSubmitting || !comments.trim()}
-                        className="bg-green-600 hover:bg-green-700"
-                      >
-                        <CheckCircle className="h-4 w-4 mr-2" />
-                        {isSubmitting ? "Processing..." : "Approve"}
-                      </Button>
-                      <Button
-                        onClick={() => handleStatusUpdate("rejected", comments)}
-                        disabled={isSubmitting || !comments.trim()}
-                        variant="destructive"
-                      >
-                        <XCircle className="h-4 w-4 mr-2" />
-                        {isSubmitting ? "Processing..." : "Reject"}
-                      </Button>
-                    </div>
+              <CardContent>
+                {comments.length > 0 ? (
+                  <div className="space-y-4 max-h-96 overflow-y-auto">
+                    {comments.map((comment) => (
+                      <div key={comment.id} className="border rounded-lg p-3">
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center space-x-2">
+                            <Badge variant="outline">{comment.userType.replace("_", " ")}</Badge>
+                            <Badge variant="secondary">Stage {comment.stage}</Badge>
+                          </div>
+                          <span className="text-xs text-gray-500">{formatDate(comment.createdAt)}</span>
+                        </div>
+                        <p className="text-sm">{comment.comment}</p>
+                      </div>
+                    ))}
                   </div>
-                )}
-
-                {/* Permit Preview and Print for Approved Applications */}
-                {application.status === "approved" && user.userType === "permitting_officer" && (
-                  <div className="space-y-2 pt-4 border-t">
-                    <h4 className="font-medium text-gray-900">Permit Actions</h4>
-                    <div className="space-y-2">
-                      <PermitPrinter application={application} user={user} />
-                    </div>
-                  </div>
-                )}
-
-                {!canApproveReject() && application.status !== "approved" && (
-                  <Alert>
-                    <AlertTriangle className="h-4 w-4" />
-                    <AlertDescription>
-                      {application.status === "unsubmitted" || application.status === "draft"
-                        ? "Application needs to be submitted before it can be reviewed."
-                        : `This application is currently at stage ${application.currentStage} and cannot be actioned by your role.`}
-                    </AlertDescription>
-                  </Alert>
+                ) : (
+                  <p className="text-center text-gray-500 py-4">No workflow comments yet.</p>
                 )}
               </CardContent>
             </Card>
           </div>
         </TabsContent>
 
-        {/* Activity Log Tab */}
-        <TabsContent value="activity" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Clock className="h-5 w-5 mr-2 text-purple-600" />
-                Activity Log ({activityLogs.length})
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {activityLogs.length > 0 ? (
-                <div className="space-y-4">
-                  {activityLogs.map((log) => (
-                    <div key={log.id} className="flex space-x-3 p-4 border rounded-lg">
-                      <div className="flex-shrink-0">
-                        <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                          <Hash className="h-4 w-4 text-blue-600" />
-                        </div>
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-center justify-between">
-                          <p className="font-medium text-gray-900">{log.action}</p>
-                          <p className="text-sm text-gray-500">{formatDate(log.createdAt)}</p>
-                        </div>
-                        <p className="text-sm text-gray-600 mt-1">{log.details}</p>
-                        <p className="text-xs text-gray-500 mt-1">By: {log.userType.replace("_", " ").toUpperCase()}</p>
-                      </div>
-                    </div>
-                  ))}
+        {/* Workflow & Actions Tab */}
+        <TabsContent value="workflow" className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Application Status</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium text-gray-500">Current Status</label>
+                  <div className="flex items-center space-x-2 mt-1">
+                    <Badge className={cn(statusColor[application.status], "text-white capitalize")}>
+                      {application.status.replace("_", " ")}
+                    </Badge>
+                    <span className="text-sm text-gray-500">Stage {application.currentStage}</span>
+                  </div>
                 </div>
-              ) : (
-                <div className="text-center py-8">
-                  <Clock className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-                  <p className="text-gray-500">No activity recorded</p>
+                <div>
+                  <label className="text-sm font-medium text-gray-500">Created Date</label>
+                  <p>{formatDate(application.createdAt)}</p>
                 </div>
-              )}
-            </CardContent>
-          </Card>
+                {application.submittedAt && (
+                  <div>
+                    <label className="text-sm font-medium text-gray-500">Submitted Date</label>
+                    <p>{formatDate(application.submittedAt)}</p>
+                  </div>
+                )}
+                {application.approvedAt && (
+                  <div>
+                    <label className="text-sm font-medium text-gray-500">Approved Date</label>
+                    <p>{formatDate(application.approvedAt)}</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Available Actions</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {application.status === "approved" && user.userType === "permitting_officer" && (
+                  <div className="space-y-2">
+                    <h4 className="font-medium text-gray-900 mb-3">Permit Actions</h4>
+                    <PermitPrinter application={application} user={user} />
+                  </div>
+                )}
+                {application.status === "rejected" && (
+                  <Button className="w-full bg-transparent" variant="outline">
+                    <FileText className="h-4 w-4 mr-2" />
+                    Print Rejection Notice
+                  </Button>
+                )}
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
       </Tabs>
     </div>
