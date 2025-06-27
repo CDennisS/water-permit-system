@@ -33,6 +33,9 @@ export function preparePermitData(application: PermitApplication): PermitData {
       latitude: application.gpsLatitude,
       longitude: application.gpsLongitude,
     },
+    catchment: "MANYAME",
+    subCatchment: "UPPER MANYAME",
+    permitType: "temporary",
   }
 }
 
@@ -132,4 +135,14 @@ ${permitData.boreholeDetails
 
 This permit is issued under the authority of the Upper Manyame Sub Catchment Council.
   `.trim()
+}
+
+export function generatePermitPDF(permitData: PermitData): Promise<Blob> {
+  return new Promise((resolve) => {
+    // This would integrate with a PDF generation library like jsPDF or Puppeteer
+    // For now, we'll create a simple HTML-based PDF
+    const htmlContent = formatPermitForPrint(permitData)
+    const blob = new Blob([htmlContent], { type: "text/plain" })
+    resolve(blob)
+  })
 }
