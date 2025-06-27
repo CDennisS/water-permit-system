@@ -4,11 +4,12 @@ import type { PermitData } from "@/types"
 
 interface PermitTemplateProps {
   permitData: PermitData
+  id?: string
 }
 
-export function PermitTemplate({ permitData }: PermitTemplateProps) {
+export function PermitTemplate({ permitData, id = "permit-template" }: PermitTemplateProps) {
   return (
-    <div className="bg-white p-8 max-w-4xl mx-auto text-black" style={{ fontFamily: "Times New Roman, serif" }}>
+    <div id={id} className="bg-white p-8 max-w-4xl mx-auto text-black" style={{ fontFamily: "Times New Roman, serif" }}>
       {/* Header - Exact Form GW7B Format */}
       <div className="text-center mb-8">
         <h1 className="text-xl font-bold mb-2">Form GW7B</h1>
