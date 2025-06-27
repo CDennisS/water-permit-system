@@ -9,7 +9,15 @@ interface PermitTemplateProps {
 
 export function PermitTemplate({ permitData, id = "permit-template" }: PermitTemplateProps) {
   return (
-    <div id={id} className="bg-white p-8 max-w-4xl mx-auto text-black" style={{ fontFamily: "Times New Roman, serif" }}>
+    <div
+      id={id}
+      className="bg-white text-black w-full max-w-none"
+      style={{
+        fontFamily: "Times New Roman, serif",
+        fontSize: "12pt",
+        lineHeight: "1.4",
+      }}
+    >
       {/* Header - Exact Form GW7B Format */}
       <div className="text-center mb-8">
         <h1 className="text-xl font-bold mb-2">Form GW7B</h1>
@@ -17,7 +25,7 @@ export function PermitTemplate({ permitData, id = "permit-template" }: PermitTem
         <p className="text-sm mb-4">(Section 15 (3) (a) of Water (Permits) Regulations, 2001)</p>
       </div>
 
-      {/* Grant Statement - Exact Wording */}
+      {/* Grant Statement */}
       <div className="mb-6">
         <p className="mb-4">
           The <strong>MANYAME</strong> Catchment Council hereby grants a *Temporary/Provisional General Abstraction
@@ -29,7 +37,7 @@ export function PermitTemplate({ permitData, id = "permit-template" }: PermitTem
         </p>
       </div>
 
-      {/* Applicant Details - Following Form GW7B Layout */}
+      {/* Applicant Details */}
       <div className="grid grid-cols-2 gap-4 mb-6">
         <div>
           <p className="mb-2">
@@ -69,30 +77,30 @@ export function PermitTemplate({ permitData, id = "permit-template" }: PermitTem
         </p>
       </div>
 
-      {/* Borehole Details Table - Exact Form GW7B Table Structure */}
+      {/* Borehole Details Table */}
       <div className="mb-6">
-        <table className="w-full border-collapse border border-black text-sm">
+        <table className="w-full border-collapse border-2 border-black text-sm">
           <thead>
             <tr>
-              <th className="border border-black p-2">Borehole (BH)-No.</th>
-              <th className="border border-black p-2">BH-No. Allocated</th>
-              <th className="border border-black p-2" colSpan={2}>
+              <th className="border border-black p-2 text-center">Borehole (BH)-No.</th>
+              <th className="border border-black p-2 text-center">BH-No. Allocated</th>
+              <th className="border border-black p-2 text-center" colSpan={2}>
                 Grid Reference
               </th>
-              <th className="border border-black p-2">GPS reading</th>
-              <th className="border border-black p-2">Intended use</th>
-              <th className="border border-black p-2">Maximum abstraction rate (m³/annum)</th>
-              <th className="border border-black p-2">Water sample analysis every . months/years</th>
+              <th className="border border-black p-2 text-center">GPS reading</th>
+              <th className="border border-black p-2 text-center">Intended use</th>
+              <th className="border border-black p-2 text-center">Maximum abstraction rate (m³/annum)</th>
+              <th className="border border-black p-2 text-center">Water sample analysis every . months/years</th>
             </tr>
             <tr>
-              <th className="border border-black p-1"></th>
-              <th className="border border-black p-1"></th>
-              <th className="border border-black p-1">X</th>
-              <th className="border border-black p-1">Y</th>
-              <th className="border border-black p-1"></th>
-              <th className="border border-black p-1"></th>
-              <th className="border border-black p-1"></th>
-              <th className="border border-black p-1"></th>
+              <th className="border border-black p-1 text-center"></th>
+              <th className="border border-black p-1 text-center"></th>
+              <th className="border border-black p-1 text-center">X</th>
+              <th className="border border-black p-1 text-center">Y</th>
+              <th className="border border-black p-1 text-center"></th>
+              <th className="border border-black p-1 text-center"></th>
+              <th className="border border-black p-1 text-center"></th>
+              <th className="border border-black p-1 text-center"></th>
             </tr>
           </thead>
           <tbody>
@@ -108,7 +116,7 @@ export function PermitTemplate({ permitData, id = "permit-template" }: PermitTem
                 <td className="border border-black p-2 text-center">{borehole.waterSampleFrequency}</td>
               </tr>
             ))}
-            {/* Fill empty rows if less than 5 boreholes - As per Form GW7B */}
+            {/* Fill empty rows if less than 5 boreholes */}
             {Array.from({ length: Math.max(0, 5 - permitData.boreholeDetails.length) }).map((_, index) => (
               <tr key={`empty-${index}`}>
                 <td className="border border-black p-2">&nbsp;</td>
@@ -129,7 +137,7 @@ export function PermitTemplate({ permitData, id = "permit-template" }: PermitTem
         </p>
       </div>
 
-      {/* Permit Registration - Exact Form GW7B Format */}
+      {/* Permit Registration */}
       <div className="mb-6">
         <p className="mb-4">
           This Temporary/Provisional* Specific Abstraction Permit has been recorded in the register as:
@@ -144,7 +152,7 @@ export function PermitTemplate({ permitData, id = "permit-template" }: PermitTem
         </div>
       </div>
 
-      {/* CONDITIONS - Exact Form GW7B Text */}
+      {/* CONDITIONS */}
       <div className="mb-6">
         <h3 className="text-lg font-bold mb-4">CONDITIONS</h3>
 
@@ -177,7 +185,7 @@ export function PermitTemplate({ permitData, id = "permit-template" }: PermitTem
         </div>
       </div>
 
-      {/* ADDITIONAL CONDITIONS - Exact Form GW7B Format */}
+      {/* ADDITIONAL CONDITIONS */}
       <div className="mb-8">
         <h3 className="text-lg font-bold mb-4">ADDITIONAL CONDITIONS</h3>
         <ol className="list-decimal list-inside space-y-2 text-sm">
@@ -189,7 +197,7 @@ export function PermitTemplate({ permitData, id = "permit-template" }: PermitTem
         </ol>
       </div>
 
-      {/* Signature Section - Exact Form GW7B Layout */}
+      {/* Signature Section */}
       <div className="mt-12">
         <div className="grid grid-cols-3 gap-8 text-center">
           <div>
