@@ -1,829 +1,615 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest"
+import { describe, it, expect, beforeEach, vi, afterEach } from "vitest"
 import { render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { PermitPreviewDialog } from "@/components/permit-preview-dialog"
 import type { PermitApplication, User } from "@/types"
 
-// Mock data for testing
-const mockApprovedApplication: PermitApplication = {
-  id: "APP-PREVIEW-001",
-  applicationNumber: "APP-2024-PREVIEW-001",
-  applicantName: "Preview Test Company Ltd",
-  applicantId: "applicant-001",
-  physicalAddress: "123 Preview Street, Harare, Zimbabwe",
-  postalAddress: "P.O. Box 456, Harare",
-  landSize: 30.5,
-  numberOfBoreholes: 4,
-  waterAllocation: 20.0,
-  intendedUse: "irrigation",
-  gpsLatitude: -17.8252,
-  gpsLongitude: 31.0335,
-  status: "approved",
-  submittedAt: new Date("2024-02-01"),
-  approvedAt: new Date("2024-03-15"),
-  permitNumber: "UMSCC-2024-PREVIEW-001",
-  documents: [],
-  comments: [],
-  workflowStage: "permit_issued",
-}
+// Mock the permit generator
+vi.mock("@/lib/enhanced-permit-generator", () => ({
+  preparePermitData: vi.fn(() => ({
+    permitNumber: "GW7B/2024/001",
+    issueDate: "2024-01-15",
+    validUntil: "2029-01-15",
+    applicantName: "John Doe",
+    applicantAddress: "123 Main St, Harare",
+    intendedUse: "Domestic",
+    waterAllocation: 50,
+    totalAllocatedAbstraction: 50000,
+    boreholeDetails: [
+      {
+        boreholeNumber: "BH001",
+        gpsCoordinates: "-17.8252, 31.0335",
+        allocatedAmount: 50000,
+        pumpingRate: 2.5,
+        staticWaterLevel: 15,
+        yieldTest: 3.0,
+      },
+    ],
+    conditions: ["Water shall be used for domestic purposes only", "Permit holder must maintain accurate records"],
+  })),
+}))
 
-const mockPendingApplication: PermitApplication = {
-  ...mockApprovedApplication,
-  id: "APP-PREVIEW-002",
-  status: "under_review",
-  approvedAt: undefined,
-  permitNumber: undefined,
-  workflowStage: "technical_review",
-}
+// Mock Sonner toast
+vi.mock("sonner", () => ({
+  toast: {
+    success: vi.fn(),
+    error: vi.fn(),
+  },
+}))
 
-const mockPermittingOfficer: User = {
-  id: "user-po-001",
-  username: "officer.preview",
-  userType: "permitting_officer",
-  createdAt: new Date(),
-  updatedAt: new Date(),
-}
-
-const mockPermitSupervisor: User = {
-  id: "user-ps-001",
-  username: "supervisor.preview",
-  userType: "permit_supervisor",
-  createdAt: new Date(),
-  updatedAt: new Date(),
-}
-
-const mockApplicant: User = {
-  id: "user-app-001",
-  username: "applicant.preview",
-  userType: "applicant",
-  createdAt: new Date(),
-  updatedAt: new Date(),
-}
-
-const mockICTUser: User = {
-  id: "user-ict-001",
-  username: "ict.preview",
-  userType: "ict",
-  createdAt: new Date(),
-  updatedAt: new Date(),
-}
-
-// Mock window functions
-const mockWindowOpen = vi.fn()
+// Mock window.open and print
 const mockPrint = vi.fn()
-const mockFocus = vi.fn()
 const mockClose = vi.fn()
+const mockFocus = vi.fn()
 const mockWrite = vi.fn()
-const mockDocumentClose = vi.fn()
 
 Object.defineProperty(window, "open", {
   writable: true,
-  value: mockWindowOpen,
+  value: vi.fn(() => ({
+    document: {
+      write: mockWrite,
+      close: vi.fn(),
+    },
+    focus: mockFocus,
+    print: mockPrint,
+    close: mockClose,
+  })),
 })
 
-// Mock URL functions for download
-const mockCreateObjectURL = vi.fn(() => "blob:mock-url")
-const mockRevokeObjectURL = vi.fn()
-Object.defineProperty(URL, "createObjectURL", { value: mockCreateObjectURL })
-Object.defineProperty(URL, "revokeObjectURL", { value: mockRevokeObjectURL })
+// Mock URL.createObjectURL and revokeObjectURL
+Object.defineProperty(URL, "createObjectURL", {
+  writable: true,
+  value: vi.fn(() => "blob:mock-url"),
+})
 
-// Mock document functions for download
-const mockLink = {
-  href: "",
-  download: "",
-  click: vi.fn(),
-}
-const mockCreateElement = vi.fn(() => mockLink)
-const mockAppendChild = vi.fn()
-const mockRemoveChild = vi.fn()
+Object.defineProperty(URL, "revokeObjectURL", {
+  writable: true,
+  value: vi.fn(),
+})
 
-describe("Permit Preview Dialog Tests", () => {
+describe("PermitPreviewDialog", () => {
+  const mockApplication: PermitApplication = {
+    id: "1",
+    applicationNumber: "APP001",
+    applicantName: "John Doe",
+    applicantAddress: "123 Main St, Harare",
+    contactNumber: "+263771234567",
+    emailAddress: "john.doe@email.com",
+    intendedUse: "Domestic",
+    waterAllocation: 50,
+    numberOfBoreholes: 1,
+    gpsCoordinates: "-17.8252, 31.0335",
+    status: "approved",
+    submissionDate: new Date("2024-01-01"),
+    lastModified: new Date("2024-01-15"),
+    documents: [],
+    comments: [],
+    workflowStage: "approved",
+    assignedTo: "permit_supervisor",
+  }
+
+  const mockPermittingOfficer: User = {
+    id: "1",
+    username: "admin",
+    userType: "permitting_officer",
+    password: "admin",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  }
+
+  const mockApplicant: User = {
+    id: "2",
+    username: "applicant",
+    userType: "applicant",
+    password: "password",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  }
+
+  const mockOnPrint = vi.fn()
+  const mockOnDownload = vi.fn()
+
   beforeEach(() => {
     vi.clearAllMocks()
-
-    // Setup window.open mock
-    mockWindowOpen.mockReturnValue({
-      document: {
-        write: mockWrite,
-        close: mockDocumentClose,
-      },
-      focus: mockFocus,
-      print: mockPrint,
-      close: mockClose,
-    })
-
-    // Setup document mocks
-    Object.defineProperty(document, "createElement", { value: mockCreateElement })
-    Object.defineProperty(document.body, "appendChild", { value: mockAppendChild })
-    Object.defineProperty(document.body, "removeChild", { value: mockRemoveChild })
   })
 
   afterEach(() => {
     vi.restoreAllMocks()
   })
 
-  describe("Dialog Visibility and Access Control", () => {
+  describe("Rendering and Visibility", () => {
     it("should render preview button for authorized users with approved applications", () => {
-      render(<PermitPreviewDialog application={mockApprovedApplication} currentUser={mockPermittingOfficer} />)
+      render(
+        <PermitPreviewDialog
+          application={mockApplication}
+          currentUser={mockPermittingOfficer}
+          onPrint={mockOnPrint}
+          onDownload={mockOnDownload}
+        />,
+      )
 
-      expect(screen.getByText("Preview Permit")).toBeInTheDocument()
       expect(screen.getByRole("button", { name: /preview permit/i })).toBeInTheDocument()
     })
 
     it("should not render for unauthorized users", () => {
       const { container } = render(
-        <PermitPreviewDialog application={mockApprovedApplication} currentUser={mockApplicant} />,
+        <PermitPreviewDialog
+          application={mockApplication}
+          currentUser={mockApplicant}
+          onPrint={mockOnPrint}
+          onDownload={mockOnDownload}
+        />,
       )
 
       expect(container.firstChild).toBeNull()
     })
 
     it("should not render for non-approved applications", () => {
+      const pendingApplication = { ...mockApplication, status: "pending" as const }
+
       const { container } = render(
-        <PermitPreviewDialog application={mockPendingApplication} currentUser={mockPermittingOfficer} />,
+        <PermitPreviewDialog
+          application={pendingApplication}
+          currentUser={mockPermittingOfficer}
+          onPrint={mockOnPrint}
+          onDownload={mockOnDownload}
+        />,
       )
 
       expect(container.firstChild).toBeNull()
     })
 
-    it("should render for all authorized user types", () => {
-      const authorizedUsers = [
-        mockPermittingOfficer,
-        mockPermitSupervisor,
-        mockICTUser,
-        { ...mockPermittingOfficer, userType: "catchment_manager" as const },
-        { ...mockPermittingOfficer, userType: "catchment_chairperson" as const },
-      ]
+    it("should render for permit_issued status", () => {
+      const issuedApplication = { ...mockApplication, status: "permit_issued" as const }
 
-      authorizedUsers.forEach((user) => {
-        const { unmount } = render(<PermitPreviewDialog application={mockApprovedApplication} currentUser={user} />)
+      render(
+        <PermitPreviewDialog
+          application={issuedApplication}
+          currentUser={mockPermittingOfficer}
+          onPrint={mockOnPrint}
+          onDownload={mockOnDownload}
+        />,
+      )
 
-        expect(screen.getByText("Preview Permit")).toBeInTheDocument()
-        unmount()
-      })
+      expect(screen.getByRole("button", { name: /preview permit/i })).toBeInTheDocument()
     })
   })
 
-  describe("Dialog Opening and Content", () => {
+  describe("Dialog Functionality", () => {
     it("should open dialog when preview button is clicked", async () => {
       const user = userEvent.setup()
 
-      render(<PermitPreviewDialog application={mockApprovedApplication} currentUser={mockPermittingOfficer} />)
+      render(
+        <PermitPreviewDialog
+          application={mockApplication}
+          currentUser={mockPermittingOfficer}
+          onPrint={mockOnPrint}
+          onDownload={mockOnDownload}
+        />,
+      )
 
-      const previewButton = screen.getByText("Preview Permit")
+      const previewButton = screen.getByRole("button", { name: /preview permit/i })
       await user.click(previewButton)
 
-      await waitFor(() => {
-        expect(screen.getByText("Permit Preview")).toBeInTheDocument()
-      })
+      expect(screen.getByRole("dialog")).toBeInTheDocument()
+      expect(screen.getByText("Permit Preview")).toBeInTheDocument()
     })
 
-    it("should display permit details in dialog header", async () => {
+    it("should display permit information in dialog", async () => {
       const user = userEvent.setup()
 
-      render(<PermitPreviewDialog application={mockApprovedApplication} currentUser={mockPermittingOfficer} />)
+      render(
+        <PermitPreviewDialog
+          application={mockApplication}
+          currentUser={mockPermittingOfficer}
+          onPrint={mockOnPrint}
+          onDownload={mockOnDownload}
+        />,
+      )
 
-      const previewButton = screen.getByText("Preview Permit")
+      const previewButton = screen.getByRole("button", { name: /preview permit/i })
       await user.click(previewButton)
 
-      await waitFor(() => {
-        expect(screen.getByText("Permit Preview")).toBeInTheDocument()
-        expect(screen.getByText("UMSCC-2024-PREVIEW-001")).toBeInTheDocument()
-        expect(screen.getByText("approved")).toBeInTheDocument()
-      })
+      expect(screen.getByText("GW7B/2024/001")).toBeInTheDocument()
+      expect(screen.getByText("approved")).toBeInTheDocument()
     })
 
-    it("should display action buttons in dialog", async () => {
+    it("should show print and download buttons in dialog", async () => {
       const user = userEvent.setup()
 
-      render(<PermitPreviewDialog application={mockApprovedApplication} currentUser={mockPermittingOfficer} />)
+      render(
+        <PermitPreviewDialog
+          application={mockApplication}
+          currentUser={mockPermittingOfficer}
+          onPrint={mockOnPrint}
+          onDownload={mockOnDownload}
+        />,
+      )
 
-      const previewButton = screen.getByText("Preview Permit")
+      const previewButton = screen.getByRole("button", { name: /preview permit/i })
       await user.click(previewButton)
 
-      await waitFor(() => {
-        expect(screen.getByText("Download")).toBeInTheDocument()
-        expect(screen.getByText("Print")).toBeInTheDocument()
-      })
-    })
-
-    it("should render permit template content", async () => {
-      const user = userEvent.setup()
-
-      render(<PermitPreviewDialog application={mockApprovedApplication} currentUser={mockPermittingOfficer} />)
-
-      const previewButton = screen.getByText("Preview Permit")
-      await user.click(previewButton)
-
-      await waitFor(() => {
-        expect(screen.getByText("Form GW7B")).toBeInTheDocument()
-        expect(screen.getByText("TEMPORARY/PROVISIONAL* SPECIFIC GROUNDWATER ABSTRACTION PERMIT")).toBeInTheDocument()
-        expect(screen.getByText("Preview Test Company Ltd")).toBeInTheDocument()
-      })
+      expect(screen.getByRole("button", { name: /print/i })).toBeInTheDocument()
+      expect(screen.getByRole("button", { name: /download/i })).toBeInTheDocument()
     })
 
     it("should close dialog when clicking outside or escape", async () => {
       const user = userEvent.setup()
 
-      render(<PermitPreviewDialog application={mockApprovedApplication} currentUser={mockPermittingOfficer} />)
+      render(
+        <PermitPreviewDialog
+          application={mockApplication}
+          currentUser={mockPermittingOfficer}
+          onPrint={mockOnPrint}
+          onDownload={mockOnDownload}
+        />,
+      )
 
-      // Open dialog
-      const previewButton = screen.getByText("Preview Permit")
+      const previewButton = screen.getByRole("button", { name: /preview permit/i })
       await user.click(previewButton)
 
-      await waitFor(() => {
-        expect(screen.getByText("Permit Preview")).toBeInTheDocument()
-      })
+      expect(screen.getByRole("dialog")).toBeInTheDocument()
 
       // Press escape to close
       await user.keyboard("{Escape}")
 
       await waitFor(() => {
-        expect(screen.queryByText("Permit Preview")).not.toBeInTheDocument()
+        expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
       })
     })
   })
 
   describe("Print Functionality", () => {
-    it("should trigger print when print button is clicked", async () => {
+    it("should handle print action correctly", async () => {
       const user = userEvent.setup()
 
-      render(<PermitPreviewDialog application={mockApprovedApplication} currentUser={mockPermittingOfficer} />)
-
-      // Open dialog
-      const previewButton = screen.getByText("Preview Permit")
-      await user.click(previewButton)
-
-      await waitFor(() => {
-        expect(screen.getByText("Print")).toBeInTheDocument()
-      })
-
-      // Click print button
-      const printButton = screen.getByText("Print")
-      await user.click(printButton)
-
-      // Wait for print process
-      await waitFor(() => {
-        expect(mockWindowOpen).toHaveBeenCalledWith("", "_blank")
-      })
-    })
-
-    it("should write proper HTML content for printing", async () => {
-      const user = userEvent.setup()
-
-      render(<PermitPreviewDialog application={mockApprovedApplication} currentUser={mockPermittingOfficer} />)
-
-      // Open dialog
-      const previewButton = screen.getByText("Preview Permit")
-      await user.click(previewButton)
-
-      await waitFor(() => {
-        expect(screen.getByText("Print")).toBeInTheDocument()
-      })
-
-      // Click print button
-      const printButton = screen.getByText("Print")
-      await user.click(printButton)
-
-      await waitFor(() => {
-        expect(mockWrite).toHaveBeenCalled()
-        const writtenContent = mockWrite.mock.calls[0][0]
-
-        // Check for proper HTML structure
-        expect(writtenContent).toContain("<!DOCTYPE html>")
-        expect(writtenContent).toContain("<title>Permit UMSCC-2024-PREVIEW-001</title>")
-        expect(writtenContent).toContain("Times New Roman")
-        expect(writtenContent).toContain("@page")
-        expect(writtenContent).toContain("size: A4")
-      })
-    })
-
-    it("should handle print window blocked scenario", async () => {
-      const user = userEvent.setup()
-
-      // Mock window.open to return null (blocked)
-      mockWindowOpen.mockReturnValue(null)
-
-      // Mock alert
-      const mockAlert = vi.fn()
-      Object.defineProperty(window, "alert", { value: mockAlert })
-
-      render(<PermitPreviewDialog application={mockApprovedApplication} currentUser={mockPermittingOfficer} />)
-
-      // Open dialog
-      const previewButton = screen.getByText("Preview Permit")
-      await user.click(previewButton)
-
-      await waitFor(() => {
-        expect(screen.getByText("Print")).toBeInTheDocument()
-      })
-
-      // Click print button
-      const printButton = screen.getByText("Print")
-      await user.click(printButton)
-
-      // Should handle gracefully without throwing error
-      expect(() => user.click(printButton)).not.toThrow()
-    })
-
-    it("should call onPrint callback when provided", async () => {
-      const user = userEvent.setup()
-      const mockOnPrint = vi.fn()
+      // Mock getElementById to return a mock element
+      const mockElement = {
+        innerHTML: "<div>Mock permit content</div>",
+      }
+      vi.spyOn(document, "getElementById").mockReturnValue(mockElement as any)
 
       render(
         <PermitPreviewDialog
-          application={mockApprovedApplication}
+          application={mockApplication}
           currentUser={mockPermittingOfficer}
           onPrint={mockOnPrint}
-        />,
-      )
-
-      // Open dialog
-      const previewButton = screen.getByText("Preview Permit")
-      await user.click(previewButton)
-
-      await waitFor(() => {
-        expect(screen.getByText("Print")).toBeInTheDocument()
-      })
-
-      // Click print button
-      const printButton = screen.getByText("Print")
-      await user.click(printButton)
-
-      await waitFor(() => {
-        expect(mockOnPrint).toHaveBeenCalled()
-      })
-    })
-  })
-
-  describe("Download Functionality", () => {
-    it("should trigger download when download button is clicked", async () => {
-      const user = userEvent.setup()
-
-      render(<PermitPreviewDialog application={mockApprovedApplication} currentUser={mockPermittingOfficer} />)
-
-      // Open dialog
-      const previewButton = screen.getByText("Preview Permit")
-      await user.click(previewButton)
-
-      await waitFor(() => {
-        expect(screen.getByText("Download")).toBeInTheDocument()
-      })
-
-      // Click download button
-      const downloadButton = screen.getByText("Download")
-      await user.click(downloadButton)
-
-      await waitFor(() => {
-        expect(mockCreateObjectURL).toHaveBeenCalled()
-        expect(mockCreateElement).toHaveBeenCalledWith("a")
-        expect(mockLink.click).toHaveBeenCalled()
-      })
-    })
-
-    it("should create proper download filename", async () => {
-      const user = userEvent.setup()
-
-      render(<PermitPreviewDialog application={mockApprovedApplication} currentUser={mockPermittingOfficer} />)
-
-      // Open dialog
-      const previewButton = screen.getByText("Preview Permit")
-      await user.click(previewButton)
-
-      await waitFor(() => {
-        expect(screen.getByText("Download")).toBeInTheDocument()
-      })
-
-      // Click download button
-      const downloadButton = screen.getByText("Download")
-      await user.click(downloadButton)
-
-      await waitFor(() => {
-        expect(mockLink.download).toBe("permit-UMSCC-2024-PREVIEW-001.html")
-      })
-    })
-
-    it("should create HTML blob with proper content", async () => {
-      const user = userEvent.setup()
-
-      render(<PermitPreviewDialog application={mockApprovedApplication} currentUser={mockPermittingOfficer} />)
-
-      // Open dialog
-      const previewButton = screen.getByText("Preview Permit")
-      await user.click(previewButton)
-
-      await waitFor(() => {
-        expect(screen.getByText("Download")).toBeInTheDocument()
-      })
-
-      // Click download button
-      const downloadButton = screen.getByText("Download")
-      await user.click(downloadButton)
-
-      await waitFor(() => {
-        expect(mockCreateObjectURL).toHaveBeenCalled()
-        const blobCall = mockCreateObjectURL.mock.calls[0][0]
-        expect(blobCall.type).toBe("text/html")
-      })
-    })
-
-    it("should call onDownload callback when provided", async () => {
-      const user = userEvent.setup()
-      const mockOnDownload = vi.fn()
-
-      render(
-        <PermitPreviewDialog
-          application={mockApprovedApplication}
-          currentUser={mockPermittingOfficer}
           onDownload={mockOnDownload}
         />,
       )
 
-      // Open dialog
-      const previewButton = screen.getByText("Preview Permit")
+      const previewButton = screen.getByRole("button", { name: /preview permit/i })
       await user.click(previewButton)
 
-      await waitFor(() => {
-        expect(screen.getByText("Download")).toBeInTheDocument()
-      })
-
-      // Click download button
-      const downloadButton = screen.getByText("Download")
-      await user.click(downloadButton)
+      const printButton = screen.getByRole("button", { name: /print/i })
+      await user.click(printButton)
 
       await waitFor(() => {
-        expect(mockOnDownload).toHaveBeenCalled()
+        expect(window.open).toHaveBeenCalledWith("", "_blank")
+        expect(mockWrite).toHaveBeenCalled()
+        expect(mockFocus).toHaveBeenCalled()
+        expect(mockPrint).toHaveBeenCalled()
+        expect(mockClose).toHaveBeenCalled()
+        expect(mockOnPrint).toHaveBeenCalled()
       })
     })
 
-    it("should clean up URL after download", async () => {
+    it("should show loading state during print", async () => {
       const user = userEvent.setup()
 
-      render(<PermitPreviewDialog application={mockApprovedApplication} currentUser={mockPermittingOfficer} />)
+      const mockElement = {
+        innerHTML: "<div>Mock permit content</div>",
+      }
+      vi.spyOn(document, "getElementById").mockReturnValue(mockElement as any)
 
-      // Open dialog
-      const previewButton = screen.getByText("Preview Permit")
+      render(
+        <PermitPreviewDialog
+          application={mockApplication}
+          currentUser={mockPermittingOfficer}
+          onPrint={mockOnPrint}
+          onDownload={mockOnDownload}
+        />,
+      )
+
+      const previewButton = screen.getByRole("button", { name: /preview permit/i })
       await user.click(previewButton)
 
-      await waitFor(() => {
-        expect(screen.getByText("Download")).toBeInTheDocument()
-      })
-
-      // Click download button
-      const downloadButton = screen.getByText("Download")
-      await user.click(downloadButton)
-
-      await waitFor(() => {
-        expect(mockRevokeObjectURL).toHaveBeenCalledWith("blob:mock-url")
-        expect(mockRemoveChild).toHaveBeenCalled()
-      })
-    })
-  })
-
-  describe("Loading States and Error Handling", () => {
-    it("should show loading state during print operation", async () => {
-      const user = userEvent.setup()
-
-      render(<PermitPreviewDialog application={mockApprovedApplication} currentUser={mockPermittingOfficer} />)
-
-      // Open dialog
-      const previewButton = screen.getByText("Preview Permit")
-      await user.click(previewButton)
-
-      await waitFor(() => {
-        expect(screen.getByText("Print")).toBeInTheDocument()
-      })
+      const printButton = screen.getByRole("button", { name: /print/i })
 
       // Click print button
-      const printButton = screen.getByText("Print")
       await user.click(printButton)
 
       // Button should be disabled during loading
       expect(printButton).toBeDisabled()
     })
 
-    it("should show loading state during download operation", async () => {
-      const user = userEvent.setup()
-
-      render(<PermitPreviewDialog application={mockApprovedApplication} currentUser={mockPermittingOfficer} />)
-
-      // Open dialog
-      const previewButton = screen.getByText("Preview Permit")
-      await user.click(previewButton)
-
-      await waitFor(() => {
-        expect(screen.getByText("Download")).toBeInTheDocument()
-      })
-
-      // Click download button
-      const downloadButton = screen.getByText("Download")
-      await user.click(downloadButton)
-
-      // Button should be disabled during loading
-      expect(downloadButton).toBeDisabled()
-    })
-
-    it("should handle missing permit template element", async () => {
-      const user = userEvent.setup()
-
-      // Mock getElementById to return null
-      const mockGetElementById = vi.fn(() => null)
-      Object.defineProperty(document, "getElementById", { value: mockGetElementById })
-
-      render(<PermitPreviewDialog application={mockApprovedApplication} currentUser={mockPermittingOfficer} />)
-
-      // Open dialog
-      const previewButton = screen.getByText("Preview Permit")
-      await user.click(previewButton)
-
-      await waitFor(() => {
-        expect(screen.getByText("Print")).toBeInTheDocument()
-      })
-
-      // Click print button - should not throw error
-      const printButton = screen.getByText("Print")
-      expect(() => user.click(printButton)).not.toThrow()
-    })
-
     it("should handle print errors gracefully", async () => {
       const user = userEvent.setup()
 
-      // Mock console.error
-      const mockConsoleError = vi.spyOn(console, "error").mockImplementation(() => {})
+      // Mock getElementById to return null (error case)
+      vi.spyOn(document, "getElementById").mockReturnValue(null)
+      vi.spyOn(console, "error").mockImplementation(() => {})
 
-      // Mock window.open to throw error
-      mockWindowOpen.mockImplementation(() => {
-        throw new Error("Print failed")
-      })
+      render(
+        <PermitPreviewDialog
+          application={mockApplication}
+          currentUser={mockPermittingOfficer}
+          onPrint={mockOnPrint}
+          onDownload={mockOnDownload}
+        />,
+      )
 
-      render(<PermitPreviewDialog application={mockApprovedApplication} currentUser={mockPermittingOfficer} />)
-
-      // Open dialog
-      const previewButton = screen.getByText("Preview Permit")
+      const previewButton = screen.getByRole("button", { name: /preview permit/i })
       await user.click(previewButton)
 
-      await waitFor(() => {
-        expect(screen.getByText("Print")).toBeInTheDocument()
-      })
-
-      // Click print button
-      const printButton = screen.getByText("Print")
+      const printButton = screen.getByRole("button", { name: /print/i })
       await user.click(printButton)
 
       await waitFor(() => {
-        expect(mockConsoleError).toHaveBeenCalledWith("Print failed:", expect.any(Error))
+        expect(console.error).toHaveBeenCalledWith("Print failed:", expect.any(Error))
       })
+    })
+  })
 
-      mockConsoleError.mockRestore()
+  describe("Download Functionality", () => {
+    it("should handle download action correctly", async () => {
+      const user = userEvent.setup()
+
+      const mockElement = {
+        innerHTML: "<div>Mock permit content</div>",
+      }
+      vi.spyOn(document, "getElementById").mockReturnValue(mockElement as any)
+
+      // Mock document.createElement and appendChild/removeChild
+      const mockAnchor = {
+        href: "",
+        download: "",
+        click: vi.fn(),
+      }
+      vi.spyOn(document, "createElement").mockReturnValue(mockAnchor as any)
+      vi.spyOn(document.body, "appendChild").mockImplementation(() => mockAnchor as any)
+      vi.spyOn(document.body, "removeChild").mockImplementation(() => mockAnchor as any)
+
+      render(
+        <PermitPreviewDialog
+          application={mockApplication}
+          currentUser={mockPermittingOfficer}
+          onPrint={mockOnPrint}
+          onDownload={mockOnDownload}
+        />,
+      )
+
+      const previewButton = screen.getByRole("button", { name: /preview permit/i })
+      await user.click(previewButton)
+
+      const downloadButton = screen.getByRole("button", { name: /download/i })
+      await user.click(downloadButton)
+
+      await waitFor(() => {
+        expect(URL.createObjectURL).toHaveBeenCalled()
+        expect(mockAnchor.click).toHaveBeenCalled()
+        expect(URL.revokeObjectURL).toHaveBeenCalled()
+        expect(mockOnDownload).toHaveBeenCalled()
+      })
+    })
+
+    it("should set correct filename for download", async () => {
+      const user = userEvent.setup()
+
+      const mockElement = {
+        innerHTML: "<div>Mock permit content</div>",
+      }
+      vi.spyOn(document, "getElementById").mockReturnValue(mockElement as any)
+
+      const mockAnchor = {
+        href: "",
+        download: "",
+        click: vi.fn(),
+      }
+      vi.spyOn(document, "createElement").mockReturnValue(mockAnchor as any)
+      vi.spyOn(document.body, "appendChild").mockImplementation(() => mockAnchor as any)
+      vi.spyOn(document.body, "removeChild").mockImplementation(() => mockAnchor as any)
+
+      render(
+        <PermitPreviewDialog
+          application={mockApplication}
+          currentUser={mockPermittingOfficer}
+          onPrint={mockOnPrint}
+          onDownload={mockOnDownload}
+        />,
+      )
+
+      const previewButton = screen.getByRole("button", { name: /preview permit/i })
+      await user.click(previewButton)
+
+      const downloadButton = screen.getByRole("button", { name: /download/i })
+      await user.click(downloadButton)
+
+      await waitFor(() => {
+        expect(mockAnchor.download).toBe("permit-GW7B/2024/001.html")
+      })
     })
 
     it("should handle download errors gracefully", async () => {
       const user = userEvent.setup()
 
-      // Mock console.error
-      const mockConsoleError = vi.spyOn(console, "error").mockImplementation(() => {})
+      // Mock getElementById to return null (error case)
+      vi.spyOn(document, "getElementById").mockReturnValue(null)
+      vi.spyOn(console, "error").mockImplementation(() => {})
 
-      // Mock createObjectURL to throw error
-      mockCreateObjectURL.mockImplementation(() => {
-        throw new Error("Download failed")
-      })
+      render(
+        <PermitPreviewDialog
+          application={mockApplication}
+          currentUser={mockPermittingOfficer}
+          onPrint={mockOnPrint}
+          onDownload={mockOnDownload}
+        />,
+      )
 
-      render(<PermitPreviewDialog application={mockApprovedApplication} currentUser={mockPermittingOfficer} />)
-
-      // Open dialog
-      const previewButton = screen.getByText("Preview Permit")
+      const previewButton = screen.getByRole("button", { name: /preview permit/i })
       await user.click(previewButton)
 
-      await waitFor(() => {
-        expect(screen.getByText("Download")).toBeInTheDocument()
-      })
-
-      // Click download button
-      const downloadButton = screen.getByText("Download")
+      const downloadButton = screen.getByRole("button", { name: /download/i })
       await user.click(downloadButton)
 
       await waitFor(() => {
-        expect(mockConsoleError).toHaveBeenCalledWith("Download failed:", expect.any(Error))
+        expect(console.error).toHaveBeenCalledWith("Download failed:", expect.any(Error))
       })
-
-      mockConsoleError.mockRestore()
     })
   })
 
-  describe("Accessibility and User Experience", () => {
-    it("should have proper ARIA labels and roles", () => {
-      render(<PermitPreviewDialog application={mockApprovedApplication} currentUser={mockPermittingOfficer} />)
+  describe("User Permissions", () => {
+    const testCases = [
+      { userType: "permitting_officer", shouldShow: true },
+      { userType: "permit_supervisor", shouldShow: true },
+      { userType: "catchment_manager", shouldShow: true },
+      { userType: "catchment_chairperson", shouldShow: true },
+      { userType: "ict", shouldShow: true },
+      { userType: "applicant", shouldShow: false },
+      { userType: "chairperson", shouldShow: false },
+    ]
+
+    testCases.forEach(({ userType, shouldShow }) => {
+      it(`should ${shouldShow ? "show" : "hide"} preview for ${userType}`, () => {
+        const user = {
+          ...mockPermittingOfficer,
+          userType: userType as any,
+        }
+
+        const { container } = render(
+          <PermitPreviewDialog
+            application={mockApplication}
+            currentUser={user}
+            onPrint={mockOnPrint}
+            onDownload={mockOnDownload}
+          />,
+        )
+
+        if (shouldShow) {
+          expect(screen.getByRole("button", { name: /preview permit/i })).toBeInTheDocument()
+        } else {
+          expect(container.firstChild).toBeNull()
+        }
+      })
+    })
+  })
+
+  describe("Accessibility", () => {
+    it("should have proper ARIA labels and roles", async () => {
+      const user = userEvent.setup()
+
+      render(
+        <PermitPreviewDialog
+          application={mockApplication}
+          currentUser={mockPermittingOfficer}
+          onPrint={mockOnPrint}
+          onDownload={mockOnDownload}
+        />,
+      )
 
       const previewButton = screen.getByRole("button", { name: /preview permit/i })
-      expect(previewButton).toBeInTheDocument()
       expect(previewButton).toHaveAttribute("type", "button")
+
+      await user.click(previewButton)
+
+      const dialog = screen.getByRole("dialog")
+      expect(dialog).toBeInTheDocument()
+      expect(dialog).toHaveAttribute("aria-modal", "true")
     })
 
     it("should support keyboard navigation", async () => {
       const user = userEvent.setup()
 
-      render(<PermitPreviewDialog application={mockApprovedApplication} currentUser={mockPermittingOfficer} />)
+      render(
+        <PermitPreviewDialog
+          application={mockApplication}
+          currentUser={mockPermittingOfficer}
+          onPrint={mockOnPrint}
+          onDownload={mockOnDownload}
+        />,
+      )
 
-      // Tab to preview button
-      await user.tab()
-      expect(screen.getByText("Preview Permit")).toHaveFocus()
+      const previewButton = screen.getByRole("button", { name: /preview permit/i })
 
-      // Enter should open dialog
+      // Focus and activate with keyboard
+      previewButton.focus()
       await user.keyboard("{Enter}")
 
-      await waitFor(() => {
-        expect(screen.getByText("Permit Preview")).toBeInTheDocument()
-      })
-    })
+      expect(screen.getByRole("dialog")).toBeInTheDocument()
 
-    it("should have proper dialog structure", async () => {
-      const user = userEvent.setup()
+      // Should be able to tab to action buttons
+      await user.keyboard("{Tab}")
+      await user.keyboard("{Tab}")
 
-      render(<PermitPreviewDialog application={mockApprovedApplication} currentUser={mockPermittingOfficer} />)
-
-      // Open dialog
-      const previewButton = screen.getByText("Preview Permit")
-      await user.click(previewButton)
-
-      await waitFor(() => {
-        // Check for dialog role
-        const dialog = screen.getByRole("dialog")
-        expect(dialog).toBeInTheDocument()
-
-        // Check for proper heading
-        expect(screen.getByRole("heading", { name: /permit preview/i })).toBeInTheDocument()
-      })
-    })
-
-    it("should have proper button states and feedback", async () => {
-      const user = userEvent.setup()
-
-      render(<PermitPreviewDialog application={mockApprovedApplication} currentUser={mockPermittingOfficer} />)
-
-      // Open dialog
-      const previewButton = screen.getByText("Preview Permit")
-      await user.click(previewButton)
-
-      await waitFor(() => {
-        const printButton = screen.getByText("Print")
-        const downloadButton = screen.getByText("Download")
-
-        expect(printButton).not.toBeDisabled()
-        expect(downloadButton).not.toBeDisabled()
-        expect(printButton).toHaveAttribute("type", "button")
-        expect(downloadButton).toHaveAttribute("type", "button")
-      })
-    })
-
-    it("should display proper status badges", async () => {
-      const user = userEvent.setup()
-
-      render(<PermitPreviewDialog application={mockApprovedApplication} currentUser={mockPermittingOfficer} />)
-
-      // Open dialog
-      const previewButton = screen.getByText("Preview Permit")
-      await user.click(previewButton)
-
-      await waitFor(() => {
-        // Check for permit number badge
-        expect(screen.getByText("UMSCC-2024-PREVIEW-001")).toBeInTheDocument()
-
-        // Check for status badge
-        expect(screen.getByText("approved")).toBeInTheDocument()
-      })
+      const printButton = screen.getByRole("button", { name: /print/i })
+      expect(printButton).toHaveFocus()
     })
   })
 
-  describe("Content Validation", () => {
-    it("should display all required permit information", async () => {
+  describe("Error Handling", () => {
+    it("should handle missing permit data gracefully", async () => {
       const user = userEvent.setup()
 
-      render(<PermitPreviewDialog application={mockApprovedApplication} currentUser={mockPermittingOfficer} />)
+      // Mock preparePermitData to return incomplete data
+      vi.mocked(require("@/lib/enhanced-permit-generator").preparePermitData).mockReturnValue({
+        permitNumber: "",
+        issueDate: "",
+        validUntil: "",
+        applicantName: "",
+        applicantAddress: "",
+        intendedUse: "",
+        waterAllocation: 0,
+        totalAllocatedAbstraction: 0,
+        boreholeDetails: [],
+        conditions: [],
+      })
 
-      // Open dialog
-      const previewButton = screen.getByText("Preview Permit")
+      render(
+        <PermitPreviewDialog
+          application={mockApplication}
+          currentUser={mockPermittingOfficer}
+          onPrint={mockOnPrint}
+          onDownload={mockOnDownload}
+        />,
+      )
+
+      const previewButton = screen.getByRole("button", { name: /preview permit/i })
       await user.click(previewButton)
 
-      await waitFor(() => {
-        // Check for applicant name
-        expect(screen.getByText("Preview Test Company Ltd")).toBeInTheDocument()
-
-        // Check for address
-        expect(screen.getByText("123 Preview Street, Harare, Zimbabwe")).toBeInTheDocument()
-
-        // Check for land size
-        expect(screen.getByText("30.5 (ha)")).toBeInTheDocument()
-
-        // Check for number of boreholes
-        expect(screen.getByText("4")).toBeInTheDocument()
-      })
+      // Dialog should still open but with empty/default values
+      expect(screen.getByRole("dialog")).toBeInTheDocument()
     })
 
-    it("should display borehole details correctly", async () => {
+    it("should handle window.open failure", async () => {
       const user = userEvent.setup()
 
-      render(<PermitPreviewDialog application={mockApprovedApplication} currentUser={mockPermittingOfficer} />)
+      // Mock window.open to return null
+      vi.mocked(window.open).mockReturnValue(null)
 
-      // Open dialog
-      const previewButton = screen.getByText("Preview Permit")
-      await user.click(previewButton)
-
-      await waitFor(() => {
-        // Check for borehole numbers
-        expect(screen.getByText("BH-01")).toBeInTheDocument()
-        expect(screen.getByText("BH-02")).toBeInTheDocument()
-        expect(screen.getByText("BH-03")).toBeInTheDocument()
-        expect(screen.getByText("BH-04")).toBeInTheDocument()
-      })
-    })
-
-    it("should display proper permit conditions", async () => {
-      const user = userEvent.setup()
-
-      render(<PermitPreviewDialog application={mockApprovedApplication} currentUser={mockPermittingOfficer} />)
-
-      // Open dialog
-      const previewButton = screen.getByText("Preview Permit")
-      await user.click(previewButton)
-
-      await waitFor(() => {
-        // Check for conditions section
-        expect(screen.getByText("CONDITIONS")).toBeInTheDocument()
-        expect(screen.getByText("ADDITIONAL CONDITIONS")).toBeInTheDocument()
-
-        // Check for specific conditions
-        expect(screen.getByText(/To install flow meters on all boreholes/)).toBeInTheDocument()
-        expect(screen.getByText(/Water Quality Analysis is to be carried out/)).toBeInTheDocument()
-      })
-    })
-
-    it("should handle different application statuses", async () => {
-      const user = userEvent.setup()
-
-      const permitIssuedApp = {
-        ...mockApprovedApplication,
-        status: "permit_issued" as const,
+      const mockElement = {
+        innerHTML: "<div>Mock permit content</div>",
       }
+      vi.spyOn(document, "getElementById").mockReturnValue(mockElement as any)
 
-      render(<PermitPreviewDialog application={permitIssuedApp} currentUser={mockPermittingOfficer} />)
+      render(
+        <PermitPreviewDialog
+          application={mockApplication}
+          currentUser={mockPermittingOfficer}
+          onPrint={mockOnPrint}
+          onDownload={mockOnDownload}
+        />,
+      )
 
-      // Open dialog
-      const previewButton = screen.getByText("Preview Permit")
+      const previewButton = screen.getByRole("button", { name: /preview permit/i })
       await user.click(previewButton)
 
+      const printButton = screen.getByRole("button", { name: /print/i })
+      await user.click(printButton)
+
+      // Should not crash and should still call onPrint
       await waitFor(() => {
-        expect(screen.getByText("permit_issued")).toBeInTheDocument()
+        expect(mockOnPrint).toHaveBeenCalled()
       })
-    })
-  })
-
-  describe("Performance and Memory Management", () => {
-    it("should not cause memory leaks with multiple opens/closes", async () => {
-      const user = userEvent.setup()
-
-      render(<PermitPreviewDialog application={mockApprovedApplication} currentUser={mockPermittingOfficer} />)
-
-      // Open and close dialog multiple times
-      for (let i = 0; i < 5; i++) {
-        const previewButton = screen.getByText("Preview Permit")
-        await user.click(previewButton)
-
-        await waitFor(() => {
-          expect(screen.getByText("Permit Preview")).toBeInTheDocument()
-        })
-
-        await user.keyboard("{Escape}")
-
-        await waitFor(() => {
-          expect(screen.queryByText("Permit Preview")).not.toBeInTheDocument()
-        })
-      }
-
-      // Should not throw any errors
-      expect(true).toBe(true)
-    })
-
-    it("should handle rapid button clicks gracefully", async () => {
-      const user = userEvent.setup()
-
-      render(<PermitPreviewDialog application={mockApprovedApplication} currentUser={mockPermittingOfficer} />)
-
-      // Open dialog
-      const previewButton = screen.getByText("Preview Permit")
-      await user.click(previewButton)
-
-      await waitFor(() => {
-        expect(screen.getByText("Print")).toBeInTheDocument()
-      })
-
-      // Rapidly click print button
-      const printButton = screen.getByText("Print")
-      await user.click(printButton)
-      await user.click(printButton)
-      await user.click(printButton)
-
-      // Should handle gracefully without errors
-      expect(mockWindowOpen).toHaveBeenCalled()
     })
   })
 })

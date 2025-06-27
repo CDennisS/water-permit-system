@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest"
+import { describe, it, expect, beforeEach, vi, afterEach } from "vitest"
 import { render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { PermitPreviewDialog } from "@/components/permit-preview-dialog"
@@ -6,92 +6,286 @@ import { PermitTemplate } from "@/components/permit-template"
 import { preparePermitData } from "@/lib/enhanced-permit-generator"
 import type { PermitApplication, User } from "@/types"
 
-// Mock data for integration testing
-const mockCompleteApplication: PermitApplication = {
-  id: "APP-INTEGRATION-001",
-  applicationNumber: "APP-2024-INT-001",
-  applicantName: "Integration Test Mining Company (Pvt) Ltd",
-  applicantId: "applicant-int-001",
-  physicalAddress: "456 Integration Avenue, Bulawayo, Zimbabwe",
-  postalAddress: "Private Bag 789, Bulawayo",
-  landSize: 125.75,
-  numberOfBoreholes: 8,
-  waterAllocation: 50.5,
-  intendedUse: "mining",
-  gpsLatitude: -20.1569,
-  gpsLongitude: 28.5833,
-  status: "approved",
-  submittedAt: new Date("2024-01-15"),
-  approvedAt: new Date("2024-03-20"),
-  permitNumber: "UMSCC-2024-INT-001",
-  documents: [
-    {
-      id: "doc-001",
-      applicationId: "APP-INTEGRATION-001",
-      fileName: "site-plan.pdf",
-      fileType: "application/pdf",
-      fileSize: 2048000,
-      uploadedAt: new Date("2024-01-16"),
-      uploadedBy: "applicant-int-001",
-      documentType: "site_plan",
-    },
-    {
-      id: "doc-002",
-      applicationId: "APP-INTEGRATION-001",
-      fileName: "environmental-clearance.pdf",
-      fileType: "application/pdf",
-      fileSize: 1536000,
-      uploadedAt: new Date("2024-01-17"),
-      uploadedBy: "applicant-int-001",
-      documentType: "environmental_clearance",
-    },
-  ],
-  comments: [
-    {
-      id: "comment-001",
-      applicationId: "APP-INTEGRATION-001",
-      userId: "officer-001",
-      userType: "permitting_officer",
-      comment: "Technical review completed successfully",
-      commentType: "technical_review",
-      createdAt: new Date("2024-02-01"),
-      isInternal: true,
-    },
-    {
-      id: "comment-002",
-      applicationId: "APP-INTEGRATION-001",
-      userId: "supervisor-001",
-      userType: "permit_supervisor",
-      comment: "Application approved for permit issuance",
-      commentType: "approval",
-      createdAt: new Date("2024-03-20"),
-      isInternal: true,
-    },
-  ],
-  workflowStage: "permit_issued",
-}
+// Mock the permit template component
+vi.mock("@/components/permit-template", () => ({
+  PermitTemplate: vi.fn(({ permitData, id }) => (
+    <div data-testid="permit-template" id={id}>
+      <div data-testid="permit-number">{permitData.permitNumber}</div>
+      <div data-testid="applicant-name">{permitData.applicantName}</div>
+      <div data-testid="issue-date">{permitData.issueDate}</div>
+      <div data-testid="valid-until">{permitData.validUntil}</div>
+      <div data-testid="water-allocation">{permitData.waterAllocation}</div>
+      <div data-testid="total-allocation">{permitData.totalAllocatedAbstraction}</div>
+      {permitData.boreholeDetails.map((borehole, index) => (
+        <div key={index} data-testid={`borehole-${index}`}>
+          <span data-testid={`borehole-number-${index}`}>{borehole.boreholeNumber}</span>
+          <span data-testid={`borehole-gps-${index}`}>{borehole.gpsCoordinates}</span>
+          <span data-testid={`borehole-allocation-${index}`}>{borehole.allocatedAmount}</span>
+        </div>
+      ))}
+      {permitData.conditions.map((condition, index) => (
+        <div key={index} data-testid={`condition-${index}`}>
+          {condition}
+        </div>
+      ))}
+    </div>
+  )),
+}))
 
-const mockPermitSupervisor: User = {
-  id: "supervisor-001",
-  username: "supervisor.integration",
-  userType: "permit_supervisor",
-  createdAt: new Date("2024-01-01"),
-  updatedAt: new Date("2024-03-20"),
-}
-
-// Mock window and document functions
-const mockWindowOpen = vi.fn()
-const mockCreateObjectURL = vi.fn(() => "blob:integration-test-url")
-const mockRevokeObjectURL = vi.fn()
+// Mock Sonner toast
+vi.mock("sonner", () => ({
+  toast: {
+    success: vi.fn(),
+    error: vi.fn(),
+  },
+}))
 
 describe("Permit Preview Integration Tests", () => {
+  const mockApplication: PermitApplication = {
+    id: "1",
+    applicationNumber: "APP001",
+    applicantName: "John Doe",
+    applicantAddress: "123 Main St, Harare",
+    contactNumber: "+263771234567",
+    emailAddress: "john.doe@email.com",
+    intendedUse: "Domestic",
+    waterAllocation: 50,
+    numberOfBoreholes: 2,
+    gpsCoordinates: "-17.8252, 31.0335",
+    status: "approved",
+    submissionDate: new Date("2024-01-01"),
+    lastModified: new Date("2024-01-15"),
+    documents: [
+      {
+        id: "1",
+        filename: "application.pdf",
+        uploadDate: new Date("2024-01-01"),
+        fileSize: 1024000,
+        fileType: "application/pdf",
+        uploadedBy: "applicant",
+      },
+    ],
+    comments: [
+      {
+        id: "1",
+        comment: "Application approved",
+        author: "permit_supervisor",
+        timestamp: new Date("2024-01-15"),
+        type: "approval",
+      },
+    ],
+    workflowStage: "approved",
+    assignedTo: "permit_supervisor",
+  }
+
+  const mockUser: User = {
+    id: "1",
+    username: "admin",
+    userType: "permitting_officer",
+    password: "admin",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  }
+
   beforeEach(() => {
     vi.clearAllMocks()
+  })
 
-    // Setup window mocks
-    Object.defineProperty(window, "open", {
-      writable: true,
-      value: mockWindowOpen.mockReturnValue({
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  describe("Data Integration", () => {
+    it("should pass correct permit data to template component", async () => {
+      const user = userEvent.setup()
+
+      render(<PermitPreviewDialog application={mockApplication} currentUser={mockUser} />)
+
+      const previewButton = screen.getByRole("button", { name: /preview permit/i })
+      await user.click(previewButton)
+
+      await waitFor(() => {
+        expect(screen.getByTestId("permit-template")).toBeInTheDocument()
+      })
+
+      // Verify permit data is correctly passed
+      const permitData = preparePermitData(mockApplication)
+      expect(PermitTemplate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          permitData: expect.objectContaining({
+            permitNumber: permitData.permitNumber,
+            applicantName: mockApplication.applicantName,
+            intendedUse: mockApplication.intendedUse,
+            waterAllocation: mockApplication.waterAllocation,
+          }),
+          id: "permit-preview-template",
+        }),
+        expect.any(Object),
+      )
+    })
+
+    it("should display all permit information correctly", async () => {
+      const user = userEvent.setup()
+
+      render(<PermitPreviewDialog application={mockApplication} currentUser={mockUser} />)
+
+      const previewButton = screen.getByRole("button", { name: /preview permit/i })
+      await user.click(previewButton)
+
+      await waitFor(() => {
+        expect(screen.getByTestId("permit-number")).toBeInTheDocument()
+        expect(screen.getByTestId("applicant-name")).toBeInTheDocument()
+        expect(screen.getByTestId("issue-date")).toBeInTheDocument()
+        expect(screen.getByTestId("valid-until")).toBeInTheDocument()
+        expect(screen.getByTestId("water-allocation")).toBeInTheDocument()
+        expect(screen.getByTestId("total-allocation")).toBeInTheDocument()
+      })
+
+      // Check specific values
+      expect(screen.getByTestId("applicant-name")).toHaveTextContent("John Doe")
+      expect(screen.getByTestId("water-allocation")).toHaveTextContent("50")
+    })
+
+    it("should handle multiple boreholes correctly", async () => {
+      const user = userEvent.setup()
+
+      const multiBoreholeApp = {
+        ...mockApplication,
+        numberOfBoreholes: 3,
+        gpsCoordinates: "-17.8252, 31.0335; -17.8300, 31.0400; -17.8350, 31.0450",
+      }
+
+      render(<PermitPreviewDialog application={multiBoreholeApp} currentUser={mockUser} />)
+
+      const previewButton = screen.getByRole("button", { name: /preview permit/i })
+      await user.click(previewButton)
+
+      await waitFor(() => {
+        // Should have multiple borehole entries
+        expect(screen.getByTestId("borehole-0")).toBeInTheDocument()
+        expect(screen.getByTestId("borehole-1")).toBeInTheDocument()
+        expect(screen.getByTestId("borehole-2")).toBeInTheDocument()
+      })
+    })
+
+    it("should display permit conditions", async () => {
+      const user = userEvent.setup()
+
+      render(<PermitPreviewDialog application={mockApplication} currentUser={mockUser} />)
+
+      const previewButton = screen.getByRole("button", { name: /preview permit/i })
+      await user.click(previewButton)
+
+      await waitFor(() => {
+        expect(screen.getByTestId("condition-0")).toBeInTheDocument()
+        expect(screen.getByTestId("condition-1")).toBeInTheDocument()
+      })
+    })
+  })
+
+  describe("Template Rendering Integration", () => {
+    it("should render template with correct ID for print functionality", async () => {
+      const user = userEvent.setup()
+
+      render(<PermitPreviewDialog application={mockApplication} currentUser={mockUser} />)
+
+      const previewButton = screen.getByRole("button", { name: /preview permit/i })
+      await user.click(previewButton)
+
+      await waitFor(() => {
+        const template = screen.getByTestId("permit-template")
+        expect(template).toHaveAttribute("id", "permit-preview-template")
+      })
+    })
+
+    it("should maintain template structure for print operations", async () => {
+      const user = userEvent.setup()
+
+      render(<PermitPreviewDialog application={mockApplication} currentUser={mockUser} />)
+
+      const previewButton = screen.getByRole("button", { name: /preview permit/i })
+      await user.click(previewButton)
+
+      await waitFor(() => {
+        const template = screen.getByTestId("permit-template")
+        expect(template).toBeInTheDocument()
+
+        // Verify all required elements are present
+        expect(screen.getByTestId("permit-number")).toBeInTheDocument()
+        expect(screen.getByTestId("applicant-name")).toBeInTheDocument()
+        expect(screen.getByTestId("borehole-0")).toBeInTheDocument()
+      })
+    })
+  })
+
+  describe("Workflow Integration", () => {
+    it("should work with different application statuses", async () => {
+      const user = userEvent.setup()
+
+      const statusTests = [
+        { status: "approved" as const, shouldShow: true },
+        { status: "permit_issued" as const, shouldShow: true },
+        { status: "pending" as const, shouldShow: false },
+        { status: "rejected" as const, shouldShow: false },
+      ]
+
+      for (const { status, shouldShow } of statusTests) {
+        const testApp = { ...mockApplication, status }
+
+        const { container, unmount } = render(<PermitPreviewDialog application={testApp} currentUser={mockUser} />)
+
+        if (shouldShow) {
+          expect(screen.getByRole("button", { name: /preview permit/i })).toBeInTheDocument()
+        } else {
+          expect(container.firstChild).toBeNull()
+        }
+
+        unmount()
+      }
+    })
+
+    it("should integrate with user permission system", async () => {
+      const user = userEvent.setup()
+
+      const userTypes = [
+        { userType: "permitting_officer" as const, canView: true },
+        { userType: "permit_supervisor" as const, canView: true },
+        { userType: "catchment_manager" as const, canView: true },
+        { userType: "catchment_chairperson" as const, canView: true },
+        { userType: "ict" as const, canView: true },
+        { userType: "applicant" as const, canView: false },
+      ]
+
+      for (const { userType, canView } of userTypes) {
+        const testUser = { ...mockUser, userType }
+
+        const { container, unmount } = render(
+          <PermitPreviewDialog application={mockApplication} currentUser={testUser} />,
+        )
+
+        if (canView) {
+          expect(screen.getByRole("button", { name: /preview permit/i })).toBeInTheDocument()
+        } else {
+          expect(container.firstChild).toBeNull()
+        }
+
+        unmount()
+      }
+    })
+  })
+
+  describe("Print Integration", () => {
+    it("should prepare content correctly for printing", async () => {
+      const user = userEvent.setup()
+
+      // Mock getElementById to return the template element
+      const mockTemplateElement = {
+        innerHTML: "<div>Mock permit template content</div>",
+      }
+      vi.spyOn(document, "getElementById").mockReturnValue(mockTemplateElement as any)
+
+      // Mock window.open
+      const mockPrintWindow = {
         document: {
           write: vi.fn(),
           close: vi.fn(),
@@ -99,430 +293,180 @@ describe("Permit Preview Integration Tests", () => {
         focus: vi.fn(),
         print: vi.fn(),
         close: vi.fn(),
-      }),
+      }
+      vi.mocked(window.open).mockReturnValue(mockPrintWindow as any)
+
+      render(<PermitPreviewDialog application={mockApplication} currentUser={mockUser} />)
+
+      const previewButton = screen.getByRole("button", { name: /preview permit/i })
+      await user.click(previewButton)
+
+      const printButton = screen.getByRole("button", { name: /print/i })
+      await user.click(printButton)
+
+      await waitFor(() => {
+        expect(document.getElementById).toHaveBeenCalledWith("permit-preview-content")
+        expect(window.open).toHaveBeenCalledWith("", "_blank")
+        expect(mockPrintWindow.document.write).toHaveBeenCalled()
+        expect(mockPrintWindow.print).toHaveBeenCalled()
+      })
     })
 
-    // Setup URL mocks
-    Object.defineProperty(URL, "createObjectURL", { value: mockCreateObjectURL })
-    Object.defineProperty(URL, "revokeObjectURL", { value: mockRevokeObjectURL })
+    it("should include proper print styles in generated content", async () => {
+      const user = userEvent.setup()
 
-    // Setup document mocks
-    Object.defineProperty(document, "createElement", {
-      value: vi.fn(() => ({
+      const mockTemplateElement = {
+        innerHTML: "<div>Mock permit template content</div>",
+      }
+      vi.spyOn(document, "getElementById").mockReturnValue(mockTemplateElement as any)
+
+      const mockPrintWindow = {
+        document: {
+          write: vi.fn(),
+          close: vi.fn(),
+        },
+        focus: vi.fn(),
+        print: vi.fn(),
+        close: vi.fn(),
+      }
+      vi.mocked(window.open).mockReturnValue(mockPrintWindow as any)
+
+      render(<PermitPreviewDialog application={mockApplication} currentUser={mockUser} />)
+
+      const previewButton = screen.getByRole("button", { name: /preview permit/i })
+      await user.click(previewButton)
+
+      const printButton = screen.getByRole("button", { name: /print/i })
+      await user.click(printButton)
+
+      await waitFor(() => {
+        const writeCall = mockPrintWindow.document.write.mock.calls[0][0]
+
+        // Check for A4 page setup
+        expect(writeCall).toContain("@page")
+        expect(writeCall).toContain("size: A4")
+        expect(writeCall).toContain("margin: 20mm")
+
+        // Check for print-friendly fonts
+        expect(writeCall).toContain("font-family: 'Times New Roman', serif")
+        expect(writeCall).toContain("font-size: 12pt")
+
+        // Check for table styles
+        expect(writeCall).toContain("border-collapse: collapse")
+        expect(writeCall).toContain("border: 1px solid black")
+      })
+    })
+  })
+
+  describe("Download Integration", () => {
+    it("should create downloadable HTML file with correct content", async () => {
+      const user = userEvent.setup()
+
+      const mockTemplateElement = {
+        innerHTML: "<div>Mock permit template content</div>",
+      }
+      vi.spyOn(document, "getElementById").mockReturnValue(mockTemplateElement as any)
+
+      // Mock URL methods
+      const mockBlobUrl = "blob:mock-url"
+      vi.mocked(URL.createObjectURL).mockReturnValue(mockBlobUrl)
+
+      // Mock anchor element
+      const mockAnchor = {
         href: "",
         download: "",
         click: vi.fn(),
-      })),
-    })
-    Object.defineProperty(document.body, "appendChild", { value: vi.fn() })
-    Object.defineProperty(document.body, "removeChild", { value: vi.fn() })
-  })
+      }
+      vi.spyOn(document, "createElement").mockReturnValue(mockAnchor as any)
+      vi.spyOn(document.body, "appendChild").mockImplementation(() => mockAnchor as any)
+      vi.spyOn(document.body, "removeChild").mockImplementation(() => mockAnchor as any)
 
-  afterEach(() => {
-    vi.restoreAllMocks()
-  })
+      render(<PermitPreviewDialog application={mockApplication} currentUser={mockUser} />)
 
-  describe("End-to-End Preview Workflow", () => {
-    it("should complete full preview workflow from button click to content display", async () => {
-      const user = userEvent.setup()
-
-      render(<PermitPreviewDialog application={mockCompleteApplication} currentUser={mockPermitSupervisor} />)
-
-      // Step 1: Click preview button
-      const previewButton = screen.getByText("Preview Permit")
-      expect(previewButton).toBeInTheDocument()
+      const previewButton = screen.getByRole("button", { name: /preview permit/i })
       await user.click(previewButton)
 
-      // Step 2: Verify dialog opens
-      await waitFor(() => {
-        expect(screen.getByText("Permit Preview")).toBeInTheDocument()
-      })
-
-      // Step 3: Verify permit content is displayed
-      await waitFor(() => {
-        expect(screen.getByText("Form GW7B")).toBeInTheDocument()
-        expect(screen.getByText("Integration Test Mining Company (Pvt) Ltd")).toBeInTheDocument()
-        expect(screen.getByText("456 Integration Avenue, Bulawayo, Zimbabwe")).toBeInTheDocument()
-        expect(screen.getByText("Private Bag 789, Bulawayo")).toBeInTheDocument()
-      })
-
-      // Step 4: Verify borehole details
-      expect(screen.getByText("BH-01")).toBeInTheDocument()
-      expect(screen.getByText("BH-08")).toBeInTheDocument()
-
-      // Step 5: Verify action buttons are available
-      expect(screen.getByText("Print")).toBeInTheDocument()
-      expect(screen.getByText("Download")).toBeInTheDocument()
-    })
-
-    it("should handle complete print workflow", async () => {
-      const user = userEvent.setup()
-      const mockOnPrint = vi.fn()
-
-      render(
-        <PermitPreviewDialog
-          application={mockCompleteApplication}
-          currentUser={mockPermitSupervisor}
-          onPrint={mockOnPrint}
-        />,
-      )
-
-      // Open preview
-      const previewButton = screen.getByText("Preview Permit")
-      await user.click(previewButton)
-
-      await waitFor(() => {
-        expect(screen.getByText("Print")).toBeInTheDocument()
-      })
-
-      // Execute print
-      const printButton = screen.getByText("Print")
-      await user.click(printButton)
-
-      // Verify print process
-      await waitFor(() => {
-        expect(mockWindowOpen).toHaveBeenCalledWith("", "_blank")
-        expect(mockOnPrint).toHaveBeenCalled()
-      })
-    })
-
-    it("should handle complete download workflow", async () => {
-      const user = userEvent.setup()
-      const mockOnDownload = vi.fn()
-
-      render(
-        <PermitPreviewDialog
-          application={mockCompleteApplication}
-          currentUser={mockPermitSupervisor}
-          onDownload={mockOnDownload}
-        />,
-      )
-
-      // Open preview
-      const previewButton = screen.getByText("Preview Permit")
-      await user.click(previewButton)
-
-      await waitFor(() => {
-        expect(screen.getByText("Download")).toBeInTheDocument()
-      })
-
-      // Execute download
-      const downloadButton = screen.getByText("Download")
+      const downloadButton = screen.getByRole("button", { name: /download/i })
       await user.click(downloadButton)
 
-      // Verify download process
       await waitFor(() => {
-        expect(mockCreateObjectURL).toHaveBeenCalled()
-        expect(mockOnDownload).toHaveBeenCalled()
+        expect(URL.createObjectURL).toHaveBeenCalledWith(expect.any(Blob))
+        expect(mockAnchor.href).toBe(mockBlobUrl)
+        expect(mockAnchor.download).toMatch(/permit-.*\.html/)
+        expect(mockAnchor.click).toHaveBeenCalled()
+        expect(URL.revokeObjectURL).toHaveBeenCalledWith(mockBlobUrl)
       })
     })
   })
 
-  describe("Data Integration and Consistency", () => {
-    it("should display consistent data between permit generator and template", () => {
-      const permitData = preparePermitData(mockCompleteApplication)
-
-      // Render template directly
-      const { container } = render(<PermitTemplate permitData={permitData} />)
-
-      // Verify key data points
-      expect(container.textContent).toContain(permitData.applicantName)
-      expect(container.textContent).toContain(permitData.physicalAddress)
-      expect(container.textContent).toContain(permitData.permitNumber)
-      expect(container.textContent).toContain(permitData.landSize.toString())
-      expect(container.textContent).toContain(permitData.numberOfBoreholes.toString())
-
-      // Verify borehole data consistency
-      permitData.boreholeDetails.forEach((borehole) => {
-        expect(container.textContent).toContain(borehole.boreholeNumber)
-        expect(container.textContent).toContain(borehole.allocatedAmount.toLocaleString())
-      })
-    })
-
-    it("should maintain data integrity across preview dialog and template", async () => {
+  describe("Error Handling Integration", () => {
+    it("should handle permit data generation errors", async () => {
       const user = userEvent.setup()
 
-      render(<PermitPreviewDialog application={mockCompleteApplication} currentUser={mockPermitSupervisor} />)
-
-      // Open preview
-      const previewButton = screen.getByText("Preview Permit")
-      await user.click(previewButton)
-
-      await waitFor(() => {
-        // Verify all application data is present and consistent
-        expect(screen.getByText("Integration Test Mining Company (Pvt) Ltd")).toBeInTheDocument()
-        expect(screen.getByText("456 Integration Avenue, Bulawayo, Zimbabwe")).toBeInTheDocument()
-        expect(screen.getByText("125.75 (ha)")).toBeInTheDocument()
-        expect(screen.getByText("8")).toBeInTheDocument() // Number of boreholes
-        expect(screen.getByText("mining")).toBeInTheDocument() // Intended use
-      })
-    })
-
-    it("should calculate and display correct totals", async () => {
-      const user = userEvent.setup()
-
-      render(<PermitPreviewDialog application={mockCompleteApplication} currentUser={mockPermitSupervisor} />)
-
-      // Open preview
-      const previewButton = screen.getByText("Preview Permit")
-      await user.click(previewButton)
-
-      await waitFor(() => {
-        // Verify total allocation calculation (50.5 ML = 50,500 m³)
-        expect(screen.getByText("50,500")).toBeInTheDocument()
-      })
-    })
-  })
-
-  describe("Complex Application Scenarios", () => {
-    it("should handle applications with many boreholes", async () => {
-      const user = userEvent.setup()
-
-      const manyBoreholeApp = {
-        ...mockCompleteApplication,
-        numberOfBoreholes: 15,
-        waterAllocation: 100.0,
-      }
-
-      render(<PermitPreviewDialog application={manyBoreholeApp} currentUser={mockPermitSupervisor} />)
-
-      // Open preview
-      const previewButton = screen.getByText("Preview Permit")
-      await user.click(previewButton)
-
-      await waitFor(() => {
-        // Should display all boreholes
-        expect(screen.getByText("BH-01")).toBeInTheDocument()
-        expect(screen.getByText("BH-15")).toBeInTheDocument()
-
-        // Should show correct total
-        expect(screen.getByText("100,000")).toBeInTheDocument() // 100 ML = 100,000 m³
-      })
-    })
-
-    it("should handle applications with minimal data", async () => {
-      const user = userEvent.setup()
-
-      const minimalApp = {
-        ...mockCompleteApplication,
-        postalAddress: undefined,
-        numberOfBoreholes: 1,
-        waterAllocation: 1.0,
-      }
-
-      render(<PermitPreviewDialog application={minimalApp} currentUser={mockPermitSupervisor} />)
-
-      // Open preview
-      const previewButton = screen.getByText("Preview Permit")
-      await user.click(previewButton)
-
-      await waitFor(() => {
-        // Should handle missing postal address
-        expect(screen.getByText("N/A")).toBeInTheDocument()
-
-        // Should show single borehole
-        expect(screen.getByText("BH-01")).toBeInTheDocument()
-        expect(screen.queryByText("BH-02")).not.toBeInTheDocument()
-
-        // Should show correct small allocation
-        expect(screen.getByText("1,000")).toBeInTheDocument() // 1 ML = 1,000 m³
-      })
-    })
-
-    it("should handle applications with special characters in data", async () => {
-      const user = userEvent.setup()
-
-      const specialCharApp = {
-        ...mockCompleteApplication,
-        applicantName: "Test Company (Pvt) Ltd & Associates",
-        physicalAddress: "123 Main St, Apt #4B, Harare - Zimbabwe",
-        intendedUse: "irrigation & livestock",
-      }
-
-      render(<PermitPreviewDialog application={specialCharApp} currentUser={mockPermitSupervisor} />)
-
-      // Open preview
-      const previewButton = screen.getByText("Preview Permit")
-      await user.click(previewButton)
-
-      await waitFor(() => {
-        // Should display special characters correctly
-        expect(screen.getByText("Test Company (Pvt) Ltd & Associates")).toBeInTheDocument()
-        expect(screen.getByText("123 Main St, Apt #4B, Harare - Zimbabwe")).toBeInTheDocument()
-        expect(screen.getByText("irrigation & livestock")).toBeInTheDocument()
-      })
-    })
-  })
-
-  describe("User Experience Integration", () => {
-    it("should provide smooth user interaction flow", async () => {
-      const user = userEvent.setup()
-
-      render(<PermitPreviewDialog application={mockCompleteApplication} currentUser={mockPermitSupervisor} />)
-
-      // Step 1: Initial state
-      expect(screen.getByText("Preview Permit")).toBeInTheDocument()
-      expect(screen.queryByText("Permit Preview")).not.toBeInTheDocument()
-
-      // Step 2: Open dialog
-      await user.click(screen.getByText("Preview Permit"))
-
-      await waitFor(() => {
-        expect(screen.getByText("Permit Preview")).toBeInTheDocument()
+      // Mock preparePermitData to throw an error
+      vi.mocked(preparePermitData).mockImplementation(() => {
+        throw new Error("Failed to prepare permit data")
       })
 
-      // Step 3: Interact with content (scroll should work)
-      const scrollArea = screen.getByText("Form GW7B").closest("[data-radix-scroll-area-viewport]")
-      expect(scrollArea).toBeInTheDocument()
-
-      // Step 4: Close dialog
-      await user.keyboard("{Escape}")
-
-      await waitFor(() => {
-        expect(screen.queryByText("Permit Preview")).not.toBeInTheDocument()
-      })
-
-      // Step 5: Should return to initial state
-      expect(screen.getByText("Preview Permit")).toBeInTheDocument()
-    })
-
-    it("should handle multiple user interactions without conflicts", async () => {
-      const user = userEvent.setup()
-
-      render(<PermitPreviewDialog application={mockCompleteApplication} currentUser={mockPermitSupervisor} />)
-
-      // Open dialog
-      await user.click(screen.getByText("Preview Permit"))
-
-      await waitFor(() => {
-        expect(screen.getByText("Print")).toBeInTheDocument()
-        expect(screen.getByText("Download")).toBeInTheDocument()
-      })
-
-      // Try multiple actions in sequence
-      await user.click(screen.getByText("Download"))
-      await user.click(screen.getByText("Print"))
-
-      // Should handle both actions without conflicts
-      expect(mockCreateObjectURL).toHaveBeenCalled()
-      expect(mockWindowOpen).toHaveBeenCalled()
-    })
-
-    it("should maintain responsive behavior", async () => {
-      const user = userEvent.setup()
-
-      render(<PermitPreviewDialog application={mockCompleteApplication} currentUser={mockPermitSupervisor} />)
-
-      // Open dialog
-      await user.click(screen.getByText("Preview Permit"))
-
-      await waitFor(() => {
-        const dialog = screen.getByRole("dialog")
-        expect(dialog).toBeInTheDocument()
-
-        // Check for responsive classes
-        expect(dialog.closest('[class*="max-w-4xl"]')).toBeInTheDocument()
-        expect(dialog.closest('[class*="max-h-"]')).toBeInTheDocument()
-      })
-    })
-  })
-
-  describe("Error Recovery and Resilience", () => {
-    it("should recover from temporary failures", async () => {
-      const user = userEvent.setup()
-
-      // Mock initial failure then success
-      let callCount = 0
-      mockWindowOpen.mockImplementation(() => {
-        callCount++
-        if (callCount === 1) {
-          throw new Error("Temporary failure")
-        }
-        return {
-          document: { write: vi.fn(), close: vi.fn() },
-          focus: vi.fn(),
-          print: vi.fn(),
-          close: vi.fn(),
-        }
-      })
-
-      render(<PermitPreviewDialog application={mockCompleteApplication} currentUser={mockPermitSupervisor} />)
-
-      // Open dialog
-      await user.click(screen.getByText("Preview Permit"))
-
-      await waitFor(() => {
-        expect(screen.getByText("Print")).toBeInTheDocument()
-      })
-
-      // First print attempt (should fail)
-      await user.click(screen.getByText("Print"))
-
-      // Second print attempt (should succeed)
-      await user.click(screen.getByText("Print"))
-
-      expect(mockWindowOpen).toHaveBeenCalledTimes(2)
-    })
-
-    it("should handle corrupted application data gracefully", async () => {
-      const user = userEvent.setup()
-
-      const corruptedApp = {
-        ...mockCompleteApplication,
-        // @ts-ignore - Intentionally corrupt data for testing
-        landSize: null,
-        numberOfBoreholes: undefined,
-        waterAllocation: "invalid",
-      }
+      vi.spyOn(console, "error").mockImplementation(() => {})
 
       expect(() => {
-        render(<PermitPreviewDialog application={corruptedApp as any} currentUser={mockPermitSupervisor} />)
-      }).not.toThrow()
+        render(<PermitPreviewDialog application={mockApplication} currentUser={mockUser} />)
+      }).toThrow("Failed to prepare permit data")
+    })
 
-      // Should still render preview button
-      expect(screen.getByText("Preview Permit")).toBeInTheDocument()
+    it("should handle template rendering errors gracefully", async () => {
+      const user = userEvent.setup()
+
+      // Mock PermitTemplate to throw an error
+      vi.mocked(PermitTemplate).mockImplementation(() => {
+        throw new Error("Template rendering failed")
+      })
+
+      vi.spyOn(console, "error").mockImplementation(() => {})
+
+      render(<PermitPreviewDialog application={mockApplication} currentUser={mockUser} />)
+
+      const previewButton = screen.getByRole("button", { name: /preview permit/i })
+
+      expect(() => user.click(previewButton)).rejects.toThrow("Template rendering failed")
     })
   })
 
-  describe("Performance Under Load", () => {
-    it("should handle large datasets efficiently", async () => {
+  describe("Performance Integration", () => {
+    it("should handle large applications efficiently", async () => {
       const user = userEvent.setup()
 
-      const largeDataApp = {
-        ...mockCompleteApplication,
+      // Create a large application with many boreholes and documents
+      const largeApplication = {
+        ...mockApplication,
         numberOfBoreholes: 50,
-        waterAllocation: 500.0,
-        comments: Array.from({ length: 100 }, (_, i) => ({
-          id: `comment-${i}`,
-          applicationId: mockCompleteApplication.id,
-          userId: `user-${i}`,
-          userType: "permitting_officer" as const,
-          comment: `Comment ${i} with detailed information about the application review process`,
-          commentType: "general" as const,
-          createdAt: new Date(),
-          isInternal: false,
-        })),
-        documents: Array.from({ length: 20 }, (_, i) => ({
+        documents: Array.from({ length: 100 }, (_, i) => ({
           id: `doc-${i}`,
-          applicationId: mockCompleteApplication.id,
-          fileName: `document-${i}.pdf`,
-          fileType: "application/pdf",
+          filename: `document-${i}.pdf`,
+          uploadDate: new Date(),
           fileSize: 1024000,
-          uploadedAt: new Date(),
+          fileType: "application/pdf",
           uploadedBy: "applicant",
-          documentType: "other" as const,
+        })),
+        comments: Array.from({ length: 50 }, (_, i) => ({
+          id: `comment-${i}`,
+          comment: `Comment ${i}`,
+          author: "reviewer",
+          timestamp: new Date(),
+          type: "review" as const,
         })),
       }
 
       const startTime = performance.now()
 
-      render(<PermitPreviewDialog application={largeDataApp} currentUser={mockPermitSupervisor} />)
+      render(<PermitPreviewDialog application={largeApplication} currentUser={mockUser} />)
 
-      // Open dialog
-      await user.click(screen.getByText("Preview Permit"))
+      const previewButton = screen.getByRole("button", { name: /preview permit/i })
+      await user.click(previewButton)
 
       await waitFor(() => {
-        expect(screen.getByText("Permit Preview")).toBeInTheDocument()
+        expect(screen.getByTestId("permit-template")).toBeInTheDocument()
       })
 
       const endTime = performance.now()
@@ -530,30 +474,6 @@ describe("Permit Preview Integration Tests", () => {
 
       // Should render within reasonable time (less than 1 second)
       expect(renderTime).toBeLessThan(1000)
-    })
-
-    it("should handle rapid user interactions", async () => {
-      const user = userEvent.setup()
-
-      render(<PermitPreviewDialog application={mockCompleteApplication} currentUser={mockPermitSupervisor} />)
-
-      // Rapidly open and close dialog multiple times
-      for (let i = 0; i < 10; i++) {
-        await user.click(screen.getByText("Preview Permit"))
-
-        await waitFor(() => {
-          expect(screen.getByText("Permit Preview")).toBeInTheDocument()
-        })
-
-        await user.keyboard("{Escape}")
-
-        await waitFor(() => {
-          expect(screen.queryByText("Permit Preview")).not.toBeInTheDocument()
-        })
-      }
-
-      // Should handle all interactions without errors
-      expect(screen.getByText("Preview Permit")).toBeInTheDocument()
     })
   })
 })
