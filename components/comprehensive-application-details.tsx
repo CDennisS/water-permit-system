@@ -74,12 +74,18 @@ export function ComprehensiveApplicationDetails({
   const loadApplicationData = async () => {
     try {
       setLoading(true)
-      const [logs, docs] = await Promise.all([
-        db.getActivityLogs(application.id),
-        db.getApplicationDocuments(application.id),
+
+      // Resolve the correct activity-log fetcher (if any)
+      const logFetcher =
+        (db as any).getActivityLogs ?? (db as any).getLogsByApplication ?? (db as any).getActivityLogsByApplication
+
+      const [logsData, docsData] = await Promise.all([
+        typeof logFetcher === "function" ? logFetcher(application.id) : Promise.resolve([]),
+        db.getDocumentsByApplication(application.id),
       ])
-      setActivityLogs(logs || [])
-      setApplicationDocuments(docs || [])
+
+      setActivityLogs(logsData ?? [])
+      setApplicationDocuments(docsData ?? [])
     } catch (error) {
       console.error("Error loading application data:", error)
     } finally {
