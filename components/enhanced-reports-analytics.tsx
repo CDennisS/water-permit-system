@@ -21,7 +21,17 @@ import {
   AreaChart,
   Area,
 } from "recharts"
-import { FileText, Download, AlertTriangle, Clock, TrendingUp, BarChart3, PieChartIcon, Activity } from "lucide-react"
+import {
+  FileText,
+  Download,
+  AlertTriangle,
+  Clock,
+  TrendingUp,
+  BarChart3,
+  PieChartIcon,
+  Activity,
+  RefreshCw,
+} from "lucide-react"
 import type { PermitApplication } from "@/types"
 import { db } from "@/lib/database"
 import { AdvancedDashboardFilters, type DashboardFilterState } from "./advanced-dashboard-filters"
@@ -52,6 +62,7 @@ export function EnhancedReportsAnalytics() {
   const [filteredApplications, setFilteredApplications] = useState<PermitApplication[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [lastUpdated, setLastUpdated] = useState<Date>(new Date())
   const [dashboardFilters, setDashboardFilters] = useState<DashboardFilterState>({
     timeRange: "last_30_days",
     startDate: "",
@@ -93,6 +104,7 @@ export function EnhancedReportsAnalytics() {
       const apps = await db.getApplications()
       if (apps && Array.isArray(apps)) {
         setApplications(apps)
+        setLastUpdated(new Date())
       } else {
         setApplications([])
       }
@@ -384,6 +396,7 @@ export function EnhancedReportsAnalytics() {
         ["COMPREHENSIVE PERMIT MANAGEMENT REPORT"],
         ["Generated:", new Date().toLocaleString()],
         ["Filter Period:", dashboardFilters.timeRange.replace("_", " ").toUpperCase()],
+        ["Last Updated:", lastUpdated.toLocaleString()],
         [""],
         ["EXECUTIVE SUMMARY"],
         ["Total Applications:", stats.total],
@@ -459,7 +472,7 @@ export function EnhancedReportsAnalytics() {
               <p className="text-sm">{error}</p>
             </div>
             <Button onClick={loadApplications} variant="outline" className="border-red-300 text-red-700 bg-transparent">
-              <TrendingUp className="h-4 w-4 mr-2" />
+              <RefreshCw className="h-4 w-4 mr-2" />
               Retry Loading
             </Button>
           </CardContent>
@@ -474,6 +487,7 @@ export function EnhancedReportsAnalytics() {
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
           <p className="text-gray-600">Loading analytics data...</p>
+          <p className="text-sm text-gray-500 mt-2">Please wait while we fetch the latest data...</p>
         </div>
       </div>
     )
@@ -501,14 +515,23 @@ export function EnhancedReportsAnalytics() {
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
             <div className="flex items-center">
-              <FileText className="h-5 w-5 mr-2" />
+              <FileText className="h-5 w-5 mr-2 text-blue-600" />
               Enhanced Reports & Analytics
+              <Badge variant="outline" className="ml-2 text-xs">
+                Last updated: {lastUpdated.toLocaleTimeString()}
+              </Badge>
             </div>
             <div className="flex items-center space-x-2">
-              <Badge variant="outline">{filteredApplications.length} applications</Badge>
+              <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+                {filteredApplications.length} of {applications.length} applications
+              </Badge>
+              <Button onClick={loadApplications} variant="outline" size="sm" disabled={isLoading}>
+                <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
+                Refresh
+              </Button>
               <Button onClick={exportDetailedReport} disabled={filteredApplications.length === 0}>
                 <Download className="h-4 w-4 mr-2" />
-                Export Detailed Report
+                Export Report
               </Button>
             </div>
           </CardTitle>
@@ -517,7 +540,7 @@ export function EnhancedReportsAnalytics() {
 
       {/* Enhanced Statistics Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card>
+        <Card className="hover:shadow-md transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Applications</CardTitle>
             <FileText className="h-4 w-4 text-muted-foreground" />
@@ -531,7 +554,7 @@ export function EnhancedReportsAnalytics() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="hover:shadow-md transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Approval Rate</CardTitle>
             <TrendingUp className="h-4 w-4 text-green-600" />
@@ -545,7 +568,7 @@ export function EnhancedReportsAnalytics() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="hover:shadow-md transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Pending Review</CardTitle>
             <Clock className="h-4 w-4 text-yellow-600" />
@@ -556,7 +579,7 @@ export function EnhancedReportsAnalytics() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="hover:shadow-md transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Expiring Soon</CardTitle>
             <AlertTriangle className="h-4 w-4 text-red-600" />
