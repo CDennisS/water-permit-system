@@ -70,9 +70,9 @@ export function ComprehensiveApplicationDetails({ application, user, onBack }: C
     return Number.parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i]
   }
 
-  const handleDocumentView = (document: Document) => {
+  const handleDocumentView = (doc: Document) => {
     // Create a mock document URL for demonstration
-    const documentUrl = `/documents/${document.fileName}`
+    const documentUrl = `/documents/${doc.fileName}`
 
     // Open in new window
     const newWindow = window.open("", "_blank", "width=800,height=600,scrollbars=yes,resizable=yes")
@@ -81,7 +81,7 @@ export function ComprehensiveApplicationDetails({ application, user, onBack }: C
       newWindow.document.write(`
         <html>
           <head>
-            <title>${document.fileName}</title>
+            <title>${doc.fileName}</title>
             <style>
               body { font-family: Arial, sans-serif; padding: 20px; text-align: center; }
               .document-viewer { max-width: 100%; height: 80vh; border: 1px solid #ccc; }
@@ -89,8 +89,8 @@ export function ComprehensiveApplicationDetails({ application, user, onBack }: C
             </style>
           </head>
           <body>
-            <h2>${document.fileName}</h2>
-            <p>File Type: ${document.fileType} | Size: ${formatFileSize(document.fileSize)}</p>
+            <h2>${doc.fileName}</h2>
+            <p>File Type: ${doc.fileType} | Size: ${formatFileSize(doc.fileSize)}</p>
             <div class="error">
               <p>Document viewer would display the actual document content here.</p>
               <p>In a real implementation, this would show the PDF, image, or other document content.</p>
@@ -104,16 +104,15 @@ export function ComprehensiveApplicationDetails({ application, user, onBack }: C
     }
   }
 
-  const handleDocumentDownload = (document: Document) => {
-    // Create a mock download for demonstration
-    const blob = new Blob([`Mock content for ${document.fileName}`], { type: document.fileType })
+  const handleDocumentDownload = (doc: Document) => {
+    const blob = new Blob([`Mock content for ${doc.fileName}`], { type: doc.fileType })
     const url = URL.createObjectURL(blob)
-    const a = document.createElement("a")
-    a.href = url
-    a.download = document.fileName
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
+    const link = window.document.createElement("a")
+    link.href = url
+    link.download = doc.fileName
+    window.document.body.appendChild(link)
+    link.click()
+    window.document.body.removeChild(link)
     URL.revokeObjectURL(url)
   }
 
