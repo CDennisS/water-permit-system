@@ -51,6 +51,7 @@ export function EnhancedReportsAnalytics() {
   const [applications, setApplications] = useState<PermitApplication[]>([])
   const [filteredApplications, setFilteredApplications] = useState<PermitApplication[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [dashboardFilters, setDashboardFilters] = useState<DashboardFilterState>({
     timeRange: "last_30_days",
     startDate: "",
@@ -88,10 +89,17 @@ export function EnhancedReportsAnalytics() {
   const loadApplications = async () => {
     try {
       setIsLoading(true)
+      setError(null)
       const apps = await db.getApplications()
-      setApplications(apps)
+      if (apps && Array.isArray(apps)) {
+        setApplications(apps)
+      } else {
+        setApplications([])
+      }
     } catch (error) {
       console.error("Error loading applications:", error)
+      setError("Failed to load applications. Please try again.")
+      setApplications([])
     } finally {
       setIsLoading(false)
     }
@@ -284,15 +292,16 @@ export function EnhancedReportsAnalytics() {
       approvalRate,
       expiringSoon,
       avgProcessingTime,
-      totalWaterAllocation: filteredApplications.reduce((sum, app) => sum + app.waterAllocation, 0),
-      totalLandSize: filteredApplications.reduce((sum, app) => sum + app.landSize, 0),
+      totalWaterAllocation: filteredApplications.reduce((sum, app) => sum + (app.waterAllocation || 0), 0),
+      totalLandSize: filteredApplications.reduce((sum, app) => sum + (app.landSize || 0), 0),
     }
   }
 
   const getPermitTypeDistribution = () => {
     const distribution = filteredApplications.reduce(
       (acc, app) => {
-        acc[app.permitType] = (acc[app.permitType] || 0) + 1
+        const type = app.permitType || "unknown"
+        acc[type] = (acc[type] || 0) + 1
         return acc
       },
       {} as Record<string, number>,
@@ -308,7 +317,8 @@ export function EnhancedReportsAnalytics() {
   const getStatusDistribution = () => {
     const distribution = filteredApplications.reduce(
       (acc, app) => {
-        acc[app.status] = (acc[app.status] || 0) + 1
+        const status = app.status || "unknown"
+        acc[status] = (acc[status] || 0) + 1
         return acc
       },
       {} as Record<string, number>,
@@ -349,7 +359,7 @@ export function EnhancedReportsAnalytics() {
         if (!acc[month]) {
           acc[month] = { month, allocation: 0, applications: 0 }
         }
-        acc[month].allocation += app.waterAllocation
+        acc[month].allocation += app.waterAllocation || 0
         acc[month].applications++
         return acc
       },
@@ -365,72 +375,97 @@ export function EnhancedReportsAnalytics() {
   }
 
   const exportDetailedReport = () => {
-    const stats = getStatistics()
-    const permitDistribution = getPermitTypeDistribution()
-    const statusDistribution = getStatusDistribution()
+    try {
+      const stats = getStatistics()
+      const permitDistribution = getPermitTypeDistribution()
+      const statusDistribution = getStatusDistribution()
 
-    const reportData = [
-      ["COMPREHENSIVE PERMIT MANAGEMENT REPORT"],
-      ["Generated:", new Date().toLocaleString()],
-      ["Filter Period:", dashboardFilters.timeRange.replace("_", " ").toUpperCase()],
-      [""],
-      ["EXECUTIVE SUMMARY"],
-      ["Total Applications:", stats.total],
-      ["Approved Applications:", stats.approved],
-      ["Rejected Applications:", stats.rejected],
-      ["Pending Applications:", stats.pending],
-      ["Overall Approval Rate:", `${stats.approvalRate}%`],
-      ["Average Processing Time:", `${stats.avgProcessingTime} days`],
-      ["Permits Expiring Soon:", stats.expiringSoon],
-      ["Total Water Allocation:", `${stats.totalWaterAllocation.toLocaleString()} ML`],
-      ["Total Land Coverage:", `${stats.totalLandSize.toLocaleString()} hectares`],
-      [""],
-      ["PERMIT TYPE DISTRIBUTION"],
-      ["Type", "Count", "Percentage"],
-      ...permitDistribution.map((item) => [item.name, item.value, `${item.percentage}%`]),
-      [""],
-      ["STATUS DISTRIBUTION"],
-      ["Status", "Count", "Percentage"],
-      ...statusDistribution.map((item) => [item.name, item.value, `${item.percentage}%`]),
-      [""],
-      ["DETAILED APPLICATION DATA"],
-      [
-        "Application ID",
-        "Applicant",
-        "Type",
-        "Status",
-        "Stage",
-        "Water Allocation",
-        "Land Size",
-        "Created",
-        "Submitted",
-        "Approved",
-      ],
-      ...filteredApplications.map((app) => [
-        app.applicationId,
-        app.applicantName,
-        app.permitType,
-        app.status,
-        app.currentStage,
-        app.waterAllocation,
-        app.landSize,
-        app.createdAt.toLocaleDateString(),
-        app.submittedAt?.toLocaleDateString() || "N/A",
-        app.approvedAt?.toLocaleDateString() || "N/A",
-      ]),
-    ]
+      const reportData = [
+        ["COMPREHENSIVE PERMIT MANAGEMENT REPORT"],
+        ["Generated:", new Date().toLocaleString()],
+        ["Filter Period:", dashboardFilters.timeRange.replace("_", " ").toUpperCase()],
+        [""],
+        ["EXECUTIVE SUMMARY"],
+        ["Total Applications:", stats.total],
+        ["Approved Applications:", stats.approved],
+        ["Rejected Applications:", stats.rejected],
+        ["Pending Applications:", stats.pending],
+        ["Overall Approval Rate:", `${stats.approvalRate}%`],
+        ["Average Processing Time:", `${stats.avgProcessingTime} days`],
+        ["Permits Expiring Soon:", stats.expiringSoon],
+        ["Total Water Allocation:", `${stats.totalWaterAllocation.toLocaleString()} ML`],
+        ["Total Land Coverage:", `${stats.totalLandSize.toLocaleString()} hectares`],
+        [""],
+        ["PERMIT TYPE DISTRIBUTION"],
+        ["Type", "Count", "Percentage"],
+        ...permitDistribution.map((item) => [item.name, item.value, `${item.percentage}%`]),
+        [""],
+        ["STATUS DISTRIBUTION"],
+        ["Status", "Count", "Percentage"],
+        ...statusDistribution.map((item) => [item.name, item.value, `${item.percentage}%`]),
+        [""],
+        ["DETAILED APPLICATION DATA"],
+        [
+          "Application ID",
+          "Applicant",
+          "Type",
+          "Status",
+          "Stage",
+          "Water Allocation",
+          "Land Size",
+          "Created",
+          "Submitted",
+          "Approved",
+        ],
+        ...filteredApplications.map((app) => [
+          app.applicationId || "N/A",
+          app.applicantName || "N/A",
+          app.permitType || "N/A",
+          app.status || "N/A",
+          app.currentStage || "N/A",
+          app.waterAllocation || 0,
+          app.landSize || 0,
+          app.createdAt.toLocaleDateString(),
+          app.submittedAt?.toLocaleDateString() || "N/A",
+          app.approvedAt?.toLocaleDateString() || "N/A",
+        ]),
+      ]
 
-    const csvContent = reportData.map((row) => (Array.isArray(row) ? row.join(",") : row)).join("\n")
+      const csvContent = reportData.map((row) => (Array.isArray(row) ? row.join(",") : row)).join("\n")
 
-    const blob = new Blob([csvContent], { type: "text/csv" })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement("a")
-    a.href = url
-    a.download = `comprehensive_permit_report_${new Date().toISOString().split("T")[0]}.csv`
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
+      const blob = new Blob([csvContent], { type: "text/csv" })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = `comprehensive_permit_report_${new Date().toISOString().split("T")[0]}.csv`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error("Error exporting report:", error)
+      alert("Failed to export report. Please try again.")
+    }
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <Card className="border-red-200 bg-red-50">
+          <CardContent className="p-6 text-center">
+            <div className="text-red-600 mb-4">
+              <AlertTriangle className="h-12 w-12 mx-auto mb-2" />
+              <h3 className="text-lg font-semibold">Error Loading Analytics Data</h3>
+              <p className="text-sm">{error}</p>
+            </div>
+            <Button onClick={loadApplications} variant="outline" className="border-red-300 text-red-700 bg-transparent">
+              <TrendingUp className="h-4 w-4 mr-2" />
+              Retry Loading
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    )
   }
 
   if (isLoading) {
@@ -471,7 +506,7 @@ export function EnhancedReportsAnalytics() {
             </div>
             <div className="flex items-center space-x-2">
               <Badge variant="outline">{filteredApplications.length} applications</Badge>
-              <Button onClick={exportDetailedReport}>
+              <Button onClick={exportDetailedReport} disabled={filteredApplications.length === 0}>
                 <Download className="h-4 w-4 mr-2" />
                 Export Detailed Report
               </Button>

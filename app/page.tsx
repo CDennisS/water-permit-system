@@ -6,7 +6,7 @@ import { DashboardHeader } from "@/components/dashboard-header"
 import { ApplicationForm } from "@/components/application-form"
 import { WorkflowManager } from "@/components/workflow-manager"
 import { MessagingSystem } from "@/components/messaging-system"
-import { ReportsAnalytics } from "@/components/reports-analytics"
+import { EnhancedReportsAnalytics } from "@/components/enhanced-reports-analytics"
 import { ActivityLogs } from "@/components/activity-logs"
 import { DashboardApplications } from "@/components/dashboard-applications"
 import { RecordsSection } from "@/components/records-section"
@@ -98,7 +98,7 @@ export default function Home() {
     { value: "dashboard", label: "Dashboard & Applications" },
     { value: "records", label: "Records" },
     { value: "messages", label: "Messages" },
-    { value: "reports", label: "Reports" },
+    { value: "reports", label: "Reports & Analytics" },
     { value: "logs", label: "Activity Logs" },
   ]
 
@@ -165,7 +165,7 @@ export default function Home() {
                   onViewApplication={handleViewApp}
                 />
               ) : (
-                /* Standard Dashboard for other users */
+                /* Standard Dashboard for other users including permitting_officer */
                 <Tabs value={currentView} onValueChange={handleTabChange} className="w-full">
                   <TabsList className="grid w-full grid-cols-5">
                     {getUserTabs().map((tab) => (
@@ -206,7 +206,7 @@ export default function Home() {
                   </TabsContent>
 
                   <TabsContent value="reports">
-                    <ReportsAnalytics />
+                    <EnhancedReportsAnalytics />
                   </TabsContent>
 
                   <TabsContent value="logs">
