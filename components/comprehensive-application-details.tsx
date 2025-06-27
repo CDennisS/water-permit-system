@@ -6,7 +6,19 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { ArrowLeft, Download, ExternalLink, FileText, MessageSquare, User, MapPin, Droplets } from "lucide-react"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import {
+  ArrowLeft,
+  Download,
+  ExternalLink,
+  FileText,
+  MessageSquare,
+  User,
+  MapPin,
+  Droplets,
+  Eye,
+  Printer,
+} from "lucide-react"
 import type { PermitApplication, User as UserType, WorkflowComment, Document } from "@/types"
 import { db } from "@/lib/database"
 import { cn } from "@/lib/utils"
@@ -32,6 +44,7 @@ export function ComprehensiveApplicationDetails({ application, user, onBack }: C
   const [comments, setComments] = useState<WorkflowComment[]>([])
   const [documents, setDocuments] = useState<Document[]>([])
   const [loading, setLoading] = useState(true)
+  const [isReportPreviewOpen, setIsReportPreviewOpen] = useState(false)
 
   useEffect(() => {
     loadApplicationData()
@@ -115,6 +128,143 @@ export function ComprehensiveApplicationDetails({ application, user, onBack }: C
     link.click()
     window.document.body.removeChild(link)
     URL.revokeObjectURL(url)
+  }
+
+  const handlePrintRejectionReport = () => {
+    const printWindow = window.open("", "_blank")
+    if (printWindow) {
+      const reportElement = window.document.getElementById("rejection-report-template")
+      if (reportElement) {
+        printWindow.document.write(`
+          <!DOCTYPE html>
+          <html>
+            <head>
+              <title>Application Rejection Report - ${application.applicationId}</title>
+              <style>
+                @page {
+                  size: A4;
+                  margin: 20mm;
+                }
+                body { 
+                  margin: 0; 
+                  padding: 0; 
+                  font-family: 'Times New Roman', serif; 
+                  line-height: 1.4;
+                  color: #000;
+                  font-size: 12pt;
+                }
+                @media print {
+                  body { margin: 0; padding: 0; }
+                  .no-print { display: none; }
+                  .page-break { page-break-before: always; }
+                }
+                .header { 
+                  text-align: center; 
+                  margin-bottom: 30px; 
+                  border-bottom: 2px solid #000;
+                  padding-bottom: 15px;
+                }
+                .header h1 { 
+                  margin: 0; 
+                  font-size: 18pt; 
+                  font-weight: bold;
+                }
+                .header h2 { 
+                  margin: 8px 0 0 0; 
+                  font-size: 14pt; 
+                  font-weight: normal;
+                }
+                .applicant-details {
+                  margin-bottom: 25px;
+                  padding: 15px;
+                  border: 1px solid #000;
+                }
+                .applicant-details h3 {
+                  margin-top: 0;
+                  font-size: 14pt;
+                  font-weight: bold;
+                  margin-bottom: 15px;
+                }
+                .details-grid {
+                  display: grid;
+                  grid-template-columns: 1fr 1fr;
+                  gap: 10px;
+                  margin-bottom: 10px;
+                }
+                .detail-item {
+                  margin-bottom: 8px;
+                }
+                .detail-label {
+                  font-weight: bold;
+                  margin-bottom: 3px;
+                }
+                .comments-section {
+                  margin: 25px 0;
+                }
+                .comments-section h3 {
+                  font-size: 14pt;
+                  font-weight: bold;
+                  margin-bottom: 15px;
+                  border-bottom: 1px solid #000;
+                  padding-bottom: 8px;
+                }
+                .comment {
+                  margin-bottom: 20px;
+                  padding: 12px;
+                  border: 1px solid #ccc;
+                  background-color: #f9f9f9;
+                }
+                .comment-header {
+                  display: flex;
+                  justify-content: space-between;
+                  align-items: center;
+                  margin-bottom: 8px;
+                  font-weight: bold;
+                  font-size: 11pt;
+                }
+                .comment-content {
+                  font-size: 11pt;
+                  line-height: 1.4;
+                }
+                .rejection-verdict {
+                  margin-top: 30px;
+                  padding: 20px;
+                  background-color: #fef2f2;
+                  border: 3px solid #dc2626;
+                  text-align: center;
+                }
+                .rejection-verdict h3 {
+                  color: #dc2626;
+                  font-size: 16pt;
+                  font-weight: bold;
+                  margin: 0 0 10px 0;
+                }
+                .rejection-verdict p {
+                  margin: 5px 0;
+                  font-size: 12pt;
+                }
+                .footer {
+                  margin-top: 40px;
+                  text-align: center;
+                  font-size: 10pt;
+                  color: #666;
+                  border-top: 1px solid #ccc;
+                  padding-top: 15px;
+                }
+                .single-column {
+                  grid-column: 1 / -1;
+                }
+              </style>
+            </head>
+            <body>
+              ${reportElement.innerHTML}
+            </body>
+          </html>
+        `)
+        printWindow.document.close()
+        printWindow.print()
+      }
+    }
   }
 
   const permittingOfficerComments = comments.filter((comment) => comment.userType === "permitting_officer")
@@ -407,11 +557,154 @@ export function ComprehensiveApplicationDetails({ application, user, onBack }: C
                     <PermitPrinter application={application} user={user} />
                   </div>
                 )}
-                {application.status === "rejected" && (
-                  <Button className="w-full bg-transparent" variant="outline">
-                    <FileText className="h-4 w-4 mr-2" />
-                    Print Rejection Notice
-                  </Button>
+                {application.status === "rejected" && user.userType === "permitting_officer" && (
+                  <div className="space-y-2">
+                    <h4 className="font-medium text-gray-900 mb-3">Rejection Report</h4>
+                    <div className="flex space-x-2">
+                      <Dialog open={isReportPreviewOpen} onOpenChange={setIsReportPreviewOpen}>
+                        <DialogTrigger asChild>
+                          <Button variant="outline" size="sm">
+                            <Eye className="h-4 w-4 mr-2" />
+                            Preview Report
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                          <DialogHeader>
+                            <DialogTitle>Application Rejection Report - {application.applicationId}</DialogTitle>
+                          </DialogHeader>
+
+                          <div id="rejection-report-template">
+                            <div className="header">
+                              <h1>APPLICATION REJECTION REPORT</h1>
+                              <h2>Upper Manyame Sub Catchment Council</h2>
+                            </div>
+
+                            <div className="applicant-details">
+                              <h3>Applicant Details</h3>
+                              <div className="details-grid">
+                                <div className="detail-item">
+                                  <div className="detail-label">Application ID:</div>
+                                  <div>{application.applicationId}</div>
+                                </div>
+                                <div className="detail-item">
+                                  <div className="detail-label">Applicant Name:</div>
+                                  <div>{application.applicantName}</div>
+                                </div>
+                                <div className="detail-item">
+                                  <div className="detail-label">Customer Account:</div>
+                                  <div>{application.customerAccountNumber}</div>
+                                </div>
+                                <div className="detail-item">
+                                  <div className="detail-label">Cellular Number:</div>
+                                  <div>{application.cellularNumber}</div>
+                                </div>
+                                <div className="detail-item single-column">
+                                  <div className="detail-label">Physical Address:</div>
+                                  <div>{application.physicalAddress}</div>
+                                </div>
+                                <div className="detail-item single-column">
+                                  <div className="detail-label">Postal Address:</div>
+                                  <div>{application.postalAddress || "N/A"}</div>
+                                </div>
+                                <div className="detail-item">
+                                  <div className="detail-label">Permit Type:</div>
+                                  <div className="capitalize">{application.permitType.replace("_", " ")}</div>
+                                </div>
+                                <div className="detail-item">
+                                  <div className="detail-label">Water Source:</div>
+                                  <div className="capitalize">{application.waterSource}</div>
+                                </div>
+                                <div className="detail-item">
+                                  <div className="detail-label">Intended Use:</div>
+                                  <div>{application.intendedUse}</div>
+                                </div>
+                                <div className="detail-item">
+                                  <div className="detail-label">Water Allocation:</div>
+                                  <div>{application.waterAllocation} ML/year</div>
+                                </div>
+                                <div className="detail-item">
+                                  <div className="detail-label">Land Size:</div>
+                                  <div>{application.landSize} hectares</div>
+                                </div>
+                                <div className="detail-item">
+                                  <div className="detail-label">Number of Boreholes:</div>
+                                  <div>{application.numberOfBoreholes}</div>
+                                </div>
+                                <div className="detail-item single-column">
+                                  <div className="detail-label">GPS Coordinates:</div>
+                                  <div>
+                                    Lat: {application.gpsLatitude}, Long: {application.gpsLongitude}
+                                  </div>
+                                </div>
+                                <div className="detail-item">
+                                  <div className="detail-label">Application Date:</div>
+                                  <div>{formatDate(application.createdAt)}</div>
+                                </div>
+                                <div className="detail-item">
+                                  <div className="detail-label">Report Date:</div>
+                                  <div>{new Date().toLocaleDateString()}</div>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="comments-section">
+                              <h3>Workflow Comments and Review History</h3>
+                              {comments.length > 0 ? (
+                                comments.map((comment, index) => (
+                                  <div key={comment.id || index} className="comment">
+                                    <div className="comment-header">
+                                      <div>
+                                        {comment.userType.replace("_", " ").toUpperCase()} - Stage {comment.stage}
+                                      </div>
+                                      <div>{formatDate(comment.createdAt)}</div>
+                                    </div>
+                                    <div className="comment-content">{comment.comment}</div>
+                                  </div>
+                                ))
+                              ) : (
+                                <div style={{ textAlign: "center", padding: "20px", color: "#666" }}>
+                                  No comments recorded during the review process.
+                                </div>
+                              )}
+                            </div>
+
+                            <div className="rejection-verdict">
+                              <h3>⚠️ APPLICATION REJECTED ⚠️</h3>
+                              <p>
+                                <strong>Final Decision:</strong> This application has been rejected during the review
+                                process.
+                              </p>
+                              <p>
+                                <strong>Rejection Date:</strong>{" "}
+                                {application.rejectedAt ? formatDate(application.rejectedAt) : formatDate(new Date())}
+                              </p>
+                              <p>
+                                <strong>Status:</strong> REJECTED - No permit will be issued for this application.
+                              </p>
+                            </div>
+
+                            <div className="footer">
+                              <p>This report was generated by the UMSCC Permit Management System</p>
+                              <p>Upper Manyame Sub Catchment Council - Water Permit Management</p>
+                              <p>Generated on: {new Date().toLocaleString()}</p>
+                            </div>
+                          </div>
+
+                          <div className="flex justify-end space-x-2 mt-4 no-print">
+                            <Button onClick={handlePrintRejectionReport}>
+                              <Printer className="h-4 w-4 mr-2" />
+                              Print Report
+                            </Button>
+                          </div>
+                        </DialogContent>
+                      </Dialog>
+
+                      <Button onClick={handlePrintRejectionReport} size="sm">
+                        <Printer className="h-4 w-4 mr-2" />
+                        Print Report
+                      </Button>
+                    </div>
+                  </div>
                 )}
               </CardContent>
             </Card>
