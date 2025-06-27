@@ -25,13 +25,14 @@ import {
   Droplets,
   FileCheck,
   Calendar,
+  Loader2,
 } from "lucide-react"
-import type { PermitApplication } from "@/types"
+import type { PermitApplication, User } from "@/types"
 import { db } from "@/lib/database"
 import { cn } from "@/lib/utils"
 
 interface DashboardApplicationsProps {
-  user: any
+  user: User
   onNewApplication: () => void
   onEditApplication: (app: PermitApplication) => void
   onViewApplication: (app: PermitApplication) => void
@@ -88,6 +89,7 @@ export function DashboardApplications({
   const [selectedApplications, setSelectedApplications] = useState<Set<string>>(new Set())
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     loadApplications()
@@ -100,10 +102,13 @@ export function DashboardApplications({
   const loadApplications = async () => {
     try {
       setLoading(true)
+      setError(null)
       const apps = await db.getApplications()
-      setApplications(apps)
+      setApplications(apps || [])
     } catch (error) {
       console.error("Error loading applications:", error)
+      setError("Failed to load applications. Please try again.")
+      setApplications([])
     } finally {
       setLoading(false)
     }
@@ -117,14 +122,14 @@ export function DashboardApplications({
       const searchLower = searchTerm.toLowerCase()
       filtered = filtered.filter(
         (app) =>
-          app.applicationId.toLowerCase().includes(searchLower) ||
-          app.applicantName.toLowerCase().includes(searchLower) ||
-          app.customerAccountNumber.toLowerCase().includes(searchLower) ||
-          app.physicalAddress.toLowerCase().includes(searchLower) ||
-          app.cellularNumber.includes(searchLower) ||
-          app.intendedUse.toLowerCase().includes(searchLower) ||
-          app.waterSource.toLowerCase().includes(searchLower) ||
-          app.permitType.toLowerCase().includes(searchLower),
+          app.applicationId?.toLowerCase().includes(searchLower) ||
+          app.applicantName?.toLowerCase().includes(searchLower) ||
+          app.customerAccountNumber?.toLowerCase().includes(searchLower) ||
+          app.physicalAddress?.toLowerCase().includes(searchLower) ||
+          app.cellularNumber?.includes(searchLower) ||
+          app.intendedUse?.toLowerCase().includes(searchLower) ||
+          app.waterSource?.toLowerCase().includes(searchLower) ||
+          app.permitType?.toLowerCase().includes(searchLower),
       )
     }
 
@@ -211,12 +216,18 @@ export function DashboardApplications({
     }
   }
 
-  const formatDate = (date: Date) => {
-    return new Intl.DateTimeFormat("en-ZA", {
-      year: "numeric",
-      month: "short",
-      day: "2-digit",
-    }).format(date)
+  const formatDate = (date: Date | string | null | undefined) => {
+    if (!date) return "N/A"
+    try {
+      const dateObj = typeof date === "string" ? new Date(date) : date
+      return new Intl.DateTimeFormat("en-ZA", {
+        year: "numeric",
+        month: "short",
+        day: "2-digit",
+      }).format(dateObj)
+    } catch {
+      return "Invalid Date"
+    }
   }
 
   const getApplicationStats = () => {
@@ -234,12 +245,32 @@ export function DashboardApplications({
 
   const stats = getApplicationStats()
 
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <Card className="border-red-200 bg-red-50">
+          <CardContent className="p-6 text-center">
+            <div className="text-red-600 mb-4">
+              <FileText className="h-12 w-12 mx-auto mb-2" />
+              <h3 className="text-lg font-semibold">Error Loading Applications</h3>
+              <p className="text-sm">{error}</p>
+            </div>
+            <Button onClick={loadApplications} variant="outline" className="border-red-300 text-red-700 bg-transparent">
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Try Again
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64 bg-slate-50 rounded-lg border">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-2 text-slate-600 font-medium">Loading applications...</p>
+          <Loader2 className="h-8 w-8 animate-spin text-blue-600 mx-auto mb-4" />
+          <p className="text-slate-600 font-medium">Loading applications...</p>
         </div>
       </div>
     )
@@ -264,9 +295,10 @@ export function DashboardApplications({
             <Button
               variant="secondary"
               onClick={loadApplications}
+              disabled={loading}
               className="bg-white/10 hover:bg-white/20 text-white border-white/20"
             >
-              <RefreshCw className="h-4 w-4 mr-2" />
+              {loading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
               Refresh
             </Button>
             <Button onClick={onNewApplication} className="bg-green-600 hover:bg-green-700 text-white">
@@ -435,7 +467,7 @@ export function DashboardApplications({
                   disabled={isSubmitting}
                   className="bg-orange-600 hover:bg-orange-700 text-white"
                 >
-                  <Send className="h-4 w-4 mr-2" />
+                  {isSubmitting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
                   {isSubmitting ? "Submitting..." : `Submit All Unsubmitted Applications (${selectedUnsubmittedCount})`}
                 </Button>
               )}
@@ -484,7 +516,7 @@ export function DashboardApplications({
                           />
                         )}
                         <div>
-                          <div className="font-semibold text-gray-900">{app.applicationId}</div>
+                          <div className="font-semibold text-gray-900">{app.applicationId || "N/A"}</div>
                           <Badge className="bg-orange-600 text-white text-xs mt-1">Not Submitted</Badge>
                         </div>
                       </div>
@@ -511,8 +543,8 @@ export function DashboardApplications({
                       <div className="flex items-center space-x-2 text-sm">
                         <MapPin className="h-4 w-4 text-gray-500 flex-shrink-0" />
                         <div className="min-w-0 flex-1">
-                          <div className="font-medium text-gray-900 truncate">{app.applicantName}</div>
-                          <div className="text-gray-600 text-xs">Account: {app.customerAccountNumber}</div>
+                          <div className="font-medium text-gray-900 truncate">{app.applicantName || "Unknown"}</div>
+                          <div className="text-gray-600 text-xs">Account: {app.customerAccountNumber || "N/A"}</div>
                         </div>
                       </div>
 
@@ -520,13 +552,15 @@ export function DashboardApplications({
                       <div className="flex items-start space-x-2 text-sm">
                         <Phone className="h-4 w-4 text-gray-500 flex-shrink-0 mt-0.5" />
                         <div className="min-w-0 flex-1">
-                          <div className="text-gray-700 text-xs leading-tight">{app.physicalAddress}</div>
+                          <div className="text-gray-700 text-xs leading-tight">
+                            {app.physicalAddress || "No address provided"}
+                          </div>
                         </div>
                       </div>
 
                       <div className="flex items-center space-x-2 text-sm">
                         <MapPin className="h-4 w-4 text-gray-500 flex-shrink-0" />
-                        <div className="text-xs text-gray-700">{app.cellularNumber}</div>
+                        <div className="text-xs text-gray-700">{app.cellularNumber || "N/A"}</div>
                       </div>
 
                       {/* Permit Details */}
@@ -535,10 +569,13 @@ export function DashboardApplications({
                           <FileCheck className="h-4 w-4 text-blue-500 flex-shrink-0" />
                           <div className="min-w-0 flex-1">
                             <div className="font-medium text-blue-700 text-xs">
-                              {permitTypeLabels[app.permitType] || app.permitType.replace("_", " ").toUpperCase()}
+                              {permitTypeLabels[app.permitType] ||
+                                app.permitType?.replace("_", " ").toUpperCase() ||
+                                "Unknown"}
                             </div>
                             <div className="text-gray-600 text-xs">
-                              Category: {waterSourceLabels[app.waterSource] || app.waterSource.replace("_", " ")}
+                              Category:{" "}
+                              {waterSourceLabels[app.waterSource] || app.waterSource?.replace("_", " ") || "Unknown"}
                             </div>
                           </div>
                         </div>
@@ -546,7 +583,7 @@ export function DashboardApplications({
                         <div className="flex items-center space-x-2 text-sm">
                           <Droplets className="h-4 w-4 text-blue-500 flex-shrink-0" />
                           <div className="text-xs text-gray-700">
-                            {app.waterAllocation} ML allocation • {app.landSize} hectares
+                            {app.waterAllocation || 0} ML allocation • {app.landSize || 0} hectares
                           </div>
                         </div>
                       </div>
@@ -588,9 +625,9 @@ export function DashboardApplications({
                         {statusIcon[app.status]}
                       </div>
                       <div>
-                        <div className="font-semibold text-gray-900">{app.applicationId}</div>
+                        <div className="font-semibold text-gray-900">{app.applicationId || "N/A"}</div>
                         <Badge className={cn(statusColor[app.status], "text-white capitalize text-xs mt-1")}>
-                          {app.status.replace("_", " ")}
+                          {app.status?.replace("_", " ") || "Unknown"}
                         </Badge>
                       </div>
                     </div>
@@ -605,8 +642,8 @@ export function DashboardApplications({
                     <div className="flex items-center space-x-2 text-sm">
                       <MapPin className="h-4 w-4 text-gray-500 flex-shrink-0" />
                       <div className="min-w-0 flex-1">
-                        <div className="font-medium text-gray-900 truncate">{app.applicantName}</div>
-                        <div className="text-gray-600 text-xs">Account: {app.customerAccountNumber}</div>
+                        <div className="font-medium text-gray-900 truncate">{app.applicantName || "Unknown"}</div>
+                        <div className="text-gray-600 text-xs">Account: {app.customerAccountNumber || "N/A"}</div>
                       </div>
                     </div>
 
@@ -614,13 +651,15 @@ export function DashboardApplications({
                     <div className="flex items-start space-x-2 text-sm">
                       <Phone className="h-4 w-4 text-gray-500 flex-shrink-0 mt-0.5" />
                       <div className="min-w-0 flex-1">
-                        <div className="text-gray-700 text-xs leading-tight">{app.physicalAddress}</div>
+                        <div className="text-gray-700 text-xs leading-tight">
+                          {app.physicalAddress || "No address provided"}
+                        </div>
                       </div>
                     </div>
 
                     <div className="flex items-center space-x-2 text-sm">
                       <MapPin className="h-4 w-4 text-gray-500 flex-shrink-0" />
-                      <div className="text-xs text-gray-700">{app.cellularNumber}</div>
+                      <div className="text-xs text-gray-700">{app.cellularNumber || "N/A"}</div>
                     </div>
 
                     {/* Permit Details */}
@@ -629,10 +668,13 @@ export function DashboardApplications({
                         <FileCheck className="h-4 w-4 text-blue-500 flex-shrink-0" />
                         <div className="min-w-0 flex-1">
                           <div className="font-medium text-blue-700 text-xs">
-                            {permitTypeLabels[app.permitType] || app.permitType.replace("_", " ").toUpperCase()}
+                            {permitTypeLabels[app.permitType] ||
+                              app.permitType?.replace("_", " ").toUpperCase() ||
+                              "Unknown"}
                           </div>
                           <div className="text-gray-600 text-xs">
-                            Category: {waterSourceLabels[app.waterSource] || app.waterSource.replace("_", " ")}
+                            Category:{" "}
+                            {waterSourceLabels[app.waterSource] || app.waterSource?.replace("_", " ") || "Unknown"}
                           </div>
                         </div>
                       </div>
@@ -640,7 +682,7 @@ export function DashboardApplications({
                       <div className="flex items-center space-x-2 text-sm">
                         <Droplets className="h-4 w-4 text-blue-500 flex-shrink-0" />
                         <div className="text-xs text-gray-700">
-                          {app.waterAllocation} ML allocation • {app.landSize} hectares
+                          {app.waterAllocation || 0} ML allocation • {app.landSize || 0} hectares
                         </div>
                       </div>
                     </div>
@@ -650,7 +692,7 @@ export function DashboardApplications({
                       <div className="flex items-center space-x-2 text-sm">
                         <Calendar className="h-4 w-4 text-gray-500 flex-shrink-0" />
                         <div className="text-xs text-gray-600">
-                          Stage {app.currentStage} • Created: {formatDate(app.createdAt)}
+                          Stage {app.currentStage || 1} • Created: {formatDate(app.createdAt)}
                         </div>
                       </div>
                       {app.submittedAt && (

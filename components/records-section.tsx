@@ -23,6 +23,7 @@ import {
   Building2,
   Droplets,
   Archive,
+  Loader2,
 } from "lucide-react"
 import type { PermitApplication, User } from "@/types"
 import { db } from "@/lib/database"
@@ -85,6 +86,7 @@ export function RecordsSection({ user, onEditApplication, onViewApplication }: R
   const [applications, setApplications] = useState<PermitApplication[]>([])
   const [filteredApplications, setFilteredApplications] = useState<PermitApplication[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [filters, setFilters] = useState<Filters>({
     search: "",
     status: "all",
@@ -105,10 +107,13 @@ export function RecordsSection({ user, onEditApplication, onViewApplication }: R
   const loadApplications = async () => {
     try {
       setLoading(true)
+      setError(null)
       const apps = await db.getApplications()
-      setApplications(apps)
+      setApplications(apps || [])
     } catch (error) {
       console.error("Error loading applications:", error)
+      setError("Failed to load applications. Please try again.")
+      setApplications([])
     } finally {
       setLoading(false)
     }
@@ -122,13 +127,13 @@ export function RecordsSection({ user, onEditApplication, onViewApplication }: R
       const searchTerm = filters.search.toLowerCase()
       filtered = filtered.filter(
         (app) =>
-          app.applicationId.toLowerCase().includes(searchTerm) ||
-          app.applicantName.toLowerCase().includes(searchTerm) ||
-          app.customerAccountNumber.toLowerCase().includes(searchTerm) ||
-          app.physicalAddress.toLowerCase().includes(searchTerm) ||
-          app.permitType.toLowerCase().includes(searchTerm) ||
-          app.waterSource.toLowerCase().includes(searchTerm) ||
-          app.intendedUse.toLowerCase().includes(searchTerm),
+          app.applicationId?.toLowerCase().includes(searchTerm) ||
+          app.applicantName?.toLowerCase().includes(searchTerm) ||
+          app.customerAccountNumber?.toLowerCase().includes(searchTerm) ||
+          app.physicalAddress?.toLowerCase().includes(searchTerm) ||
+          app.permitType?.toLowerCase().includes(searchTerm) ||
+          app.waterSource?.toLowerCase().includes(searchTerm) ||
+          app.intendedUse?.toLowerCase().includes(searchTerm),
       )
     }
 
@@ -215,62 +220,75 @@ export function RecordsSection({ user, onEditApplication, onViewApplication }: R
   }
 
   const exportData = () => {
-    const csvData = [
-      [
-        "Application ID",
-        "Applicant Name",
-        "Account Number",
-        "Physical Address",
-        "Permit Type",
-        "Water Source",
-        "Status",
-        "Water Allocation (ML)",
-        "Land Size (ha)",
-        "Created Date",
-        "Submitted Date",
-        "Current Stage",
-      ],
-      ...filteredApplications.map((app) => [
-        app.applicationId,
-        app.applicantName,
-        app.customerAccountNumber,
-        app.physicalAddress,
-        app.permitType.replace("_", " ").toUpperCase(),
-        app.waterSource.replace("_", " "),
-        app.status.replace("_", " ").toUpperCase(),
-        app.waterAllocation,
-        app.landSize,
-        app.createdAt.toLocaleDateString("en-ZA"),
-        app.submittedAt?.toLocaleDateString("en-ZA") || "N/A",
-        `Stage ${app.currentStage}`,
-      ]),
-    ]
+    try {
+      const csvData = [
+        [
+          "Application ID",
+          "Applicant Name",
+          "Account Number",
+          "Physical Address",
+          "Permit Type",
+          "Water Source",
+          "Status",
+          "Water Allocation (ML)",
+          "Land Size (ha)",
+          "Created Date",
+          "Submitted Date",
+          "Current Stage",
+        ],
+        ...filteredApplications.map((app) => [
+          app.applicationId || "",
+          app.applicantName || "",
+          app.customerAccountNumber || "",
+          app.physicalAddress || "",
+          app.permitType?.replace("_", " ").toUpperCase() || "",
+          app.waterSource?.replace("_", " ") || "",
+          app.status?.replace("_", " ").toUpperCase() || "",
+          app.waterAllocation || "",
+          app.landSize || "",
+          app.createdAt ? app.createdAt.toLocaleDateString("en-ZA") : "",
+          app.submittedAt ? app.submittedAt.toLocaleDateString("en-ZA") : "N/A",
+          `Stage ${app.currentStage || 1}`,
+        ]),
+      ]
 
-    const csvContent = csvData.map((row) => row.join(",")).join("\n")
-    const blob = new Blob([csvContent], { type: "text/csv" })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement("a")
-    a.href = url
-    a.download = `umscc_permit_records_${new Date().toISOString().split("T")[0]}.csv`
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
+      const csvContent = csvData.map((row) => row.join(",")).join("\n")
+      const blob = new Blob([csvContent], { type: "text/csv" })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = `umscc_permit_records_${new Date().toISOString().split("T")[0]}.csv`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error("Error exporting data:", error)
+      alert("Failed to export data. Please try again.")
+    }
   }
 
-  const formatDate = (date: Date) => {
-    return new Intl.DateTimeFormat("en-ZA", {
-      year: "numeric",
-      month: "short",
-      day: "2-digit",
-    }).format(date)
+  const formatDate = (date: Date | string | null | undefined) => {
+    if (!date) return "N/A"
+    try {
+      const dateObj = typeof date === "string" ? new Date(date) : date
+      return new Intl.DateTimeFormat("en-ZA", {
+        year: "numeric",
+        month: "short",
+        day: "2-digit",
+      }).format(dateObj)
+    } catch {
+      return "Invalid Date"
+    }
   }
 
-  const formatPermitType = (type: string) => {
+  const formatPermitType = (type: string | undefined) => {
+    if (!type) return "Unknown"
     return type.replace("_", " ").replace(/\b\w/g, (l) => l.toUpperCase())
   }
 
-  const formatWaterSource = (source: string) => {
+  const formatWaterSource = (source: string | undefined) => {
+    if (!source) return "Unknown"
     return source.replace("_", " ").replace(/\b\w/g, (l) => l.toUpperCase())
   }
 
@@ -291,6 +309,26 @@ export function RecordsSection({ user, onEditApplication, onViewApplication }: R
 
   const stats = getApplicationStats()
 
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <Card className="border-red-200 bg-red-50">
+          <CardContent className="p-6 text-center">
+            <div className="text-red-600 mb-4">
+              <Archive className="h-12 w-12 mx-auto mb-2" />
+              <h3 className="text-lg font-semibold">Error Loading Records</h3>
+              <p className="text-sm">{error}</p>
+            </div>
+            <Button onClick={loadApplications} variant="outline" className="border-red-300 text-red-700 bg-transparent">
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Try Again
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6">
       {/* Government Header */}
@@ -307,7 +345,7 @@ export function RecordsSection({ user, onEditApplication, onViewApplication }: R
             <Button
               variant="secondary"
               onClick={exportData}
-              disabled={filteredApplications.length === 0}
+              disabled={filteredApplications.length === 0 || loading}
               className="bg-white/10 hover:bg-white/20 text-white border-white/20"
             >
               <Download className="h-4 w-4 mr-2" />
@@ -316,9 +354,10 @@ export function RecordsSection({ user, onEditApplication, onViewApplication }: R
             <Button
               variant="secondary"
               onClick={loadApplications}
+              disabled={loading}
               className="bg-white/10 hover:bg-white/20 text-white border-white/20"
             >
-              <RefreshCw className="h-4 w-4 mr-2" />
+              {loading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
               Refresh Data
             </Button>
           </div>
@@ -500,7 +539,7 @@ export function RecordsSection({ user, onEditApplication, onViewApplication }: R
           {loading ? (
             <div className="flex items-center justify-center py-12">
               <div className="text-center">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                <Loader2 className="h-8 w-8 animate-spin text-blue-600 mx-auto mb-4" />
                 <p className="text-slate-600 font-medium">Loading permit records...</p>
               </div>
             </div>
@@ -550,19 +589,21 @@ export function RecordsSection({ user, onEditApplication, onViewApplication }: R
                       >
                         <TableCell className="py-4">
                           <div className="space-y-1">
-                            <div className="font-bold text-slate-900 text-sm">{application.applicationId}</div>
+                            <div className="font-bold text-slate-900 text-sm">{application.applicationId || "N/A"}</div>
                             <div className="text-xs text-slate-500 flex items-center gap-1">
                               <FileText className="h-3 w-3" />
-                              Stage {application.currentStage} of 4
+                              Stage {application.currentStage || 1} of 4
                             </div>
                           </div>
                         </TableCell>
 
                         <TableCell className="py-4">
                           <div className="space-y-1">
-                            <div className="font-semibold text-slate-900 text-sm">{application.applicantName}</div>
-                            <div className="text-xs text-slate-600">{application.cellularNumber}</div>
-                            <div className="text-xs text-slate-500">{application.emailAddress}</div>
+                            <div className="font-semibold text-slate-900 text-sm">
+                              {application.applicantName || "Unknown"}
+                            </div>
+                            <div className="text-xs text-slate-600">{application.cellularNumber || "N/A"}</div>
+                            <div className="text-xs text-slate-500">{application.emailAddress || "N/A"}</div>
                           </div>
                         </TableCell>
 
@@ -570,11 +611,13 @@ export function RecordsSection({ user, onEditApplication, onViewApplication }: R
                           <div className="space-y-1">
                             <div className="flex items-center gap-1 text-sm font-medium text-slate-900">
                               <CreditCard className="h-3 w-3 text-blue-600" />
-                              {application.customerAccountNumber}
+                              {application.customerAccountNumber || "N/A"}
                             </div>
                             <div className="flex items-start gap-1 text-xs text-slate-600 max-w-xs">
                               <MapPin className="h-3 w-3 text-slate-400 mt-0.5 flex-shrink-0" />
-                              <span className="line-clamp-2">{application.physicalAddress}</span>
+                              <span className="line-clamp-2">
+                                {application.physicalAddress || "No address provided"}
+                              </span>
                             </div>
                           </div>
                         </TableCell>
@@ -590,7 +633,7 @@ export function RecordsSection({ user, onEditApplication, onViewApplication }: R
                               {formatWaterSource(application.waterSource)}
                             </div>
                             <div className="text-xs text-slate-500">
-                              {application.waterAllocation} ML • {application.landSize} ha
+                              {application.waterAllocation || 0} ML • {application.landSize || 0} ha
                             </div>
                           </div>
                         </TableCell>
@@ -602,7 +645,7 @@ export function RecordsSection({ user, onEditApplication, onViewApplication }: R
                               {statusInfo.label}
                             </Badge>
                             <div className="text-xs text-slate-500">
-                              Progress: {Math.round((application.currentStage / 4) * 100)}%
+                              Progress: {Math.round(((application.currentStage || 1) / 4) * 100)}%
                             </div>
                           </div>
                         </TableCell>
@@ -662,3 +705,5 @@ export function RecordsSection({ user, onEditApplication, onViewApplication }: R
     </div>
   )
 }
+
+export default RecordsSection
