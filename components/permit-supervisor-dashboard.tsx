@@ -1,17 +1,17 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Button } from "@/components/ui/button"
+import { Users, FileText, BarChart3, Activity, MessageSquare, Settings, Shield, Key, UserCheck } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Plus, FileText, Clock, CheckCircle, XCircle, AlertTriangle } from "lucide-react"
 import type { User, PermitApplication } from "@/types"
 import { db } from "@/lib/database"
-import { PermittingOfficerApplicationsTable } from "./permitting-officer-applications-table"
-import { MessagingSystem } from "./messaging-system"
+import { ApplicationsTable } from "./applications-table"
+import { UserManagement } from "./user-management"
+import { EnhancedReportsAnalytics } from "./enhanced-reports-analytics"
 import { ActivityLogs } from "./activity-logs"
-import { ReportsAnalytics } from "./reports-analytics"
+import { MessagingSystem } from "./messaging-system"
 
 interface PermitSupervisorDashboardProps {
   user: User
@@ -27,183 +27,354 @@ export function PermitSupervisorDashboard({
   onViewApplication,
 }: PermitSupervisorDashboardProps) {
   const [applications, setApplications] = useState<PermitApplication[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [unreadMessageCount, setUnreadMessageCount] = useState(0)
+  const [users, setUsers] = useState<User[]>([])
+  const [activeView, setActiveView] = useState("overview")
+  const [stats, setStats] = useState({
+    totalApplications: 0,
+    approvedApplications: 0,
+    pendingApplications: 0,
+    totalUsers: 0,
+    activeUsers: 0,
+  })
 
   useEffect(() => {
-    loadApplications()
-    loadUnreadCount()
-  }, [user.id])
+    const loadDashboardData = async () => {
+      try {
+        const [apps, allUsers] = await Promise.all([db.getApplications(), db.getUsers()])
 
-  const loadApplications = async () => {
-    try {
-      setIsLoading(true)
-      const apps = await db.getApplications()
-      setApplications(apps)
-    } catch (error) {
-      console.error("Error loading applications:", error)
-    } finally {
-      setIsLoading(false)
+        setApplications(apps)
+
+        // Filter out ICT users for permit supervisor
+        const filteredUsers = allUsers.filter((u) => u.userType !== "ict")
+        setUsers(filteredUsers)
+
+        // Calculate stats
+        setStats({
+          totalApplications: apps.length,
+          approvedApplications: apps.filter((app) => app.status === "approved").length,
+          pendingApplications: apps.filter((app) => app.status !== "approved" && app.status !== "rejected").length,
+          totalUsers: filteredUsers.length,
+          activeUsers: filteredUsers.length, // In a real system, this would be based on recent activity
+        })
+      } catch (error) {
+        console.error("Failed to load dashboard data:", error)
+      }
     }
-  }
 
-  const loadUnreadCount = async () => {
-    try {
-      const publicMsgs = await db.getMessages(user.id, true)
-      const privateMsgs = await db.getMessages(user.id, false)
+    loadDashboardData()
+  }, [])
 
-      const unreadPublic = publicMsgs.filter((m) => m.senderId !== user.id && !m.readAt).length
-      const unreadPrivate = privateMsgs.filter((m) => m.senderId !== user.id && !m.readAt).length
+  /* ---------- local reusable UI bits ---------- */
+  const QuickActionCard = ({
+    title,
+    description,
+    icon: Icon,
+    onClick,
+    variant = "default",
+  }: {
+    title: string
+    description: string
+    icon: any
+    onClick: () => void
+    variant?: "default" | "primary" | "secondary"
+  }) => {
+    const cardClass =
+      variant === "primary"
+        ? "border-blue-200 bg-blue-50 hover:bg-blue-100"
+        : variant === "secondary"
+          ? "border-green-200 bg-green-50 hover:bg-green-100"
+          : "hover:bg-gray-50"
 
-      setUnreadMessageCount(unreadPublic + unreadPrivate)
-    } catch (error) {
-      console.error("Failed to load unread count:", error)
-    }
-  }
-
-  const getStatistics = () => {
-    const total = applications.length
-    const approved = applications.filter((app) => app.status === "approved").length
-    const rejected = applications.filter((app) => app.status === "rejected").length
-    const pending = applications.filter((app) => app.status === "submitted" || app.status === "under_review").length
-    const expiringSoon = applications.filter((app) => {
-      if (app.status !== "approved" || !app.approvedAt) return false
-      const expiryDate = new Date(app.approvedAt)
-      expiryDate.setFullYear(expiryDate.getFullYear() + 5)
-      const daysUntilExpiry = Math.ceil((expiryDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
-      return daysUntilExpiry <= 30 && daysUntilExpiry > 0
-    }).length
-
-    return { total, approved, rejected, pending, expiringSoon }
-  }
-
-  const stats = getStatistics()
-
-  if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading dashboard...</p>
-        </div>
-      </div>
+      <Card className={`cursor-pointer transition-colors ${cardClass}`} onClick={onClick}>
+        <CardContent className="p-6">
+          <div className="flex items-center space-x-4">
+            <div
+              className={`p-3 rounded-lg ${
+                variant === "primary" ? "bg-blue-100" : variant === "secondary" ? "bg-green-100" : "bg-gray-100"
+              }`}
+            >
+              <Icon
+                className={`h-6 w-6 ${
+                  variant === "primary" ? "text-blue-600" : variant === "secondary" ? "text-green-600" : "text-gray-600"
+                }`}
+              />
+            </div>
+            <div>
+              <h3 className="font-semibold text-lg">{title}</h3>
+              <p className="text-sm text-gray-600">{description}</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     )
   }
 
+  const StatCard = ({
+    title,
+    value,
+    icon: Icon,
+    color = "blue",
+  }: {
+    title: string
+    value: number
+    icon: any
+    color?: "blue" | "green" | "yellow" | "purple"
+  }) => {
+    const colorClasses = {
+      blue: "bg-blue-100 text-blue-600",
+      green: "bg-green-100 text-green-600",
+      yellow: "bg-yellow-100 text-yellow-600",
+      purple: "bg-purple-100 text-purple-600",
+    }
+
+    return (
+      <Card>
+        <CardContent className="p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">{title}</p>
+              <p className="text-3xl font-bold">{value}</p>
+            </div>
+            <div className={`p-3 rounded-lg ${colorClasses[color]}`}>
+              <Icon className="h-6 w-6" />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  /* ---------- render ---------- */
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Permit Supervisor Dashboard</h1>
-          <p className="text-gray-600">Oversee permit applications and system operations</p>
+          <p className="text-gray-600 mt-1">Administrative oversight and system management</p>
         </div>
-        <Button onClick={onNewApplication} className="flex items-center">
-          <Plus className="h-4 w-4 mr-2" />
-          New Application
-        </Button>
+        <Badge variant="secondary" className="px-3 py-1">
+          <Shield className="h-4 w-4 mr-1" />
+          Supervisor Access
+        </Badge>
       </div>
 
-      {/* Statistics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Applications</CardTitle>
-            <FileText className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.total}</div>
-            <p className="text-xs text-muted-foreground">All time</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Approved</CardTitle>
-            <CheckCircle className="h-4 w-4 text-green-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">{stats.approved}</div>
-            <p className="text-xs text-muted-foreground">
-              {stats.total > 0 ? Math.round((stats.approved / stats.total) * 100) : 0}% approval rate
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Rejected</CardTitle>
-            <XCircle className="h-4 w-4 text-red-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-red-600">{stats.rejected}</div>
-            <p className="text-xs text-muted-foreground">
-              {stats.total > 0 ? Math.round((stats.rejected / stats.total) * 100) : 0}% rejection rate
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pending Review</CardTitle>
-            <Clock className="h-4 w-4 text-yellow-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-yellow-600">{stats.pending}</div>
-            <p className="text-xs text-muted-foreground">Awaiting approval</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Expiring Soon</CardTitle>
-            <AlertTriangle className="h-4 w-4 text-orange-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-orange-600">{stats.expiringSoon}</div>
-            <p className="text-xs text-muted-foreground">Within 30 days</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Main Content Tabs */}
-      <Tabs defaultValue="applications" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="applications">Applications</TabsTrigger>
-          <TabsTrigger value="messages" className="relative">
-            Messages
-            {unreadMessageCount > 0 && (
-              <Badge
-                variant="destructive"
-                className="ml-2 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs"
-              >
-                {unreadMessageCount > 99 ? "99+" : unreadMessageCount}
-              </Badge>
-            )}
+      {/* Tabs */}
+      <Tabs value={activeView} onValueChange={setActiveView} className="w-full">
+        <TabsList className="grid w-full grid-cols-6">
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="users" className="font-semibold">
+            <Users className="h-4 w-4 mr-2" />
+            User Management
           </TabsTrigger>
-          <TabsTrigger value="reports">Basic Reports</TabsTrigger>
-          <TabsTrigger value="logs">Activity Logs</TabsTrigger>
+          <TabsTrigger value="applications">Applications</TabsTrigger>
+          <TabsTrigger value="reports">Advanced Reports</TabsTrigger>
+          <TabsTrigger value="messages">Messages</TabsTrigger>
+          <TabsTrigger value="logs">Activity</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="applications" className="space-y-4">
-          <PermittingOfficerApplicationsTable
-            applications={applications}
-            onEdit={onEditApplication}
-            onView={onViewApplication}
-            user={user}
-          />
+        {/* Overview */}
+        <TabsContent value="overview" className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <StatCard title="Total Applications" value={stats.totalApplications} icon={FileText} color="blue" />
+            <StatCard title="Approved Permits" value={stats.approvedApplications} icon={UserCheck} color="green" />
+            <StatCard title="Pending Review" value={stats.pendingApplications} icon={Activity} color="yellow" />
+            <StatCard title="System Users" value={stats.totalUsers} icon={Users} color="purple" />
+          </div>
+
+          {/* Quick Actions */}
+          <div>
+            <h2 className="text-xl font-semibold mb-4">Quick Actions</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <QuickActionCard
+                title="Manage Users"
+                description="Edit user credentials and manage access"
+                icon={Users}
+                onClick={() => setActiveView("users")}
+                variant="primary"
+              />
+              <QuickActionCard
+                title="View Applications"
+                description="Review and manage permit applications"
+                icon={FileText}
+                onClick={() => setActiveView("applications")}
+                variant="secondary"
+              />
+              <QuickActionCard
+                title="Advanced Analytics"
+                description="Generate comprehensive reports and analytics"
+                icon={BarChart3}
+                onClick={() => setActiveView("reports")}
+              />
+              <QuickActionCard
+                title="Activity Monitoring"
+                description="Track system usage and user activity"
+                icon={Activity}
+                onClick={() => setActiveView("logs")}
+              />
+              <QuickActionCard
+                title="Communications"
+                description="Manage system messages and notifications"
+                icon={MessageSquare}
+                onClick={() => setActiveView("messages")}
+              />
+              <QuickActionCard
+                title="System Settings"
+                description="Configure system preferences"
+                icon={Settings}
+                onClick={() => {
+                  /* future settings */
+                }}
+              />
+            </div>
+          </div>
+
+          {/* Recent Activity */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <Activity className="h-5 w-5 mr-2" />
+                Recent System Activity
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                    <span className="text-sm">System operational - All services running</span>
+                  </div>
+                  <span className="text-xs text-gray-500">Now</span>
+                </div>
+                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                    <span className="text-sm">{stats.totalUsers} active users in system</span>
+                  </div>
+                  <span className="text-xs text-gray-500">Today</span>
+                </div>
+                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
+                    <span className="text-sm">{stats.pendingApplications} applications pending review</span>
+                  </div>
+                  <span className="text-xs text-gray-500">Today</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
 
-        <TabsContent value="messages">
-          <MessagingSystem user={user} />
+        {/* User management */}
+        <TabsContent value="users">
+          <Card>
+            <CardHeader className="border-b">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <div className="p-2 bg-blue-100 rounded-lg">
+                    <Users className="h-6 w-6 text-blue-600" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-xl">User Credential Management</CardTitle>
+                    <p className="text-sm text-gray-600 mt-1">Manage user login credentials and access permissions</p>
+                  </div>
+                </div>
+                <Badge variant="outline" className="flex items-center">
+                  <Key className="h-3 w-3 mr-1" />
+                  Credentials Only
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              <UserManagement currentUser={user} />
+            </CardContent>
+          </Card>
         </TabsContent>
 
+        {/* Applications */}
+        <TabsContent value="applications">
+          <Card>
+            <CardHeader className="border-b">
+              <div className="flex items-center space-x-3">
+                <div className="p-2 bg-green-100 rounded-lg">
+                  <FileText className="h-6 w-6 text-green-600" />
+                </div>
+                <div>
+                  <CardTitle className="text-xl">Application Management</CardTitle>
+                  <p className="text-sm text-gray-600 mt-1">Oversee permit applications and printing operations</p>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="p-6">
+              <ApplicationsTable
+                user={user}
+                onNewApplication={onNewApplication}
+                onEditApplication={onEditApplication}
+                onViewApplication={onViewApplication}
+              />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Advanced Reports */}
         <TabsContent value="reports">
-          <ReportsAnalytics />
+          <Card>
+            <CardHeader className="border-b">
+              <div className="flex items-center space-x-3">
+                <div className="p-2 bg-purple-100 rounded-lg">
+                  <BarChart3 className="h-6 w-6 text-purple-600" />
+                </div>
+                <div>
+                  <CardTitle className="text-xl">Advanced Reports & Analytics</CardTitle>
+                  <p className="text-sm text-gray-600 mt-1">Comprehensive system performance and data analytics</p>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              <EnhancedReportsAnalytics />
+            </CardContent>
+          </Card>
         </TabsContent>
 
+        {/* Messages */}
+        <TabsContent value="messages">
+          <Card>
+            <CardHeader className="border-b">
+              <div className="flex items-center space-x-3">
+                <div className="p-2 bg-yellow-100 rounded-lg">
+                  <MessageSquare className="h-6 w-6 text-yellow-600" />
+                </div>
+                <div>
+                  <CardTitle className="text-xl">System Communications</CardTitle>
+                  <p className="text-sm text-gray-600 mt-1">Manage system-wide communications and notifications</p>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              <MessagingSystem user={user} />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Activity logs */}
         <TabsContent value="logs">
-          <ActivityLogs user={user} />
+          <Card>
+            <CardHeader className="border-b">
+              <div className="flex items-center space-x-3">
+                <div className="p-2 bg-red-100 rounded-lg">
+                  <Activity className="h-6 w-6 text-red-600" />
+                </div>
+                <div>
+                  <CardTitle className="text-xl">System Activity Monitoring</CardTitle>
+                  <p className="text-sm text-gray-600 mt-1">Track user activities and system operations</p>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              <ActivityLogs user={user} />
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>

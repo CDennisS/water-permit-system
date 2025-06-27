@@ -98,24 +98,15 @@ export default function Home() {
     { value: "dashboard", label: "Dashboard & Applications" },
     { value: "records", label: "Records" },
     { value: "messages", label: "Messages" },
+    { value: "reports", label: "Reports" },
     { value: "logs", label: "Activity Logs" },
   ]
 
-  // Only ICT users get advanced reports - permitting officers get basic reports in their specialized dashboard
   const getUserTabs = () => {
     if (!user) return baseTabs
-
-    // For permitting officers, don't show reports tab as they have basic reports in their dashboard
-    if (user.userType === "permitting_officer") {
-      return baseTabs
-    }
-
-    // Only ICT gets advanced reports in the main tabs
-    if (user.userType === "ict") {
-      return [...baseTabs, { value: "reports", label: "Advanced Reports" }]
-    }
-
-    return baseTabs
+    return baseTabs.filter(
+      (t) => t.value !== "reports" || ["permitting_officer", "permit_supervisor", "ict"].includes(user.userType),
+    )
   }
 
   /* ------------------------------ UI -------------------------------- */
@@ -174,9 +165,9 @@ export default function Home() {
                   onViewApplication={handleViewApp}
                 />
               ) : (
-                /* Standard Dashboard for permitting officers and other users */
+                /* Standard Dashboard for other users */
                 <Tabs value={currentView} onValueChange={handleTabChange} className="w-full">
-                  <TabsList className={`grid w-full ${getUserTabs().length === 4 ? "grid-cols-4" : "grid-cols-5"}`}>
+                  <TabsList className="grid w-full grid-cols-5">
                     {getUserTabs().map((tab) => (
                       <TabsTrigger key={tab.value} value={tab.value} className="relative">
                         {tab.label}
@@ -214,16 +205,13 @@ export default function Home() {
                     <MessagingSystem user={user} />
                   </TabsContent>
 
+                  <TabsContent value="reports">
+                    <ReportsAnalytics />
+                  </TabsContent>
+
                   <TabsContent value="logs">
                     <ActivityLogs user={user} />
                   </TabsContent>
-
-                  {/* Advanced Reports only for ICT */}
-                  {user.userType === "ict" && (
-                    <TabsContent value="reports">
-                      <ReportsAnalytics />
-                    </TabsContent>
-                  )}
                 </Tabs>
               )}
             </>
