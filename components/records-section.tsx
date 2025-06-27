@@ -80,6 +80,26 @@ const statusConfig = {
     color: "bg-red-100 text-red-800 border-red-200",
     icon: FileText,
   },
+  expiring_30: {
+    label: "Expiring Soon (30 days)",
+    color: "bg-amber-100 text-amber-800 border-amber-200",
+    icon: Calendar,
+  },
+  expiring_60: {
+    label: "Expiring (60 days)",
+    color: "bg-yellow-100 text-yellow-800 border-yellow-200",
+    icon: Calendar,
+  },
+  expiring_90: {
+    label: "Expiring (90 days)",
+    color: "bg-orange-100 text-orange-800 border-orange-200",
+    icon: Calendar,
+  },
+  expired: {
+    label: "Expired",
+    color: "bg-red-100 text-red-800 border-red-200",
+    icon: Calendar,
+  },
 }
 
 export function RecordsSection({ user, onEditApplication, onViewApplication }: RecordsSectionProps) {
@@ -139,7 +159,38 @@ export function RecordsSection({ user, onEditApplication, onViewApplication }: R
 
     // Status filter
     if (filters.status !== "all") {
-      filtered = filtered.filter((app) => app.status === filters.status)
+      if (filters.status.startsWith("expiring_") || filters.status === "expired") {
+        // Handle expiration-based filters
+        const now = new Date()
+
+        filtered = filtered.filter((app) => {
+          // Only check approved applications for expiration
+          if (app.status !== "approved" || !app.approvedAt) return false
+
+          // Calculate expiration date (assuming 5-year permit validity)
+          const approvedDate = new Date(app.approvedAt)
+          const expirationDate = new Date(approvedDate)
+          expirationDate.setFullYear(expirationDate.getFullYear() + 5)
+
+          const daysUntilExpiration = Math.ceil((expirationDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+
+          switch (filters.status) {
+            case "expiring_30":
+              return daysUntilExpiration > 0 && daysUntilExpiration <= 30
+            case "expiring_60":
+              return daysUntilExpiration > 0 && daysUntilExpiration <= 60
+            case "expiring_90":
+              return daysUntilExpiration > 0 && daysUntilExpiration <= 90
+            case "expired":
+              return daysUntilExpiration <= 0
+            default:
+              return false
+          }
+        })
+      } else {
+        // Handle regular status filters
+        filtered = filtered.filter((app) => app.status === filters.status)
+      }
     }
 
     // Permit type filter
@@ -297,6 +348,37 @@ export function RecordsSection({ user, onEditApplication, onViewApplication }: R
   }
 
   const getApplicationStats = () => {
+    const now = new Date()
+
+    const getExpirationStats = () => {
+      const approvedApps = filteredApplications.filter((app) => app.status === "approved" && app.approvedAt)
+
+      return approvedApps.reduce(
+        (stats, app) => {
+          const approvedDate = new Date(app.approvedAt!)
+          const expirationDate = new Date(approvedDate)
+          expirationDate.setFullYear(expirationDate.getFullYear() + 5)
+
+          const daysUntilExpiration = Math.ceil((expirationDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+
+          if (daysUntilExpiration <= 0) {
+            stats.expired++
+          } else if (daysUntilExpiration <= 30) {
+            stats.expiring30++
+          } else if (daysUntilExpiration <= 60) {
+            stats.expiring60++
+          } else if (daysUntilExpiration <= 90) {
+            stats.expiring90++
+          }
+
+          return stats
+        },
+        { expired: 0, expiring30: 0, expiring60: 0, expiring90: 0 },
+      )
+    }
+
+    const expirationStats = getExpirationStats()
+
     return {
       total: filteredApplications.length,
       approved: filteredApplications.filter((app) => app.status === "approved").length,
@@ -304,6 +386,7 @@ export function RecordsSection({ user, onEditApplication, onViewApplication }: R
       pending: filteredApplications.filter((app) => ["submitted", "pending", "under_review"].includes(app.status))
         .length,
       draft: filteredApplications.filter((app) => ["unsubmitted", "draft"].includes(app.status)).length,
+      ...expirationStats,
     }
   }
 
@@ -365,7 +448,7 @@ export function RecordsSection({ user, onEditApplication, onViewApplication }: R
       </div>
 
       {/* Statistics Overview */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-7 gap-4">
         <Card className="border-l-4 border-l-blue-600">
           <CardContent className="p-4">
             <div className="text-center">
@@ -403,6 +486,22 @@ export function RecordsSection({ user, onEditApplication, onViewApplication }: R
             <div className="text-center">
               <p className="text-sm font-medium text-slate-600 uppercase tracking-wide">Draft</p>
               <p className="text-2xl font-bold text-orange-600">{stats.draft}</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="border-l-4 border-l-amber-500">
+          <CardContent className="p-4">
+            <div className="text-center">
+              <p className="text-sm font-medium text-slate-600 uppercase tracking-wide">Expiring (30d)</p>
+              <p className="text-2xl font-bold text-amber-600">{stats.expiring30}</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="border-l-4 border-l-red-600">
+          <CardContent className="p-4">
+            <div className="text-center">
+              <p className="text-sm font-medium text-slate-600 uppercase tracking-wide">Expired</p>
+              <p className="text-2xl font-bold text-red-700">{stats.expired}</p>
             </div>
           </CardContent>
         </Card>
@@ -456,6 +555,10 @@ export function RecordsSection({ user, onEditApplication, onViewApplication }: R
                   <SelectItem value="under_review">Under Review</SelectItem>
                   <SelectItem value="unsubmitted">Not Submitted</SelectItem>
                   <SelectItem value="draft">Draft</SelectItem>
+                  <SelectItem value="expiring_30">Expiring in 30 Days</SelectItem>
+                  <SelectItem value="expiring_60">Expiring in 60 Days</SelectItem>
+                  <SelectItem value="expiring_90">Expiring in 90 Days</SelectItem>
+                  <SelectItem value="expired">Expired</SelectItem>
                 </SelectContent>
               </Select>
             </div>
