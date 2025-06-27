@@ -2,55 +2,36 @@
 
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Checkbox } from "@/components/ui/checkbox"
+import { Plus, Search, Filter, Download, Eye, Edit, FileText, Send } from "lucide-react"
 import type { PermitApplication, User } from "@/types"
 import { db } from "@/lib/database"
-import type { FilterState } from "./advanced-filters"
-import { Loader2 } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { PermitPrinter } from "./permit-printer"
+import { CommentsPrinter } from "./comments-printer"
+import { AdvancedFilters, type FilterState } from "./advanced-filters"
 
 interface ApplicationsTableProps {
   user: User
-  onView: (application: PermitApplication) => void
-  onEdit?: (application: PermitApplication) => void
-  showBulkActions?: boolean
+  onNewApplication: () => void
+  onEditApplication: (application: PermitApplication) => void
+  onViewApplication: (application: PermitApplication) => void
 }
 
-const statusColor: Record<string, string> = {
-  unsubmitted: "bg-orange-600",
-  draft: "bg-orange-600",
-  submitted: "bg-blue-600",
-  pending: "bg-blue-600",
-  under_review: "bg-yellow-500",
-  approved: "bg-green-600",
-  rejected: "bg-red-600",
-}
-
-function formatDate(dateString: string | Date) {
-  try {
-    const date = typeof dateString === "string" ? new Date(dateString) : dateString
-    return new Intl.DateTimeFormat("en-ZA", {
-      year: "numeric",
-      month: "short",
-      day: "2-digit",
-    }).format(date)
-  } catch {
-    return "N/A"
-  }
-}
-
-export function ApplicationsTable({ user, onView, onEdit, showBulkActions = false }: ApplicationsTableProps) {
+export function ApplicationsTable({
+  user,
+  onNewApplication,
+  onEditApplication,
+  onViewApplication,
+}: ApplicationsTableProps) {
   const [applications, setApplications] = useState<PermitApplication[]>([])
   const [filteredApplications, setFilteredApplications] = useState<PermitApplication[]>([])
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [isLoading, setIsLoading] = useState(true)
-  const [selectedApplications, setSelectedApplications] = useState<Set<string>>(new Set())
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [loading, setLoading] = useState(true)
 
   const [advancedFilters, setAdvancedFilters] = useState<FilterState>({
     searchTerm: "",
@@ -87,13 +68,12 @@ export function ApplicationsTable({ user, onView, onEdit, showBulkActions = fals
 
   const loadApplications = async () => {
     try {
-      setLoading(true)
       const apps = await db.getApplications()
       setApplications(apps)
     } catch (error) {
-      console.error("Error loading applications:", error)
+      console.error("Failed to load applications:", error)
     } finally {
-      setLoading(false)
+      setIsLoading(false)
     }
   }
 
@@ -247,80 +227,8 @@ export function ApplicationsTable({ user, onView, onEdit, showBulkActions = fals
     setFilteredApplications(filtered)
   }
 
-  // Get unsubmitted applications for selection (only for permitting officers)
-  const unsubmittedApplications = applications.filter((app) => app.status === "unsubmitted" || app.status === "draft")
-
-  // Check if all unsubmitted applications are selected
-  const selectedUnsubmittedCount = unsubmittedApplications.filter((app) => selectedApplications.has(app.id)).length
-
-  const allUnsubmittedSelected =
-    unsubmittedApplications.length > 0 && selectedUnsubmittedCount === unsubmittedApplications.length
-
-  // Handle select all unsubmitted applications
-  const handleSelectAllUnsubmitted = (checked: boolean) => {
-    if (checked) {
-      const unsubmittedIds = unsubmittedApplications.map((app) => app.id)
-      setSelectedApplications(new Set([...selectedApplications, ...unsubmittedIds]))
-    } else {
-      const newSelected = new Set(selectedApplications)
-      unsubmittedApplications.forEach((app) => newSelected.delete(app.id))
-      setSelectedApplications(newSelected)
-    }
-  }
-
-  // Handle individual application selection
-  const handleSelectApplication = (appId: string, checked: boolean) => {
-    const newSelected = new Set(selectedApplications)
-    if (checked) {
-      newSelected.add(appId)
-    } else {
-      newSelected.delete(appId)
-    }
-    setSelectedApplications(newSelected)
-  }
-
-  // Submit selected unsubmitted applications
-  const handleSubmitSelected = async () => {
-    if (selectedUnsubmittedCount === 0) return
-
-    setIsSubmitting(true)
-    try {
-      const selectedUnsubmittedIds = unsubmittedApplications
-        .filter((app) => selectedApplications.has(app.id))
-        .map((app) => app.id)
-
-      // Update applications to submitted status
-      for (const appId of selectedUnsubmittedIds) {
-        await db.updateApplication(appId, {
-          status: "submitted",
-          currentStage: 2,
-          submittedAt: new Date(),
-        })
-
-        // Add activity log
-        await db.addLog({
-          userId: user.id,
-          action: "Application submitted",
-          details: `Application submitted to Upper Manyame Sub Catchment Council Chairman for review`,
-          applicationId: appId,
-        })
-      }
-
-      // Reload applications and clear selection
-      await loadApplications()
-      setSelectedApplications(new Set())
-
-      alert(`Successfully submitted ${selectedUnsubmittedIds.length} application(s) to the Chairman for review.`)
-    } catch (error) {
-      console.error("Error submitting applications:", error)
-      alert("Error submitting applications. Please try again.")
-    } finally {
-      setIsSubmitting(false)
-    }
-  }
-
   const handleSubmitAll = async () => {
-    const unsubmittedApps = applications.filter((app) => app.status === "unsubmitted" || app.status === "draft")
+    const unsubmittedApps = applications.filter((app) => app.status === "unsubmitted")
 
     for (const app of unsubmittedApps) {
       await db.updateApplication(app.id, {
@@ -406,9 +314,16 @@ export function ApplicationsTable({ user, onView, onEdit, showBulkActions = fals
   }
 
   const getStatusBadge = (status: string) => {
+    const variants = {
+      unsubmitted: "secondary",
+      submitted: "default",
+      under_review: "default",
+      approved: "default",
+      rejected: "destructive",
+    } as const
+
     const colors = {
       unsubmitted: "bg-gray-100 text-gray-800",
-      draft: "bg-gray-100 text-gray-800",
       submitted: "bg-blue-100 text-blue-800",
       under_review: "bg-yellow-100 text-yellow-800",
       approved: "bg-green-100 text-green-800",
@@ -418,168 +333,183 @@ export function ApplicationsTable({ user, onView, onEdit, showBulkActions = fals
     return <Badge className={colors[status as keyof typeof colors]}>{status.replace("_", " ").toUpperCase()}</Badge>
   }
 
-  const canEditApplication = (app: PermitApplication) => {
-    return app.status === "unsubmitted" || app.status === "draft"
+  const canEdit = (application: PermitApplication) => {
+    return user.userType === "permitting_officer" && application.status === "unsubmitted"
   }
 
-  const canPrintApplication = (app: PermitApplication) => {
-    return app.status === "approved" && ["permitting_officer", "permit_supervisor", "ict"].includes(user.userType)
-  }
-
-  const handleReopenApplication = async (application: PermitApplication) => {
-    if (!["permit_supervisor", "ict"].includes(user.userType)) return
-
-    try {
-      await db.updateApplication(application.id, {
-        status: "unsubmitted",
-        currentStage: 1,
-      })
-
-      await db.addLog({
-        userId: user.id,
-        userType: user.userType,
-        action: "Reopened Application",
-        details: `Reopened rejected application ${application.applicationId} for editing`,
-        applicationId: application.id,
-      })
-
-      loadApplications()
-    } catch (error) {
-      console.error("Failed to reopen application:", error)
-    }
-  }
-
-  if (loading) {
+  const canPrint = (application: PermitApplication) => {
     return (
-      <Card>
-        <CardContent className="flex items-center justify-center py-8">
-          <Loader2 className="h-6 w-6 animate-spin mr-2" />
-          Loading applications...
-        </CardContent>
-      </Card>
+      application.status === "approved" && ["permitting_officer", "permit_supervisor", "ict"].includes(user.userType)
     )
   }
 
-  return (
-    <div className="space-y-4">
-      {/* Bulk Selection Card */}
-      {showBulkActions && unsubmittedApplications.length > 0 && (
-        <Card className="border-orange-200 bg-orange-50">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg text-orange-800">Bulk Submission</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="select-all-unsubmitted"
-                  checked={allUnsubmittedSelected}
-                  onCheckedChange={handleSelectAllUnsubmitted}
-                  className="border-orange-400"
-                />
-                <label htmlFor="select-all-unsubmitted" className="text-sm font-medium text-orange-800">
-                  Select All Unsubmitted Applications ({unsubmittedApplications.length})
-                </label>
-              </div>
-              <Badge variant="secondary" className="bg-orange-100 text-orange-800">
-                {selectedUnsubmittedCount} selected
-              </Badge>
-            </div>
+  if (isLoading) {
+    return <div className="flex justify-center p-8">Loading applications...</div>
+  }
 
-            {allUnsubmittedSelected && (
-              <div className="flex items-center justify-between pt-2 border-t border-orange-200">
-                <p className="text-sm text-orange-700">
-                  Selected applications will be sent to the Upper Manyame Sub Catchment Council Chairman for review.
-                </p>
-                <Button
-                  onClick={handleSubmitSelected}
-                  disabled={isSubmitting || selectedUnsubmittedCount === 0}
-                  className="bg-orange-600 hover:bg-orange-700 text-white"
-                >
-                  {isSubmitting && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-                  Submit All Unsubmitted Applications
-                </Button>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
+  return (
+    <div className="space-y-6">
+      {/* Header Actions */}
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-center space-x-4">
+          {user.userType === "permitting_officer" && (
+            <Button onClick={onNewApplication}>
+              <Plus className="h-4 w-4 mr-2" />
+              Add Application
+            </Button>
+          )}
+
+          <div className="flex items-center space-x-2">
+            <Search className="h-4 w-4 text-gray-500" />
+            <Input
+              placeholder="Search applications..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-64"
+            />
+          </div>
+
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-40">
+              <Filter className="h-4 w-4 mr-2" />
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Status</SelectItem>
+              <SelectItem value="unsubmitted">Unsubmitted</SelectItem>
+              <SelectItem value="submitted">Submitted</SelectItem>
+              <SelectItem value="under_review">Under Review</SelectItem>
+              <SelectItem value="approved">Approved</SelectItem>
+              <SelectItem value="rejected">Rejected</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="flex items-center space-x-2">
+          <Button variant="outline" onClick={exportToExcel}>
+            <Download className="h-4 w-4 mr-2" />
+            Export
+          </Button>
+
+          {user.userType === "permitting_officer" && (
+            <Button onClick={handleSubmitAll}>
+              <Send className="h-4 w-4 mr-2" />
+              Submit All
+            </Button>
+          )}
+
+          {["chairperson", "catchment_manager", "catchment_chairperson"].includes(user.userType) && (
+            <Button onClick={handleBatchSubmit}>
+              <Send className="h-4 w-4 mr-2" />
+              Submit Applications
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {/* Advanced Filters */}
+      <AdvancedFilters
+        onFiltersChange={setAdvancedFilters}
+        currentFilters={advancedFilters}
+        onClearFilters={() =>
+          setAdvancedFilters({
+            searchTerm: "",
+            searchField: "all",
+            dateRange: "all",
+            startDate: "",
+            endDate: "",
+            dateField: "created",
+            status: "all",
+            stage: "all",
+            permitType: "all",
+            waterSource: "all",
+            landSizeMin: "",
+            landSizeMax: "",
+            waterAllocationMin: "",
+            waterAllocationMax: "",
+            numberOfBoreholes: "all",
+            gpsLatMin: "",
+            gpsLatMax: "",
+            gpsLngMin: "",
+            gpsLngMax: "",
+            hasComments: "all",
+            hasDocuments: "all",
+            intendedUse: "",
+          })
+        }
+      />
 
       {/* Applications Table */}
       <Card>
         <CardHeader>
-          <CardTitle>Applications</CardTitle>
+          <CardTitle>Applications ({filteredApplications.length})</CardTitle>
         </CardHeader>
-        <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader className="bg-muted/50">
-                <TableRow>
-                  {showBulkActions && <TableHead className="w-[50px]">Select</TableHead>}
-                  <TableHead className="w-[140px]">Reference</TableHead>
-                  <TableHead>Applicant</TableHead>
-                  <TableHead className="w-[120px]">Status</TableHead>
-                  <TableHead className="w-[100px] text-center">Stage</TableHead>
-                  <TableHead className="w-[120px]">Created</TableHead>
-                  <TableHead className="w-[140px] text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {applications.length > 0 ? (
-                  applications.map((app) => {
-                    const isUnsubmitted = app.status === "unsubmitted" || app.status === "draft"
-                    const isSelected = selectedApplications.has(app.id)
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Application ID</TableHead>
+                <TableHead>Applicant Name</TableHead>
+                <TableHead>Permit Type</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Stage</TableHead>
+                <TableHead>Created</TableHead>
+                <TableHead>Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredApplications.map((application) => (
+                <TableRow key={application.id}>
+                  <TableCell className="font-medium">{application.applicationId}</TableCell>
+                  <TableCell>{application.applicantName}</TableCell>
+                  <TableCell className="capitalize">{application.permitType.replace("_", " ")}</TableCell>
+                  <TableCell>{getStatusBadge(application.status)}</TableCell>
+                  <TableCell>
+                    <Badge variant="outline">Stage {application.currentStage}</Badge>
+                  </TableCell>
+                  <TableCell>{application.createdAt.toLocaleDateString()}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center space-x-2">
+                      <Button variant="ghost" size="sm" onClick={() => onViewApplication(application)}>
+                        <Eye className="h-4 w-4" />
+                      </Button>
 
-                    return (
-                      <TableRow key={app.id} className={isSelected ? "bg-orange-50" : ""}>
-                        {showBulkActions && (
-                          <TableCell>
-                            {isUnsubmitted && (
-                              <Checkbox
-                                checked={isSelected}
-                                onCheckedChange={(checked) => handleSelectApplication(app.id, checked as boolean)}
-                                className="border-orange-400"
-                              />
-                            )}
-                          </TableCell>
-                        )}
-                        <TableCell className="font-medium">
-                          <div className="flex items-center space-x-2">
-                            <span>{app.applicationId}</span>
-                            {isUnsubmitted && <Badge className="bg-orange-600 text-white text-xs">Not Submitted</Badge>}
-                          </div>
-                        </TableCell>
-                        <TableCell className="whitespace-nowrap">{app.applicantName}</TableCell>
-                        <TableCell>
-                          <Badge className={cn(statusColor[app.status], "text-white capitalize")}>
-                            {app.status.replace("_", " ")}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-center">{app.currentStage}</TableCell>
-                        <TableCell>{formatDate(app.createdAt)}</TableCell>
-                        <TableCell className="text-right space-x-2">
-                          <Button size="sm" variant="secondary" onClick={() => onView(app)}>
-                            View
-                          </Button>
-                          {canEditApplication(app) && onEdit && (
-                            <Button size="sm" variant="outline" onClick={() => onEdit(app)}>
-                              Edit
-                            </Button>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    )
-                  })
-                ) : (
-                  <TableRow>
-                    <TableCell colSpan={showBulkActions ? 7 : 6} className="py-8 text-center text-muted-foreground">
-                      No applications to display.
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </div>
+                      {canEdit(application) && (
+                        <Button variant="ghost" size="sm" onClick={() => onEditApplication(application)}>
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                      )}
+
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => onViewApplication(application)}
+                        title="View documents"
+                      >
+                        <FileText className="h-4 w-4" />
+                      </Button>
+
+                      {(application.status === "rejected" || application.workflowComments.length > 0) && (
+                        <CommentsPrinter application={application} user={user} />
+                      )}
+
+                      {canPrint(application) && <PermitPrinter application={application} />}
+
+                      {application.status === "approved" && canPrint(application) && (
+                        <Badge variant="outline" className="bg-green-50 text-green-700 ml-2">
+                          Ready to Print
+                        </Badge>
+                      )}
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+
+          {filteredApplications.length === 0 && (
+            <div className="text-center py-8 text-gray-500">No applications found matching your criteria.</div>
+          )}
         </CardContent>
       </Card>
     </div>

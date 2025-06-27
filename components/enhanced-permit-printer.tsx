@@ -2,261 +2,342 @@
 
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Separator } from "@/components/ui/separator"
-import { PermitPreviewDialog } from "./permit-preview-dialog"
-import { preparePermitData, validatePermitData } from "@/lib/enhanced-permit-generator"
-import { Printer, Download, FileText, CheckCircle, AlertCircle } from "lucide-react"
-import { toast } from "sonner"
+import { Printer, Download, Eye, FileText, Calendar, Droplets } from "lucide-react"
+import { PermitTemplate } from "./permit-template"
+import { preparePermitData } from "@/lib/permit-generator"
 import type { PermitApplication, User } from "@/types"
 
 interface EnhancedPermitPrinterProps {
   application: PermitApplication
-  currentUser: User
-  onPermitGenerated?: (permitNumber: string) => void
+  user: User
+  disabled?: boolean
 }
 
-export default function EnhancedPermitPrinter({
-  application,
-  currentUser,
-  onPermitGenerated,
-}: EnhancedPermitPrinterProps) {
-  const [isGenerating, setIsGenerating] = useState(false)
-  const [permitData, setPermitData] = useState(() => preparePermitData(application))
+export function EnhancedPermitPrinter({ application, user, disabled = false }: EnhancedPermitPrinterProps) {
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false)
+  const [isPrinting, setIsPrinting] = useState(false)
 
-  // Check if user can generate permits
-  const canGeneratePermit = ["permit_supervisor", "catchment_manager", "catchment_chairperson"].includes(
-    currentUser.userType,
+  const permitData = preparePermitData(application)
+
+  const getPrintStatus = () => {
+    if (application.status !== "approved") {
+      return { canPrint: false, reason: "Application must be approved first" }
+    }
+
+    if (!["permitting_officer", "permit_supervisor", "ict"].includes(user.userType)) {
+      return { canPrint: false, reason: "Insufficient permissions to print permits" }
+    }
+
+    return { canPrint: true, reason: "Ready to print" }
+  }
+
+  const handlePrint = async () => {
+    setIsPrinting(true)
+
+    try {
+      // Create a new window for printing
+      const printWindow = window.open("", "_blank", "width=800,height=600")
+      if (!printWindow) {
+        alert("Please allow popups to print permits")
+        return
+      }
+
+      const permitElement = document.getElementById("permit-template")
+      if (!permitElement) {
+        alert("Permit template not found")
+        return
+      }
+
+      // Enhanced print styles
+      const printStyles = `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>Water Permit ${permitData.permitNumber}</title>
+            <style>
+              * { margin: 0; padding: 0; box-sizing: border-box; }
+              body { 
+                font-family: 'Times New Roman', serif; 
+                font-size: 12px;
+                line-height: 1.4;
+                color: #000;
+                background: white;
+              }
+              .permit-container {
+                max-width: 210mm;
+                margin: 0 auto;
+                padding: 20mm;
+                background: white;
+              }
+              .header {
+                text-align: center;
+                margin-bottom: 30px;
+                border-bottom: 2px solid #000;
+                padding-bottom: 20px;
+              }
+              .logo {
+                width: 80px;
+                height: 80px;
+                margin: 0 auto 15px;
+                border: 2px solid #000;
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-weight: bold;
+                font-size: 24px;
+              }
+              .title {
+                font-size: 18px;
+                font-weight: bold;
+                margin-bottom: 5px;
+              }
+              .subtitle {
+                font-size: 14px;
+                margin-bottom: 10px;
+              }
+              .permit-number {
+                font-size: 16px;
+                font-weight: bold;
+                background: #f0f0f0;
+                padding: 10px;
+                border: 1px solid #000;
+                margin: 20px 0;
+              }
+              table {
+                width: 100%;
+                border-collapse: collapse;
+                margin: 15px 0;
+              }
+              th, td {
+                border: 1px solid #000;
+                padding: 8px;
+                text-align: left;
+                vertical-align: top;
+              }
+              th {
+                background-color: #f0f0f0;
+                font-weight: bold;
+              }
+              .section-title {
+                font-size: 14px;
+                font-weight: bold;
+                margin: 20px 0 10px 0;
+                padding: 5px 0;
+                border-bottom: 1px solid #000;
+              }
+              .conditions {
+                margin: 20px 0;
+                padding: 15px;
+                border: 1px solid #000;
+                background: #f9f9f9;
+              }
+              .signatures {
+                margin-top: 40px;
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 40px;
+              }
+              .signature-block {
+                text-align: center;
+                border-top: 1px solid #000;
+                padding-top: 10px;
+              }
+              .watermark {
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%) rotate(-45deg);
+                font-size: 72px;
+                color: rgba(0, 0, 0, 0.1);
+                z-index: -1;
+                pointer-events: none;
+              }
+              @media print {
+                body { margin: 0; }
+                .no-print { display: none !important; }
+                .permit-container { 
+                  max-width: none; 
+                  margin: 0; 
+                  padding: 15mm;
+                }
+                @page {
+                  size: A4;
+                  margin: 0;
+                }
+              }
+            </style>
+          </head>
+          <body>
+            <div class="watermark">UMSCC</div>
+            ${permitElement.innerHTML}
+            <script>
+              window.onload = function() {
+                window.print();
+                setTimeout(function() {
+                  window.close();
+                }, 1000);
+              }
+            </script>
+          </body>
+        </html>
+      `
+
+      printWindow.document.write(printStyles)
+      printWindow.document.close()
+    } catch (error) {
+      console.error("Print error:", error)
+      alert("Failed to print permit. Please try again.")
+    } finally {
+      setIsPrinting(false)
+    }
+  }
+
+  const handleDownloadPDF = () => {
+    // Simulate PDF download - in production, this would generate an actual PDF
+    const pdfContent = `
+WATER PERMIT - ${permitData.permitNumber}
+Upper Manyame Sub Catchment Council
+
+Applicant: ${permitData.applicantName}
+Physical Address: ${permitData.physicalAddress}
+Postal Address: ${permitData.postalAddress}
+
+Permit Details:
+- Number of Boreholes: ${permitData.numberOfBoreholes}
+- Land Size: ${permitData.landSize} hectares
+- Total Water Allocation: ${permitData.totalAllocatedAbstraction} ML
+- Intended Use: ${permitData.intendedUse}
+- Valid Until: ${permitData.validUntil}
+- Issue Date: ${permitData.issueDate}
+
+Borehole Details:
+${permitData.boreholeDetails
+  .map(
+    (bh, i) => `
+Borehole ${i + 1}:
+- Allocated Amount: ${bh.allocatedAmount} ML
+- GPS Coordinates: ${bh.gpsX}, ${bh.gpsY}
+- Max Abstraction Rate: ${bh.maxAbstractionRate} ML
+- Water Sample Frequency: ${bh.waterSampleFrequency}
+`,
   )
+  .join("")}
 
-  // Check if user can preview permits
-  const canPreviewPermit = [
-    "permitting_officer",
-    "permit_supervisor",
-    "catchment_manager",
-    "catchment_chairperson",
-    "ict",
-  ].includes(currentUser.userType)
+This permit is issued by the Upper Manyame Sub Catchment Council
+and is valid until ${permitData.validUntil}.
+    `
 
-  // Only show for approved applications
-  const isApproved = application.status === "approved" || application.status === "permit_issued"
+    const blob = new Blob([pdfContent], { type: "text/plain" })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = `Water_Permit_${permitData.permitNumber}.txt`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  }
 
-  if (!isApproved) {
+  const printStatus = getPrintStatus()
+
+  if (disabled || !printStatus.canPrint) {
     return (
-      <Card className="w-full">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <FileText className="h-5 w-5" />
-            Permit Generation
-          </CardTitle>
-          <CardDescription>Permit can only be generated for approved applications</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <AlertCircle className="h-4 w-4" />
-            <span>Application status: {application.status}</span>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="flex items-center space-x-2">
+        <Button disabled variant="outline" size="sm">
+          <Printer className="h-4 w-4 mr-2" />
+          Print Permit
+        </Button>
+        {!printStatus.canPrint && <span className="text-xs text-gray-500">{printStatus.reason}</span>}
+      </div>
     )
   }
 
-  const handleGeneratePermit = async () => {
-    if (!canGeneratePermit) {
-      toast.error("You don't have permission to generate permits")
-      return
-    }
-
-    setIsGenerating(true)
-    try {
-      // Validate permit data
-      if (!validatePermitData(permitData)) {
-        throw new Error("Invalid permit data")
-      }
-
-      // Simulate permit generation process
-      await new Promise((resolve) => setTimeout(resolve, 2000))
-
-      // Update application status to permit_issued
-      // This would typically be done via an API call
-      toast.success(`Permit ${permitData.permitNumber} generated successfully`)
-      onPermitGenerated?.(permitData.permitNumber)
-    } catch (error) {
-      console.error("Permit generation failed:", error)
-      toast.error("Failed to generate permit")
-    } finally {
-      setIsGenerating(false)
-    }
-  }
-
-  const handlePrint = () => {
-    toast.success("Permit sent to printer")
-  }
-
-  const handleDownload = () => {
-    toast.success("Permit downloaded successfully")
-  }
-
   return (
-    <div className="space-y-6">
-      {/* Permit Status Card */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <FileText className="h-5 w-5" />
-            Permit Status
-          </CardTitle>
-          <CardDescription>
-            Current permit generation status for application {application.applicationNumber}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="space-y-1">
-              <p className="text-sm font-medium">Application Status</p>
-              <Badge variant={application.status === "permit_issued" ? "default" : "secondary"}>
-                {application.status.replace("_", " ").toUpperCase()}
-              </Badge>
-            </div>
-            <div className="space-y-1">
-              <p className="text-sm font-medium">Permit Number</p>
-              <p className="text-sm text-muted-foreground">{permitData.permitNumber}</p>
-            </div>
-          </div>
+    <div className="flex space-x-2">
+      {/* Preview Dialog */}
+      <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
+        <DialogTrigger asChild>
+          <Button variant="outline" size="sm">
+            <Eye className="h-4 w-4 mr-2" />
+            Preview
+          </Button>
+        </DialogTrigger>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center">
+              <FileText className="h-5 w-5 mr-2" />
+              Water Permit Preview - {permitData.permitNumber}
+            </DialogTitle>
+          </DialogHeader>
 
-          <Separator />
-
-          <div className="grid grid-cols-2 gap-4 text-sm">
-            <div>
-              <p className="font-medium">Applicant</p>
-              <p className="text-muted-foreground">{application.applicantName}</p>
-            </div>
-            <div>
-              <p className="font-medium">Water Allocation</p>
-              <p className="text-muted-foreground">{application.waterAllocation} ML/annum</p>
-            </div>
-            <div>
-              <p className="font-medium">Number of Boreholes</p>
-              <p className="text-muted-foreground">{application.numberOfBoreholes}</p>
-            </div>
-            <div>
-              <p className="font-medium">Intended Use</p>
-              <p className="text-muted-foreground">{application.intendedUse}</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Permit Actions Card */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Printer className="h-5 w-5" />
-            Permit Actions
-          </CardTitle>
-          <CardDescription>Generate, preview, and print the groundwater abstraction permit</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center gap-2">
-            <CheckCircle className="h-4 w-4 text-green-500" />
-            <span className="text-sm">Permit data validated and ready for generation</span>
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-            {/* Preview Button - Available to more user types */}
-            {canPreviewPermit && (
-              <PermitPreviewDialog
-                application={application}
-                currentUser={currentUser}
-                onPrint={handlePrint}
-                onDownload={handleDownload}
-              />
-            )}
-
-            {/* Generate Permit Button - Restricted to supervisors and above */}
-            {canGeneratePermit && application.status !== "permit_issued" && (
-              <Button onClick={handleGeneratePermit} disabled={isGenerating} className="gap-2">
-                <FileText className="h-4 w-4" />
-                {isGenerating ? "Generating..." : "Generate Permit"}
-              </Button>
-            )}
-
-            {/* Direct Print Button - For already issued permits */}
-            {application.status === "permit_issued" && canPreviewPermit && (
-              <Button
-                variant="outline"
-                onClick={() => {
-                  // Trigger print directly
-                  window.print()
-                  handlePrint()
-                }}
-                className="gap-2"
-              >
-                <Printer className="h-4 w-4" />
-                Print Permit
-              </Button>
-            )}
-
-            {/* Download Button */}
-            {canPreviewPermit && (
-              <Button variant="outline" onClick={handleDownload} className="gap-2 bg-transparent">
-                <Download className="h-4 w-4" />
-                Download
-              </Button>
-            )}
-          </div>
-
-          {!canGeneratePermit && (
-            <div className="text-sm text-muted-foreground">
-              <AlertCircle className="h-4 w-4 inline mr-1" />
-              You don't have permission to generate permits. Contact your supervisor.
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Permit Details Preview */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Permit Details</CardTitle>
-          <CardDescription>Summary of the permit to be generated</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-4 text-sm">
-            <div>
-              <p className="font-medium">Permit Number</p>
-              <p className="text-muted-foreground">{permitData.permitNumber}</p>
-            </div>
-            <div>
-              <p className="font-medium">Valid Until</p>
-              <p className="text-muted-foreground">{permitData.validUntil}</p>
-            </div>
-            <div>
-              <p className="font-medium">Total Allocation</p>
-              <p className="text-muted-foreground">{permitData.totalAllocatedAbstraction.toLocaleString()} m³/annum</p>
-            </div>
-            <div>
-              <p className="font-medium">Issue Date</p>
-              <p className="text-muted-foreground">{permitData.issueDate}</p>
-            </div>
-          </div>
-
-          <Separator />
-
-          <div>
-            <p className="font-medium mb-2">Borehole Details</p>
-            <div className="space-y-2">
-              {permitData.boreholeDetails.map((borehole, index) => (
-                <div key={index} className="flex justify-between text-sm">
-                  <span>{borehole.boreholeNumber}</span>
-                  <span>{borehole.allocatedAmount.toLocaleString()} m³/annum</span>
+          {/* Permit Preview Summary */}
+          <Card className="mb-4">
+            <CardHeader>
+              <CardTitle className="text-lg">Permit Summary</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="flex items-center space-x-2">
+                  <FileText className="h-4 w-4 text-blue-600" />
+                  <div>
+                    <p className="text-sm font-medium">Permit Number</p>
+                    <p className="text-sm text-gray-600">{permitData.permitNumber}</p>
+                  </div>
                 </div>
-              ))}
-            </div>
+                <div className="flex items-center space-x-2">
+                  <Calendar className="h-4 w-4 text-green-600" />
+                  <div>
+                    <p className="text-sm font-medium">Valid Until</p>
+                    <p className="text-sm text-gray-600">{permitData.validUntil}</p>
+                  </div>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Droplets className="h-4 w-4 text-blue-600" />
+                  <div>
+                    <p className="text-sm font-medium">Water Allocation</p>
+                    <p className="text-sm text-gray-600">{permitData.totalAllocatedAbstraction} ML</p>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Full Permit Template */}
+          <div id="permit-template" className="border rounded-lg p-6 bg-white">
+            <PermitTemplate permitData={permitData} />
           </div>
-        </CardContent>
-      </Card>
+
+          {/* Action Buttons */}
+          <div className="flex justify-end space-x-2 mt-4 no-print">
+            <Button onClick={handleDownloadPDF} variant="outline">
+              <Download className="h-4 w-4 mr-2" />
+              Download
+            </Button>
+            <Button onClick={handlePrint} disabled={isPrinting}>
+              <Printer className="h-4 w-4 mr-2" />
+              {isPrinting ? "Printing..." : "Print Permit"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Direct Print Button */}
+      <Button onClick={handlePrint} size="sm" disabled={isPrinting}>
+        <Printer className="h-4 w-4 mr-2" />
+        {isPrinting ? "Printing..." : "Print"}
+      </Button>
+
+      {/* Status Badge */}
+      {application.status === "approved" && (
+        <Badge variant="outline" className="bg-green-50 text-green-700">
+          <FileText className="h-3 w-3 mr-1" />
+          Ready to Print
+        </Badge>
+      )}
     </div>
   )
 }

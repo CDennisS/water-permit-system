@@ -1,15 +1,15 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Users, FileText, BarChart3, Activity, MessageSquare, Settings, Shield, Key, UserCheck } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Users, FileText, BarChart3, Activity, MessageSquare, Settings, Shield, Key, UserCheck } from "lucide-react"
 import type { User, PermitApplication } from "@/types"
 import { db } from "@/lib/database"
 import { ApplicationsTable } from "./applications-table"
 import { UserManagement } from "./user-management"
-import { EnhancedReportsAnalytics } from "./enhanced-reports-analytics"
+import { ReportsAnalytics } from "./reports-analytics"
 import { ActivityLogs } from "./activity-logs"
 import { MessagingSystem } from "./messaging-system"
 
@@ -38,33 +38,32 @@ export function PermitSupervisorDashboard({
   })
 
   useEffect(() => {
-    const loadDashboardData = async () => {
-      try {
-        const [apps, allUsers] = await Promise.all([db.getApplications(), db.getUsers()])
-
-        setApplications(apps)
-
-        // Filter out ICT users for permit supervisor
-        const filteredUsers = allUsers.filter((u) => u.userType !== "ict")
-        setUsers(filteredUsers)
-
-        // Calculate stats
-        setStats({
-          totalApplications: apps.length,
-          approvedApplications: apps.filter((app) => app.status === "approved").length,
-          pendingApplications: apps.filter((app) => app.status !== "approved" && app.status !== "rejected").length,
-          totalUsers: filteredUsers.length,
-          activeUsers: filteredUsers.length, // In a real system, this would be based on recent activity
-        })
-      } catch (error) {
-        console.error("Failed to load dashboard data:", error)
-      }
-    }
-
     loadDashboardData()
   }, [])
 
-  /* ---------- local reusable UI bits ---------- */
+  const loadDashboardData = async () => {
+    try {
+      const [apps, allUsers] = await Promise.all([db.getApplications(), db.getUsers()])
+
+      setApplications(apps)
+
+      // Filter out ICT users for permit supervisor
+      const filteredUsers = allUsers.filter((u) => u.userType !== "ict")
+      setUsers(filteredUsers)
+
+      // Calculate stats
+      setStats({
+        totalApplications: apps.length,
+        approvedApplications: apps.filter((app) => app.status === "approved").length,
+        pendingApplications: apps.filter((app) => app.status !== "approved" && app.status !== "rejected").length,
+        totalUsers: filteredUsers.length,
+        activeUsers: filteredUsers.length, // In a real system, this would be based on recent activity
+      })
+    } catch (error) {
+      console.error("Failed to load dashboard data:", error)
+    }
+  }
+
   const QuickActionCard = ({
     title,
     description,
@@ -145,10 +144,9 @@ export function PermitSupervisorDashboard({
     )
   }
 
-  /* ---------- render ---------- */
   return (
     <div className="space-y-6">
-      {/* Header */}
+      {/* Header Section */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Permit Supervisor Dashboard</h1>
@@ -160,7 +158,7 @@ export function PermitSupervisorDashboard({
         </Badge>
       </div>
 
-      {/* Tabs */}
+      {/* Navigation Tabs */}
       <Tabs value={activeView} onValueChange={setActiveView} className="w-full">
         <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="overview">Overview</TabsTrigger>
@@ -169,13 +167,14 @@ export function PermitSupervisorDashboard({
             User Management
           </TabsTrigger>
           <TabsTrigger value="applications">Applications</TabsTrigger>
-          <TabsTrigger value="reports">Advanced Reports</TabsTrigger>
+          <TabsTrigger value="reports">Reports</TabsTrigger>
           <TabsTrigger value="messages">Messages</TabsTrigger>
           <TabsTrigger value="logs">Activity</TabsTrigger>
         </TabsList>
 
-        {/* Overview */}
+        {/* Overview Tab */}
         <TabsContent value="overview" className="space-y-6">
+          {/* Statistics Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             <StatCard title="Total Applications" value={stats.totalApplications} icon={FileText} color="blue" />
             <StatCard title="Approved Permits" value={stats.approvedApplications} icon={UserCheck} color="green" />
@@ -202,8 +201,8 @@ export function PermitSupervisorDashboard({
                 variant="secondary"
               />
               <QuickActionCard
-                title="Advanced Analytics"
-                description="Generate comprehensive reports and analytics"
+                title="System Reports"
+                description="Generate analytics and performance reports"
                 icon={BarChart3}
                 onClick={() => setActiveView("reports")}
               />
@@ -224,13 +223,13 @@ export function PermitSupervisorDashboard({
                 description="Configure system preferences"
                 icon={Settings}
                 onClick={() => {
-                  /* future settings */
+                  /* Add settings functionality */
                 }}
               />
             </div>
           </div>
 
-          {/* Recent Activity */}
+          {/* Recent Activity Summary */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center">
@@ -266,7 +265,7 @@ export function PermitSupervisorDashboard({
           </Card>
         </TabsContent>
 
-        {/* User management */}
+        {/* User Management Tab */}
         <TabsContent value="users">
           <Card>
             <CardHeader className="border-b">
@@ -292,7 +291,7 @@ export function PermitSupervisorDashboard({
           </Card>
         </TabsContent>
 
-        {/* Applications */}
+        {/* Applications Tab */}
         <TabsContent value="applications">
           <Card>
             <CardHeader className="border-b">
@@ -317,7 +316,7 @@ export function PermitSupervisorDashboard({
           </Card>
         </TabsContent>
 
-        {/* Advanced Reports */}
+        {/* Reports Tab */}
         <TabsContent value="reports">
           <Card>
             <CardHeader className="border-b">
@@ -326,18 +325,18 @@ export function PermitSupervisorDashboard({
                   <BarChart3 className="h-6 w-6 text-purple-600" />
                 </div>
                 <div>
-                  <CardTitle className="text-xl">Advanced Reports & Analytics</CardTitle>
-                  <p className="text-sm text-gray-600 mt-1">Comprehensive system performance and data analytics</p>
+                  <CardTitle className="text-xl">System Reports & Analytics</CardTitle>
+                  <p className="text-sm text-gray-600 mt-1">Generate comprehensive system performance reports</p>
                 </div>
               </div>
             </CardHeader>
             <CardContent className="p-0">
-              <EnhancedReportsAnalytics />
+              <ReportsAnalytics />
             </CardContent>
           </Card>
         </TabsContent>
 
-        {/* Messages */}
+        {/* Messages Tab */}
         <TabsContent value="messages">
           <Card>
             <CardHeader className="border-b">
@@ -357,7 +356,7 @@ export function PermitSupervisorDashboard({
           </Card>
         </TabsContent>
 
-        {/* Activity logs */}
+        {/* Activity Logs Tab */}
         <TabsContent value="logs">
           <Card>
             <CardHeader className="border-b">
