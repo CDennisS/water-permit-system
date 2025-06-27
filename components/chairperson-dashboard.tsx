@@ -5,14 +5,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { FileText, Users, CheckCircle, Clock, AlertTriangle, Eye, ArrowLeft, MapPin, Phone } from "lucide-react"
+import { FileText, Users, CheckCircle, Clock, AlertTriangle } from "lucide-react"
 import type { User, PermitApplication } from "@/types"
 import { db } from "@/lib/database"
-import { ChairpersonReviewWorkflow } from "./chairperson-review-workflow"
+import { StrictViewOnlyApplicationDetails } from "./strict-view-only-application-details"
 import { MessagingSystem } from "./messaging-system"
 import { ActivityLogs } from "./activity-logs"
 import { UnreadMessageNotification } from "./unread-message-notification"
-import { ChairpersonApplicationHistory } from "./chairperson-application-history"
 
 interface ChairpersonDashboardProps {
   user: User
@@ -52,7 +51,7 @@ export function ChairpersonDashboard({ user }: ChairpersonDashboardProps) {
 
       // Calculate statistics
       const pendingReview = relevantApplications.filter(
-        (app) => app.currentStage === 2 && app.status === "under_review",
+        (app) => app.currentStage === 2 && app.status === "submitted",
       ).length
 
       const thisMonth = new Date()
@@ -64,13 +63,13 @@ export function ChairpersonDashboard({ user }: ChairpersonDashboardProps) {
       ).length
 
       const totalReviewed = relevantApplications.filter((app) => app.currentStage > 2).length
-      const approvedApplications = relevantApplications.filter((app) => app.status === "approved").length
+      const approvedApps = relevantApplications.filter((app) => app.status === "approved").length
 
       setStats({
         totalApplications: relevantApplications.length,
         pendingReview,
         reviewedThisMonth,
-        approvalRate: totalReviewed > 0 ? Math.round((approvedApplications / totalReviewed) * 100) : 0,
+        approvalRate: totalReviewed > 0 ? Math.round((approvedApps / totalReviewed) * 100) : 0,
       })
     } catch (error) {
       console.error("Failed to load dashboard data:", error)
@@ -94,24 +93,6 @@ export function ChairpersonDashboard({ user }: ChairpersonDashboardProps) {
   const handleViewMessages = () => {
     setActiveView("messages")
     setUnreadMessageCount(0)
-  }
-
-  const handleBackToOverview = () => {
-    setSelectedApplication(null)
-    loadDashboardData() // Refresh data to show updated status
-  }
-
-  const getStatusBadge = (application: PermitApplication) => {
-    if (application.status === "approved") {
-      return <Badge className="bg-green-100 text-green-800">Approved</Badge>
-    }
-    if (application.status === "rejected") {
-      return <Badge className="bg-red-100 text-red-800">Rejected</Badge>
-    }
-    if (application.currentStage === 2 && application.status === "under_review") {
-      return <Badge className="bg-yellow-100 text-yellow-800">Pending Review</Badge>
-    }
-    return <Badge variant="secondary">{application.status}</Badge>
   }
 
   const StatCard = ({
@@ -154,12 +135,12 @@ export function ChairpersonDashboard({ user }: ChairpersonDashboardProps) {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Upper Manyame Sub Catchment Chairperson Dashboard</h1>
-          <p className="text-gray-600 mt-1">Business Case Review and Assessment Authority</p>
+          <h1 className="text-3xl font-bold text-gray-900">Chairperson Dashboard</h1>
+          <p className="text-gray-600 mt-1">Upper Manyame Sub Catchment Council</p>
         </div>
         <Badge variant="secondary" className="px-3 py-1">
           <Users className="h-4 w-4 mr-1" />
-          Sub Catchment Chairperson Access
+          Chairperson Access
         </Badge>
       </div>
 
@@ -172,202 +153,143 @@ export function ChairpersonDashboard({ user }: ChairpersonDashboardProps) {
         />
       )}
 
-      {/* Show review workflow if application is selected */}
-      {selectedApplication ? (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold">Business Case Review: {selectedApplication.applicationId}</h2>
-            <Button variant="outline" onClick={handleBackToOverview} className="flex items-center">
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Overview
-            </Button>
+      {/* Navigation Tabs */}
+      <Tabs value={activeView} onValueChange={setActiveView} className="w-full">
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="applications">Applications</TabsTrigger>
+          <TabsTrigger value="messages" className="relative">
+            Messages
+            {unreadMessageCount > 0 && (
+              <Badge
+                variant="destructive"
+                className="ml-2 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs"
+              >
+                {unreadMessageCount > 99 ? "99+" : unreadMessageCount}
+              </Badge>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="activity">Activity</TabsTrigger>
+        </TabsList>
+
+        {/* Overview Tab */}
+        <TabsContent value="overview" className="space-y-6">
+          {/* Statistics Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <StatCard title="Total Applications" value={stats.totalApplications} icon={FileText} color="blue" />
+            <StatCard title="Pending Review" value={stats.pendingReview} icon={Clock} color="yellow" />
+            <StatCard title="Reviewed This Month" value={stats.reviewedThisMonth} icon={CheckCircle} color="green" />
+            <StatCard title="Approval Rate" value={`${stats.approvalRate}%`} icon={AlertTriangle} color="purple" />
           </div>
-          <ChairpersonReviewWorkflow user={user} application={selectedApplication} onUpdate={handleBackToOverview} />
-        </div>
-      ) : (
-        /* Navigation Tabs */
-        <Tabs value={activeView} onValueChange={setActiveView} className="w-full">
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="history">Application History</TabsTrigger>
-            <TabsTrigger value="messages" className="relative">
-              Messages
-              {unreadMessageCount > 0 && (
-                <Badge
-                  variant="destructive"
-                  className="ml-2 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs"
-                >
-                  {unreadMessageCount > 99 ? "99+" : unreadMessageCount}
-                </Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="activity">Activity</TabsTrigger>
-          </TabsList>
 
-          {/* Overview Tab */}
-          <TabsContent value="overview" className="space-y-6">
-            {/* Statistics Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <StatCard title="Total Applications" value={stats.totalApplications} icon={FileText} color="blue" />
-              <StatCard title="Pending Review" value={stats.pendingReview} icon={Clock} color="yellow" />
-              <StatCard title="Reviewed This Month" value={stats.reviewedThisMonth} icon={CheckCircle} color="green" />
-              <StatCard
-                title="Overall Approval Rate"
-                value={`${stats.approvalRate}%`}
-                icon={AlertTriangle}
-                color="purple"
-              />
-            </div>
-
-            {/* Applications requiring review */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Applications Pending Review</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {applications
-                    .filter((a) => a.currentStage === 2 && a.status === "under_review")
-                    .map((app) => (
-                      <div
-                        key={app.id}
-                        className="border rounded-lg p-4 bg-gray-50 hover:bg-gray-100 transition-colors"
-                      >
-                        <div className="flex items-start justify-between">
-                          {/* Application Details */}
-                          <div className="flex-1 space-y-3">
-                            {/* Header Row */}
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center space-x-3">
-                                <FileText className="h-5 w-5 text-blue-600" />
-                                <div>
-                                  <p className="font-semibold text-lg">{app.applicationId}</p>
-                                  <Badge variant="outline" className="text-xs">
-                                    {app.permitType.replace("_", " ").toUpperCase()}
-                                  </Badge>
-                                </div>
-                              </div>
-                              {getStatusBadge(app)}
-                            </div>
-
-                            {/* Applicant Information */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                              <div className="space-y-2">
-                                <div className="flex items-center space-x-2">
-                                  <Users className="h-4 w-4 text-gray-500" />
-                                  <span className="font-medium">Applicant:</span>
-                                  <span>{app.applicantName}</span>
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                  <Phone className="h-4 w-4 text-gray-500" />
-                                  <span className="font-medium">Contact:</span>
-                                  <span>{app.cellularNumber}</span>
-                                </div>
-                              </div>
-                              <div className="space-y-2">
-                                <div className="flex items-start space-x-2">
-                                  <MapPin className="h-4 w-4 text-gray-500 mt-0.5" />
-                                  <div>
-                                    <span className="font-medium">Physical Address:</span>
-                                    <p className="text-sm text-gray-600">{app.physicalAddress}</p>
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-
-                            {/* Additional Details */}
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                              <div>
-                                <span className="font-medium text-gray-600">Land Size:</span>
-                                <p>{app.landSize} ha</p>
-                              </div>
-                              <div>
-                                <span className="font-medium text-gray-600">Water Allocation:</span>
-                                <p>{app.waterAllocation} ML</p>
-                              </div>
-                              <div>
-                                <span className="font-medium text-gray-600">Boreholes:</span>
-                                <p>{app.numberOfBoreholes}</p>
-                              </div>
-                              <div>
-                                <span className="font-medium text-gray-600">Submitted:</span>
-                                <p>{app.createdAt.toLocaleDateString()}</p>
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Review Button */}
-                          <div className="ml-4">
-                            <Button
-                              variant="outline"
-                              onClick={() => setSelectedApplication(app)}
-                              className="flex items-center"
-                            >
-                              <Eye className="h-4 w-4 mr-2" />
-                              Review Application
-                            </Button>
-                          </div>
+          {/* Recent Applications */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Recent Applications Requiring Review</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {applications
+                  .filter((app) => app.currentStage === 2 && app.status === "submitted")
+                  .slice(0, 5)
+                  .map((application) => (
+                    <div
+                      key={application.id}
+                      className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer"
+                      onClick={() => setSelectedApplication(application)}
+                    >
+                      <div className="flex items-center space-x-3">
+                        <FileText className="h-5 w-5 text-gray-500" />
+                        <div>
+                          <p className="font-medium">{application.applicationId}</p>
+                          <p className="text-sm text-gray-600">{application.applicantName}</p>
                         </div>
                       </div>
-                    ))}
-
-                  {applications.filter((a) => a.currentStage === 2 && a.status === "under_review").length === 0 && (
-                    <div className="text-center py-12">
-                      <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                      <p className="text-gray-500 text-lg">No applications pending review</p>
-                      <p className="text-gray-400 text-sm">All submitted applications have been reviewed</p>
+                      <div className="text-right">
+                        <Badge variant="outline" className="mb-1">
+                          {application.permitType.replace("_", " ").toUpperCase()}
+                        </Badge>
+                        <p className="text-xs text-gray-500">{application.createdAt.toLocaleDateString()}</p>
+                      </div>
                     </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
+                  ))}
+                {applications.filter((app) => app.currentStage === 2 && app.status === "submitted").length === 0 && (
+                  <p className="text-center text-gray-500 py-8">No applications pending review</p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-            {/* Recent Reviews */}
+        {/* Applications Tab */}
+        <TabsContent value="applications" className="space-y-6">
+          {selectedApplication ? (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-semibold">Application Details</h2>
+                <Button variant="outline" onClick={() => setSelectedApplication(null)}>
+                  ← Back to List
+                </Button>
+              </div>
+              <StrictViewOnlyApplicationDetails user={user} application={selectedApplication} />
+            </div>
+          ) : (
             <Card>
               <CardHeader>
-                <CardTitle>Recent Reviews</CardTitle>
+                <CardTitle>All Applications</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {applications
-                    .filter((a) => a.currentStage > 2)
-                    .slice(0, 5)
-                    .map((app) => (
-                      <div key={app.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                        <div className="flex items-center space-x-3">
-                          <FileText className="h-4 w-4 text-gray-500" />
-                          <div>
-                            <p className="font-medium">{app.applicationId}</p>
-                            <p className="text-sm text-gray-600">{app.applicantName}</p>
-                          </div>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <Badge variant="outline">Stage {app.currentStage}</Badge>
-                          <span className="text-xs text-gray-500">{app.updatedAt.toLocaleDateString()}</span>
+                  {applications.map((application) => (
+                    <div
+                      key={application.id}
+                      className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50 cursor-pointer"
+                      onClick={() => setSelectedApplication(application)}
+                    >
+                      <div className="flex items-center space-x-3">
+                        <FileText className="h-5 w-5 text-gray-500" />
+                        <div>
+                          <p className="font-medium">{application.applicationId}</p>
+                          <p className="text-sm text-gray-600">{application.applicantName}</p>
                         </div>
                       </div>
-                    ))}
+                      <div className="text-right">
+                        <div className="flex items-center space-x-2 mb-1">
+                          <Badge
+                            className={
+                              application.status === "approved"
+                                ? "bg-green-100 text-green-800"
+                                : application.status === "rejected"
+                                  ? "bg-red-100 text-red-800"
+                                  : application.status === "submitted"
+                                    ? "bg-blue-100 text-blue-800"
+                                    : "bg-gray-100 text-gray-800"
+                            }
+                          >
+                            {application.status.toUpperCase()}
+                          </Badge>
+                          <Badge variant="outline">Stage {application.currentStage}</Badge>
+                        </div>
+                        <p className="text-xs text-gray-500">{application.createdAt.toLocaleDateString()}</p>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </CardContent>
             </Card>
-          </TabsContent>
+          )}
+        </TabsContent>
 
-          {/* Application History Tab */}
-          <TabsContent value="history">
-            <ChairpersonApplicationHistory user={user} />
-          </TabsContent>
+        {/* Messages Tab */}
+        <TabsContent value="messages">
+          <MessagingSystem user={user} />
+        </TabsContent>
 
-          {/* Messages Tab */}
-          <TabsContent value="messages">
-            <MessagingSystem user={user} />
-          </TabsContent>
-
-          {/* Activity Tab */}
-          <TabsContent value="activity">
-            <ActivityLogs user={user} />
-          </TabsContent>
-        </Tabs>
-      )}
+        {/* Activity Tab */}
+        <TabsContent value="activity">
+          <ActivityLogs user={user} />
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }

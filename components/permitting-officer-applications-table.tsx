@@ -1,231 +1,310 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
-import { Loader2 } from "lucide-react"
-
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { useState, useEffect } from "react"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-
-import type { PermitApplication, User } from "@/types"
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import type { PermitApplication, User } from "@/types"
 import { db } from "@/lib/database"
 
-/* -------------------------------------------------------------------------- */
-/*                                   Types                                    */
-/* -------------------------------------------------------------------------- */
-
-interface Props {
+interface PermittingOfficerApplicationsTableProps {
   user: User
-  /** Invoked when “View” is clicked on a row */
-  onView: (app: PermitApplication) => void
+  onView: (application: PermitApplication) => void
+  onEdit?: (application: PermitApplication) => void
 }
 
-type AppStatus = "unsubmitted" | "submitted" | "under_review" | "approved" | "rejected"
-
-/* -------------------------------------------------------------------------- */
-/*                           Helper / presentation logic                      */
-/* -------------------------------------------------------------------------- */
-
-const statusColor: Record<AppStatus, string> = {
+const statusColor: Record<string, string> = {
   unsubmitted: "bg-orange-600",
+  draft: "bg-orange-600",
   submitted: "bg-blue-600",
+  pending: "bg-blue-600",
   under_review: "bg-yellow-500",
   approved: "bg-green-600",
   rejected: "bg-red-600",
 }
 
-/* -------------------------------------------------------------------------- */
-/*                          PermittingOfficerApplicationsTable                */
-/* -------------------------------------------------------------------------- */
+function formatDate(dateString: string | Date) {
+  try {
+    const date = typeof dateString === "string" ? new Date(dateString) : dateString
+    return new Intl.DateTimeFormat("en-ZA", {
+      year: "numeric",
+      month: "short",
+      day: "2-digit",
+    }).format(date)
+  } catch {
+    return "N/A"
+  }
+}
 
-export default function PermittingOfficerApplicationsTable({ user, onView }: Props) {
-  /* ------------------------------ State ----------------------------------- */
-  const [apps, setApps] = useState<PermitApplication[]>([])
-  const [statusFilter, setStatusFilter] = useState<AppStatus | "all">("all")
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+export default function PermittingOfficerApplicationsTable({
+  user,
+  onView,
+  onEdit,
+}: PermittingOfficerApplicationsTableProps) {
+  const [applications, setApplications] = useState<PermitApplication[]>([])
+  const [filteredApplications, setFilteredApplications] = useState<PermitApplication[]>([])
+  const [statusFilter, setStatusFilter] = useState<string>("all")
+  const [selectedApplications, setSelectedApplications] = useState<Set<string>>(new Set())
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [loading, setLoading] = useState(true)
 
-  /* ----------------------------- Effects ---------------------------------- */
   useEffect(() => {
-    /* fetch initial data */
-    void (async () => {
-      const data = await db.getApplications()
-      setApps(data)
-    })()
+    loadApplications()
   }, [])
 
-  /* ---------------------------- Derived ----------------------------------- */
-  const filteredApps = useMemo(() => {
-    return statusFilter === "all" ? apps : apps.filter((a) => a.status === statusFilter)
-  }, [apps, statusFilter])
+  useEffect(() => {
+    applyFilters()
+  }, [applications, statusFilter])
 
-  const unsubmittedIds = useMemo(() => apps.filter((a) => a.status === "unsubmitted").map((a) => a.id), [apps])
-
-  const allUnsubmittedSelected = unsubmittedIds.length > 0 && unsubmittedIds.every((id) => selectedIds.has(id))
-
-  /* --------------------------- Handlers ----------------------------------- */
-  function toggleRow(id: string, checked: boolean) {
-    setSelectedIds((prev) => {
-      const next = new Set(prev)
-      checked ? next.add(id) : next.delete(id)
-      return next
-    })
+  const loadApplications = async () => {
+    try {
+      setLoading(true)
+      const apps = await db.getApplications()
+      setApplications(apps)
+    } catch (error) {
+      console.error("Error loading applications:", error)
+    } finally {
+      setLoading(false)
+    }
   }
 
-  function toggleSelectAllUnsubmitted(checked: boolean) {
-    setSelectedIds((prev) => {
-      if (checked) {
-        return new Set([...prev, ...unsubmittedIds])
-      }
-      const next = new Set(prev)
-      unsubmittedIds.forEach((id) => next.delete(id))
-      return next
-    })
+  const applyFilters = () => {
+    let filtered = [...applications]
+
+    if (statusFilter !== "all") {
+      filtered = filtered.filter((app) => app.status === statusFilter)
+    }
+
+    setFilteredApplications(filtered)
   }
 
-  async function handleSubmitAll() {
-    if (!allUnsubmittedSelected) return
+  const unsubmittedApplications = applications.filter((app) => app.status === "unsubmitted" || app.status === "draft")
+
+  const canEditApplication = (app: PermitApplication) => {
+    return app.status === "unsubmitted" || app.status === "draft"
+  }
+
+  const handleSelectApplication = (appId: string, checked: boolean) => {
+    const newSelected = new Set(selectedApplications)
+    if (checked) {
+      newSelected.add(appId)
+    } else {
+      newSelected.delete(appId)
+    }
+    setSelectedApplications(newSelected)
+  }
+
+  const handleSelectAllUnsubmitted = (checked: boolean) => {
+    if (checked) {
+      const unsubmittedIds = unsubmittedApplications.map((app) => app.id)
+      setSelectedApplications(new Set([...selectedApplications, ...unsubmittedIds]))
+    } else {
+      const newSelected = new Set(selectedApplications)
+      unsubmittedApplications.forEach((app) => newSelected.delete(app.id))
+      setSelectedApplications(newSelected)
+    }
+  }
+
+  const selectedUnsubmittedCount = unsubmittedApplications.filter((app) => selectedApplications.has(app.id)).length
+
+  const allUnsubmittedSelected =
+    unsubmittedApplications.length > 0 && selectedUnsubmittedCount === unsubmittedApplications.length
+
+  const handleSubmitSelected = async () => {
+    if (selectedUnsubmittedCount === 0) return
+
     setIsSubmitting(true)
     try {
-      await db.submitApplications(Array.from(unsubmittedIds), user.id) // 🔒 assumes this helper exists
-      /* mark them as submitted locally */
-      setApps((prev) =>
-        prev.map((a) => (a.status === "unsubmitted" ? { ...a, status: "submitted", currentStage: 2 } : a)),
-      )
-      setSelectedIds(new Set()) // clear selection
+      const selectedUnsubmittedIds = unsubmittedApplications
+        .filter((app) => selectedApplications.has(app.id))
+        .map((app) => app.id)
+
+      // Update applications to submitted status
+      for (const appId of selectedUnsubmittedIds) {
+        await db.updateApplication(appId, {
+          status: "submitted",
+          currentStage: 2,
+          submittedAt: new Date(),
+        })
+
+        // Add activity log
+        await db.addLog({
+          userId: user.id,
+          action: "Application submitted",
+          details: `Application submitted to Upper Manyame Sub Catchment Council Chairman for review`,
+          applicationId: appId,
+        })
+      }
+
+      // Reload applications and clear selection
+      await loadApplications()
+      setSelectedApplications(new Set())
+
+      alert(`Successfully submitted ${selectedUnsubmittedIds.length} application(s) to the Chairman for review.`)
+    } catch (error) {
+      console.error("Error submitting applications:", error)
+      alert("Error submitting applications. Please try again.")
     } finally {
       setIsSubmitting(false)
     }
   }
 
-  /* ------------------------------ UI -------------------------------------- */
+  if (loading) {
+    return (
+      <Card>
+        <CardContent className="flex items-center justify-center py-8">
+          <Loader2 className="h-6 w-6 animate-spin mr-2" />
+          Loading applications...
+        </CardContent>
+      </Card>
+    )
+  }
+
   return (
-    <Card className="w-full">
-      <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <CardTitle className="text-lg">Active Applications</CardTitle>
+    <div className="space-y-4">
+      {/* Bulk Selection Card */}
+      {unsubmittedApplications.length > 0 && (
+        <Card className="border-orange-200 bg-orange-50">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg text-orange-800">Bulk Submission</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="select-all-unsubmitted"
+                  checked={allUnsubmittedSelected}
+                  onCheckedChange={handleSelectAllUnsubmitted}
+                  className="border-orange-400"
+                />
+                <label htmlFor="select-all-unsubmitted" className="text-sm font-medium text-orange-800">
+                  Select All Unsubmitted Applications ({unsubmittedApplications.length})
+                </label>
+              </div>
+              <Badge variant="secondary" className="bg-orange-100 text-orange-800">
+                {selectedUnsubmittedCount} selected
+              </Badge>
+            </div>
 
-        {/* Status filter */}
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-muted-foreground">Filter status:</span>
-          <Select value={statusFilter} onValueChange={(val) => setStatusFilter(val as any)}>
-            <SelectTrigger className="w-[140px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All</SelectItem>
-              <SelectItem value="unsubmitted">Unsubmitted</SelectItem>
-              <SelectItem value="submitted">Submitted</SelectItem>
-              <SelectItem value="under_review">Under Review</SelectItem>
-              <SelectItem value="approved">Approved</SelectItem>
-              <SelectItem value="rejected">Rejected</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      </CardHeader>
-
-      {/* Bulk-submit bar (only visible when ALL unsubmitted are checked) */}
-      {allUnsubmittedSelected && (
-        <div className="flex items-center justify-between bg-orange-50 px-6 py-3 border-b">
-          <p className="text-sm font-medium text-orange-700">
-            {unsubmittedIds.length} unsubmitted application
-            {unsubmittedIds.length > 1 && "s"} selected
-          </p>
-          <Button
-            size="sm"
-            onClick={handleSubmitAll}
-            disabled={isSubmitting}
-            className="bg-orange-600 hover:bg-orange-700 text-white"
-          >
-            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Submit All Unsubmitted
-          </Button>
-        </div>
+            {allUnsubmittedSelected && (
+              <div className="flex items-center justify-between pt-2 border-t border-orange-200">
+                <p className="text-sm text-orange-700">
+                  Selected applications will be sent to the Upper Manyame Sub Catchment Council Chairman for review.
+                </p>
+                <Button
+                  onClick={handleSubmitSelected}
+                  disabled={isSubmitting || selectedUnsubmittedCount === 0}
+                  className="bg-orange-600 hover:bg-orange-700 text-white"
+                >
+                  {isSubmitting && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                  Submit All Unsubmitted Applications
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       )}
 
-      <CardContent className="p-0">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-[52px]">
-                {/* Select-all checkbox (unsubmitted only) */}
-                <Checkbox
-                  checked={unsubmittedIds.length === 0 ? false : allUnsubmittedSelected}
-                  indeterminate={!allUnsubmittedSelected && selectedIds.size > 0}
-                  onCheckedChange={(c) => toggleSelectAllUnsubmitted(Boolean(c))}
-                  aria-label="Select all unsubmitted applications"
-                />
-              </TableHead>
-              <TableHead>Reference</TableHead>
-              <TableHead>Applicant</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-
-          <TableBody>
-            {filteredApps.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={5} className="py-6 text-center">
-                  No applications to display.
-                </TableCell>
-              </TableRow>
-            )}
-
-            {filteredApps.map((app) => {
-              const isUnsubmitted = app.status === "unsubmitted"
-              const isChecked = selectedIds.has(app.id)
-
-              return (
-                <TableRow key={app.id}>
-                  <TableCell>
-                    {isUnsubmitted ? (
-                      <Checkbox
-                        checked={isChecked}
-                        onCheckedChange={(c) => toggleRow(app.id, Boolean(c))}
-                        aria-label="Select application"
-                      />
-                    ) : null}
-                  </TableCell>
-
-                  <TableCell className="font-medium">
-                    {app.reference}
-                    {isUnsubmitted && (
-                      <Badge className="ml-2 bg-orange-600" aria-label="Not submitted">
-                        Not&nbsp;Submitted
-                      </Badge>
-                    )}
-                  </TableCell>
-
-                  <TableCell className="whitespace-nowrap">{app.applicantName}</TableCell>
-
-                  <TableCell>
-                    <Badge className={cn(statusColor[app.status as AppStatus], "capitalize")}>
-                      {app.status.replace("_", " ")}
-                    </Badge>
-                  </TableCell>
-
-                  <TableCell className="text-right space-x-2">
-                    <Button size="sm" variant="secondary" onClick={() => onView(app)}>
-                      View
-                    </Button>
-
-                    {/* Edit button only for unsubmitted apps */}
-                    {isUnsubmitted && (
-                      <Button size="sm" variant="outline">
-                        Edit
-                      </Button>
-                    )}
-                  </TableCell>
+      {/* Filters */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle>Active Applications</CardTitle>
+            <div className="flex items-center space-x-2">
+              <label className="text-sm font-medium">Filter by Status:</label>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Statuses</SelectItem>
+                  <SelectItem value="unsubmitted">Unsubmitted</SelectItem>
+                  <SelectItem value="draft">Draft</SelectItem>
+                  <SelectItem value="submitted">Submitted</SelectItem>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="under_review">Under Review</SelectItem>
+                  <SelectItem value="approved">Approved</SelectItem>
+                  <SelectItem value="rejected">Rejected</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="p-0">
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader className="bg-muted/50">
+                <TableRow>
+                  <TableHead className="w-[50px]">Select</TableHead>
+                  <TableHead className="w-[140px]">Reference</TableHead>
+                  <TableHead>Applicant</TableHead>
+                  <TableHead className="w-[120px]">Status</TableHead>
+                  <TableHead className="w-[100px] text-center">Stage</TableHead>
+                  <TableHead className="w-[120px]">Created</TableHead>
+                  <TableHead className="w-[140px] text-right">Actions</TableHead>
                 </TableRow>
-              )
-            })}
-          </TableBody>
-        </Table>
-      </CardContent>
-    </Card>
+              </TableHeader>
+              <TableBody>
+                {filteredApplications.length > 0 ? (
+                  filteredApplications.map((app) => {
+                    const isUnsubmitted = app.status === "unsubmitted" || app.status === "draft"
+                    const isSelected = selectedApplications.has(app.id)
+
+                    return (
+                      <TableRow key={app.id} className={isSelected ? "bg-orange-50" : ""}>
+                        <TableCell>
+                          {isUnsubmitted && (
+                            <Checkbox
+                              checked={isSelected}
+                              onCheckedChange={(checked) => handleSelectApplication(app.id, checked as boolean)}
+                              className="border-orange-400"
+                            />
+                          )}
+                        </TableCell>
+                        <TableCell className="font-medium">
+                          <div className="flex items-center space-x-2">
+                            <span>{app.applicationId}</span>
+                            {isUnsubmitted && <Badge className="bg-orange-600 text-white text-xs">Not Submitted</Badge>}
+                          </div>
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap">{app.applicantName}</TableCell>
+                        <TableCell>
+                          <Badge className={cn(statusColor[app.status], "text-white capitalize")}>
+                            {app.status.replace("_", " ")}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-center">{app.currentStage}</TableCell>
+                        <TableCell>{formatDate(app.createdAt)}</TableCell>
+                        <TableCell className="text-right space-x-2">
+                          <Button size="sm" variant="secondary" onClick={() => onView(app)}>
+                            View
+                          </Button>
+                          {canEditApplication(app) && onEdit && (
+                            <Button size="sm" variant="outline" onClick={() => onEdit(app)}>
+                              Edit
+                            </Button>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={7} className="py-8 text-center text-muted-foreground">
+                      No applications to display.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   )
 }

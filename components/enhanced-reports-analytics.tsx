@@ -25,7 +25,6 @@ import { FileText, Download, AlertTriangle, Clock, TrendingUp, BarChart3, PieCha
 import type { PermitApplication } from "@/types"
 import { db } from "@/lib/database"
 import { AdvancedDashboardFilters, type DashboardFilterState } from "./advanced-dashboard-filters"
-import { ChartOrPlaceholder } from "./chart-or-placeholder"
 
 interface ReportFilters {
   dateRange: string
@@ -51,6 +50,7 @@ interface ReportFilters {
 export function EnhancedReportsAnalytics() {
   const [applications, setApplications] = useState<PermitApplication[]>([])
   const [filteredApplications, setFilteredApplications] = useState<PermitApplication[]>([])
+  const [isLoading, setIsLoading] = useState(true)
   const [dashboardFilters, setDashboardFilters] = useState<DashboardFilterState>({
     timeRange: "last_30_days",
     startDate: "",
@@ -77,54 +77,47 @@ export function EnhancedReportsAnalytics() {
     processingTimeRange: [0, 365],
   })
 
-  const [reportFilters, setReportFilters] = useState<ReportFilters>({
-    dateRange: "last_30_days",
-    startDate: "",
-    endDate: "",
-    permitTypeFilter: [],
-    statusFilter: [],
-    stageFilter: [],
-    waterSourceFilter: [],
-    regionFilter: "all",
-    userTypeFilter: [],
-    reportType: "overview",
-    includeComparisons: false,
-    includeForecasts: false,
-    groupBy: "status",
-    aggregationType: "count",
-    waterAllocationMin: 0,
-    waterAllocationMax: 1000,
-    landSizeMin: 0,
-    landSizeMax: 500,
-  })
-
   useEffect(() => {
     loadApplications()
   }, [])
 
   useEffect(() => {
     filterApplications()
-  }, [applications, dashboardFilters, reportFilters])
+  }, [applications, dashboardFilters])
 
   const loadApplications = async () => {
-    const apps = await db.getApplications()
-    setApplications(apps)
+    try {
+      setIsLoading(true)
+      const apps = await db.getApplications()
+      setApplications(apps)
+    } catch (error) {
+      console.error("Error loading applications:", error)
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   const filterApplications = () => {
     let filtered = [...applications]
 
-    // Apply dashboard filters
-    if (dashboardFilters.statusFilter.length > 0) {
+    // Apply status filters
+    if (dashboardFilters.statusFilter && dashboardFilters.statusFilter.length > 0) {
       filtered = filtered.filter((app) => dashboardFilters.statusFilter.includes(app.status))
     }
 
-    if (dashboardFilters.permitTypeFilter.length > 0) {
+    // Apply permit type filters
+    if (dashboardFilters.permitTypeFilter && dashboardFilters.permitTypeFilter.length > 0) {
       filtered = filtered.filter((app) => dashboardFilters.permitTypeFilter.includes(app.permitType))
     }
 
-    if (dashboardFilters.stageFilter.length > 0) {
+    // Apply stage filters
+    if (dashboardFilters.stageFilter && dashboardFilters.stageFilter.length > 0) {
       filtered = filtered.filter((app) => dashboardFilters.stageFilter.includes(app.currentStage.toString()))
+    }
+
+    // Apply water source filters
+    if (dashboardFilters.waterSourceFilter && dashboardFilters.waterSourceFilter.length > 0) {
+      filtered = filtered.filter((app) => dashboardFilters.waterSourceFilter.includes(app.waterSource))
     }
 
     // Apply water allocation range
@@ -140,7 +133,7 @@ export function EnhancedReportsAnalytics() {
     }
 
     // Apply date range filtering
-    if (dashboardFilters.timeRange !== "all" && dashboardFilters.timeRange) {
+    if (dashboardFilters.timeRange && dashboardFilters.timeRange !== "all") {
       const now = new Date()
       let startDate: Date
 
@@ -171,6 +164,49 @@ export function EnhancedReportsAnalytics() {
       }
 
       filtered = filtered.filter((app) => app.createdAt >= startDate)
+    }
+
+    // Apply custom date range
+    if (dashboardFilters.startDate) {
+      const startDate = new Date(dashboardFilters.startDate)
+      filtered = filtered.filter((app) => app.createdAt >= startDate)
+    }
+
+    if (dashboardFilters.endDate) {
+      const endDate = new Date(dashboardFilters.endDate)
+      endDate.setHours(23, 59, 59, 999) // End of day
+      filtered = filtered.filter((app) => app.createdAt <= endDate)
+    }
+
+    // Apply region filter
+    if (dashboardFilters.regionFilter && dashboardFilters.regionFilter !== "all") {
+      // For now, we'll use a simple region mapping based on GPS coordinates
+      filtered = filtered.filter((app) => {
+        // This is a simplified region filter - in a real system, you'd have proper region mapping
+        return true // Keep all for now since we don't have region data in our mock
+      })
+    }
+
+    // Apply expiring permits filter
+    if (dashboardFilters.includeExpiring) {
+      filtered = filtered.filter((app) => {
+        if (app.status !== "approved" || !app.approvedAt) return false
+        const expiryDate = new Date(app.approvedAt)
+        expiryDate.setFullYear(expiryDate.getFullYear() + 5)
+        const daysUntilExpiry = Math.ceil((expiryDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+        return daysUntilExpiry <= 30 && daysUntilExpiry > 0
+      })
+    }
+
+    // Apply overdue filter
+    if (dashboardFilters.includeOverdue) {
+      filtered = filtered.filter((app) => {
+        if (app.status === "approved" || app.status === "rejected") return false
+        const daysSinceSubmission = app.submittedAt
+          ? Math.ceil((Date.now() - app.submittedAt.getTime()) / (1000 * 60 * 60 * 24))
+          : 0
+        return daysSinceSubmission > 30 // Consider overdue after 30 days
+      })
     }
 
     setFilteredApplications(filtered)
@@ -265,7 +301,7 @@ export function EnhancedReportsAnalytics() {
     return Object.entries(distribution).map(([type, count]) => ({
       name: type.replace("_", " ").toUpperCase(),
       value: count,
-      percentage: Math.round((count / filteredApplications.length) * 100),
+      percentage: filteredApplications.length > 0 ? Math.round((count / filteredApplications.length) * 100) : 0,
     }))
   }
 
@@ -281,7 +317,7 @@ export function EnhancedReportsAnalytics() {
     return Object.entries(distribution).map(([status, count]) => ({
       name: status.replace("_", " ").toUpperCase(),
       value: count,
-      percentage: Math.round((count / filteredApplications.length) * 100),
+      percentage: filteredApplications.length > 0 ? Math.round((count / filteredApplications.length) * 100) : 0,
     }))
   }
 
@@ -395,6 +431,17 @@ export function EnhancedReportsAnalytics() {
     a.click()
     document.body.removeChild(a)
     URL.revokeObjectURL(url)
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading analytics data...</p>
+        </div>
+      </div>
+    )
   }
 
   const stats = getStatistics()
@@ -514,40 +561,38 @@ export function EnhancedReportsAnalytics() {
                 <CardTitle>Application Trends Over Time</CardTitle>
               </CardHeader>
               <CardContent>
-                <ChartOrPlaceholder data={monthlyTrends}>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <AreaChart data={monthlyTrends}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="month" />
-                      <YAxis />
-                      <Tooltip />
-                      <Area
-                        type="monotone"
-                        dataKey="applications"
-                        stackId="1"
-                        stroke="#3B82F6"
-                        fill="#3B82F6"
-                        fillOpacity={0.6}
-                      />
-                      <Area
-                        type="monotone"
-                        dataKey="approved"
-                        stackId="2"
-                        stroke="#10B981"
-                        fill="#10B981"
-                        fillOpacity={0.6}
-                      />
-                      <Area
-                        type="monotone"
-                        dataKey="rejected"
-                        stackId="3"
-                        stroke="#EF4444"
-                        fill="#EF4444"
-                        fillOpacity={0.6}
-                      />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                </ChartOrPlaceholder>
+                <ResponsiveContainer width="100%" height={300}>
+                  <AreaChart data={monthlyTrends}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="month" />
+                    <YAxis />
+                    <Tooltip />
+                    <Area
+                      type="monotone"
+                      dataKey="applications"
+                      stackId="1"
+                      stroke="#3B82F6"
+                      fill="#3B82F6"
+                      fillOpacity={0.6}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="approved"
+                      stackId="2"
+                      stroke="#10B981"
+                      fill="#10B981"
+                      fillOpacity={0.6}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="rejected"
+                      stackId="3"
+                      stroke="#EF4444"
+                      fill="#EF4444"
+                      fillOpacity={0.6}
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
               </CardContent>
             </Card>
 
@@ -556,19 +601,17 @@ export function EnhancedReportsAnalytics() {
                 <CardTitle>Monthly Application Volume</CardTitle>
               </CardHeader>
               <CardContent>
-                <ChartOrPlaceholder data={monthlyTrends}>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <LineChart data={monthlyTrends}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="month" />
-                      <YAxis />
-                      <Tooltip />
-                      <Line type="monotone" dataKey="applications" stroke="#3B82F6" strokeWidth={3} />
-                      <Line type="monotone" dataKey="approved" stroke="#10B981" strokeWidth={2} />
-                      <Line type="monotone" dataKey="rejected" stroke="#EF4444" strokeWidth={2} />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </ChartOrPlaceholder>
+                <ResponsiveContainer width="100%" height={300}>
+                  <LineChart data={monthlyTrends}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="month" />
+                    <YAxis />
+                    <Tooltip />
+                    <Line type="monotone" dataKey="applications" stroke="#3B82F6" strokeWidth={3} />
+                    <Line type="monotone" dataKey="approved" stroke="#10B981" strokeWidth={2} />
+                    <Line type="monotone" dataKey="rejected" stroke="#EF4444" strokeWidth={2} />
+                  </LineChart>
+                </ResponsiveContainer>
               </CardContent>
             </Card>
           </div>
@@ -581,27 +624,25 @@ export function EnhancedReportsAnalytics() {
                 <CardTitle>Permit Type Distribution</CardTitle>
               </CardHeader>
               <CardContent>
-                <ChartOrPlaceholder data={permitDistribution}>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <PieChart>
-                      <Pie
-                        data={permitDistribution}
-                        cx="50%"
-                        cy="50%"
-                        labelLine={false}
-                        label={({ name, percentage }) => `${name} ${percentage}%`}
-                        outerRadius={80}
-                        fill="#8884d8"
-                        dataKey="value"
-                      >
-                        {permitDistribution.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                        ))}
-                      </Pie>
-                      <Tooltip />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </ChartOrPlaceholder>
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Pie
+                      data={permitDistribution}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={false}
+                      label={({ name, percentage }) => `${name} ${percentage}%`}
+                      outerRadius={80}
+                      fill="#8884d8"
+                      dataKey="value"
+                    >
+                      {permitDistribution.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
               </CardContent>
             </Card>
 
@@ -610,27 +651,25 @@ export function EnhancedReportsAnalytics() {
                 <CardTitle>Status Distribution</CardTitle>
               </CardHeader>
               <CardContent>
-                <ChartOrPlaceholder data={statusDistribution}>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <PieChart>
-                      <Pie
-                        data={statusDistribution}
-                        cx="50%"
-                        cy="50%"
-                        labelLine={false}
-                        label={({ name, percentage }) => `${name} ${percentage}%`}
-                        outerRadius={80}
-                        fill="#8884d8"
-                        dataKey="value"
-                      >
-                        {statusDistribution.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                        ))}
-                      </Pie>
-                      <Tooltip />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </ChartOrPlaceholder>
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Pie
+                      data={statusDistribution}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={false}
+                      label={({ name, percentage }) => `${name} ${percentage}%`}
+                      outerRadius={80}
+                      fill="#8884d8"
+                      dataKey="value"
+                    >
+                      {statusDistribution.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
               </CardContent>
             </Card>
           </div>
@@ -642,19 +681,17 @@ export function EnhancedReportsAnalytics() {
               <CardTitle>Processing Performance Metrics</CardTitle>
             </CardHeader>
             <CardContent>
-              <ChartOrPlaceholder data={monthlyTrends}>
-                <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={monthlyTrends}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="month" />
-                    <YAxis />
-                    <Tooltip />
-                    <Bar dataKey="approved" fill="#10B981" name="Approved" />
-                    <Bar dataKey="rejected" fill="#EF4444" name="Rejected" />
-                    <Bar dataKey="pending" fill="#F59E0B" name="Pending" />
-                  </BarChart>
-                </ResponsiveContainer>
-              </ChartOrPlaceholder>
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={monthlyTrends}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="month" />
+                  <YAxis />
+                  <Tooltip />
+                  <Bar dataKey="approved" fill="#10B981" name="Approved" />
+                  <Bar dataKey="rejected" fill="#EF4444" name="Rejected" />
+                  <Bar dataKey="pending" fill="#F59E0B" name="Pending" />
+                </BarChart>
+              </ResponsiveContainer>
             </CardContent>
           </Card>
         </TabsContent>
@@ -665,18 +702,16 @@ export function EnhancedReportsAnalytics() {
               <CardTitle>Water Allocation Trends</CardTitle>
             </CardHeader>
             <CardContent>
-              <ChartOrPlaceholder data={waterAllocationTrends}>
-                <ResponsiveContainer width="100%" height={300}>
-                  <AreaChart data={waterAllocationTrends}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="month" />
-                    <YAxis />
-                    <Tooltip />
-                    <Area type="monotone" dataKey="allocation" stroke="#0088FE" fill="#0088FE" fillOpacity={0.6} />
-                    <Area type="monotone" dataKey="avgAllocation" stroke="#00C49F" fill="#00C49F" fillOpacity={0.4} />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </ChartOrPlaceholder>
+              <ResponsiveContainer width="100%" height={300}>
+                <AreaChart data={waterAllocationTrends}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="month" />
+                  <YAxis />
+                  <Tooltip />
+                  <Area type="monotone" dataKey="allocation" stroke="#0088FE" fill="#0088FE" fillOpacity={0.6} />
+                  <Area type="monotone" dataKey="avgAllocation" stroke="#00C49F" fill="#00C49F" fillOpacity={0.4} />
+                </AreaChart>
+              </ResponsiveContainer>
             </CardContent>
           </Card>
         </TabsContent>

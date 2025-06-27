@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Download, FileText, Table, BarChart3, Filter, Settings } from "lucide-react"
 import type { PermitApplication, User } from "@/types"
-import { db } from "@/lib/database"
+import { db } from "@/lib/db"
 
 interface EnhancedExportSystemProps {
   applications: PermitApplication[]

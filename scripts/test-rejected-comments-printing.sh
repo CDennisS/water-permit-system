@@ -1,7 +1,7 @@
 #!/bin/bash
 
-echo "📝 Running Rejected Comments Printing Tests..."
-echo "============================================="
+echo "🧪 Running Rejected Application Comments Printing Tests..."
+echo "=================================================="
 
 # Set test environment
 export NODE_ENV=test
@@ -19,7 +19,7 @@ echo ""
 
 # Run rejected comments printing tests
 echo -e "${YELLOW}Running rejected comments printing tests...${NC}"
-npm test -- tests/rejected-comments-printing.test.ts --reporter=verbose
+npm run test tests/rejected-comments-printing.test.ts --reporter=verbose
 
 if [ $? -eq 0 ]; then
     echo -e "${GREEN}✅ Rejected comments printing tests passed${NC}"
@@ -32,7 +32,7 @@ echo ""
 
 # Run end-to-end rejected comments tests
 echo -e "${YELLOW}Running end-to-end rejected comments tests...${NC}"
-npm test -- tests/rejected-comments-e2e.test.ts --reporter=verbose
+npm run test tests/rejected-comments-e2e.test.ts --reporter=verbose
 
 if [ $? -eq 0 ]; then
     echo -e "${GREEN}✅ End-to-end rejected comments tests passed${NC}"
@@ -45,7 +45,7 @@ echo ""
 
 # Run performance tests for large comment sets
 echo -e "${YELLOW}Running performance tests for rejected comments...${NC}"
-npm test -- tests/rejected-comments-performance.test.ts --reporter=verbose --testNamePattern="Performance"
+npm run test tests/rejected-comments-printing.test.ts --reporter=verbose --testNamePattern="Performance"
 
 if [ $? -eq 0 ]; then
     echo -e "${GREEN}✅ Performance tests passed${NC}"

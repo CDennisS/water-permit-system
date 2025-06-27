@@ -1,10 +1,10 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { Users, FileText, BarChart3, Activity, MessageSquare, Settings, Shield, Key, UserCheck } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Users, FileText, BarChart3, Activity, MessageSquare, Settings, Shield, Key, UserCheck } from "lucide-react"
 import type { User, PermitApplication } from "@/types"
 import { db } from "@/lib/database"
 import { ApplicationsTable } from "./applications-table"
@@ -38,32 +38,33 @@ export function PermitSupervisorDashboard({
   })
 
   useEffect(() => {
+    const loadDashboardData = async () => {
+      try {
+        const [apps, allUsers] = await Promise.all([db.getApplications(), db.getUsers()])
+
+        setApplications(apps)
+
+        // Filter out ICT users for permit supervisor
+        const filteredUsers = allUsers.filter((u) => u.userType !== "ict")
+        setUsers(filteredUsers)
+
+        // Calculate stats
+        setStats({
+          totalApplications: apps.length,
+          approvedApplications: apps.filter((app) => app.status === "approved").length,
+          pendingApplications: apps.filter((app) => app.status !== "approved" && app.status !== "rejected").length,
+          totalUsers: filteredUsers.length,
+          activeUsers: filteredUsers.length, // In a real system, this would be based on recent activity
+        })
+      } catch (error) {
+        console.error("Failed to load dashboard data:", error)
+      }
+    }
+
     loadDashboardData()
   }, [])
 
-  const loadDashboardData = async () => {
-    try {
-      const [apps, allUsers] = await Promise.all([db.getApplications(), db.getUsers()])
-
-      setApplications(apps)
-
-      // Filter out ICT users for permit supervisor
-      const filteredUsers = allUsers.filter((u) => u.userType !== "ict")
-      setUsers(filteredUsers)
-
-      // Calculate stats
-      setStats({
-        totalApplications: apps.length,
-        approvedApplications: apps.filter((app) => app.status === "approved").length,
-        pendingApplications: apps.filter((app) => app.status !== "approved" && app.status !== "rejected").length,
-        totalUsers: filteredUsers.length,
-        activeUsers: filteredUsers.length, // In a real system, this would be based on recent activity
-      })
-    } catch (error) {
-      console.error("Failed to load dashboard data:", error)
-    }
-  }
-
+  /* ---------- local reusable UI bits ---------- */
   const QuickActionCard = ({
     title,
     description,
@@ -144,9 +145,10 @@ export function PermitSupervisorDashboard({
     )
   }
 
+  /* ---------- render ---------- */
   return (
     <div className="space-y-6">
-      {/* Header Section */}
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Permit Supervisor Dashboard</h1>
@@ -158,7 +160,7 @@ export function PermitSupervisorDashboard({
         </Badge>
       </div>
 
-      {/* Navigation Tabs */}
+      {/* Tabs */}
       <Tabs value={activeView} onValueChange={setActiveView} className="w-full">
         <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="overview">Overview</TabsTrigger>
@@ -172,9 +174,8 @@ export function PermitSupervisorDashboard({
           <TabsTrigger value="logs">Activity</TabsTrigger>
         </TabsList>
 
-        {/* Overview Tab */}
+        {/* Overview */}
         <TabsContent value="overview" className="space-y-6">
-          {/* Statistics Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             <StatCard title="Total Applications" value={stats.totalApplications} icon={FileText} color="blue" />
             <StatCard title="Approved Permits" value={stats.approvedApplications} icon={UserCheck} color="green" />
@@ -223,13 +224,13 @@ export function PermitSupervisorDashboard({
                 description="Configure system preferences"
                 icon={Settings}
                 onClick={() => {
-                  /* Add settings functionality */
+                  /* future settings */
                 }}
               />
             </div>
           </div>
 
-          {/* Recent Activity Summary */}
+          {/* Recent Activity */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center">
@@ -265,7 +266,7 @@ export function PermitSupervisorDashboard({
           </Card>
         </TabsContent>
 
-        {/* User Management Tab */}
+        {/* User management */}
         <TabsContent value="users">
           <Card>
             <CardHeader className="border-b">
@@ -291,7 +292,7 @@ export function PermitSupervisorDashboard({
           </Card>
         </TabsContent>
 
-        {/* Applications Tab */}
+        {/* Applications */}
         <TabsContent value="applications">
           <Card>
             <CardHeader className="border-b">
@@ -316,7 +317,7 @@ export function PermitSupervisorDashboard({
           </Card>
         </TabsContent>
 
-        {/* Reports Tab */}
+        {/* Reports */}
         <TabsContent value="reports">
           <Card>
             <CardHeader className="border-b">
@@ -336,7 +337,7 @@ export function PermitSupervisorDashboard({
           </Card>
         </TabsContent>
 
-        {/* Messages Tab */}
+        {/* Messages */}
         <TabsContent value="messages">
           <Card>
             <CardHeader className="border-b">
@@ -356,7 +357,7 @@ export function PermitSupervisorDashboard({
           </Card>
         </TabsContent>
 
-        {/* Activity Logs Tab */}
+        {/* Activity logs */}
         <TabsContent value="logs">
           <Card>
             <CardHeader className="border-b">

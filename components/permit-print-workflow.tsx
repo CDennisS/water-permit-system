@@ -6,6 +6,9 @@ import { CheckCircle, Clock, XCircle, Printer } from "lucide-react"
 import { PermitPrinter } from "./permit-printer"
 import type { PermitApplication, User } from "@/types"
 
+// Import the new permission functions
+import { canPrintPermits } from "@/lib/auth"
+
 interface PermitPrintWorkflowProps {
   application: PermitApplication
   user: User
@@ -24,11 +27,15 @@ export function PermitPrintWorkflow({ application, user }: PermitPrintWorkflowPr
     return stages
   }
 
+  // Update the canPrintPermit function to use the centralized permission check
   const canPrintPermit = () => {
-    return (
-      application.status === "approved" && ["permitting_officer", "permit_supervisor", "ict"].includes(user.userType)
-    )
+    return application.status === "approved" && canPrintPermits(user)
   }
+
+  // Add this right after the canPrintPermit function
+  console.log("Print Workflow - User:", user)
+  console.log("Print Workflow - Can print:", canPrintPermit())
+  console.log("Print Workflow - Application status:", application.status)
 
   const stages = getWorkflowStatus()
 
@@ -107,7 +114,7 @@ export function PermitPrintWorkflow({ application, user }: PermitPrintWorkflowPr
             <strong>Your Role:</strong> {user.userType.replace("_", " ").toUpperCase()}
           </p>
           <p className="text-xs text-blue-600 mt-1">
-            {["permitting_officer", "permit_supervisor", "ict"].includes(user.userType)
+            {canPrintPermits(user)
               ? "✅ You have permission to print approved permits"
               : "❌ You do not have permission to print permits"}
           </p>

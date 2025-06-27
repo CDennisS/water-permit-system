@@ -3,11 +3,11 @@
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Printer, Download, Eye, FileText } from "lucide-react"
 import type { PermitApplication, WorkflowComment, User } from "@/types"
 import { db } from "@/lib/database"
-import { getUserTypeLabel } from "@/lib/auth"
-// import { useAuth } from "@/hooks/use-auth"
+import { getUserTypeLabel, canPrintRejectionComments } from "@/lib/auth"
 
 interface CommentsPrinterProps {
   application: PermitApplication
@@ -19,7 +19,13 @@ export function CommentsPrinter({ application, user, disabled = false }: Comment
   const [isPreviewOpen, setIsPreviewOpen] = useState(false)
   const [comments, setComments] = useState<WorkflowComment[]>([])
   const [isLoading, setIsLoading] = useState(false)
-  // const { userType } = useAuth()
+  const [error, setError] = useState<string | null>(null)
+
+  // Debug logging
+  console.log("CommentsPrinter - User:", user)
+  console.log("CommentsPrinter - Application:", application.applicationId)
+  console.log("CommentsPrinter - Application status:", application.status)
+  console.log("CommentsPrinter - Workflow comments:", application.workflowComments?.length || 0)
 
   useEffect(() => {
     if (isPreviewOpen) {
@@ -29,22 +35,45 @@ export function CommentsPrinter({ application, user, disabled = false }: Comment
 
   const loadComments = async () => {
     setIsLoading(true)
+    setError(null)
     try {
-      const appComments = await db.getCommentsByApplication(application.id)
+      // Try to get comments from database first
+      let appComments: WorkflowComment[] = []
+      try {
+        appComments = await db.getCommentsByApplication(application.id)
+      } catch (dbError) {
+        console.warn("Could not load comments from database, using application comments:", dbError)
+        // Fallback to comments from application object
+        appComments = application.workflowComments || []
+      }
+
+      console.log("Loaded comments:", appComments)
       setComments(appComments)
     } catch (error) {
       console.error("Failed to load comments:", error)
+      setError("Failed to load comments")
+      // Use application comments as fallback
+      setComments(application.workflowComments || [])
     } finally {
       setIsLoading(false)
     }
   }
 
-  const canPrint = (application: PermitApplication) => {
-    // Allow printing comments for any application that has comments
-    // Permitting Officers can print all comments for documentation purposes
-    return (
-      application.workflowComments.length > 0 && ["permitting_officer", "permit_supervisor"].includes(user.userType)
-    )
+  const canPrintComments = () => {
+    if (!user) return false
+
+    // Allow printing comments if there are any comments and user has permission
+    const hasComments = (application.workflowComments?.length || 0) > 0 || comments.length > 0
+    const hasPermission = canPrintRejectionComments(user)
+
+    console.log("Can print comments check:", {
+      hasComments,
+      hasPermission,
+      userType: user.userType,
+      commentsCount: application.workflowComments?.length || 0,
+    })
+
+    return hasComments && hasPermission
   }
 
   const handlePrint = () => {
@@ -190,6 +219,8 @@ export function CommentsPrinter({ application, user, disabled = false }: Comment
   }
 
   const handleDownload = () => {
+    const commentsToUse = comments.length > 0 ? comments : application.workflowComments || []
+
     let content = `APPLICATION COMMENTS REPORT\n`
     content += `Upper Manyame Sub Catchment Council\n`
     content += `${"=".repeat(60)}\n\n`
@@ -221,7 +252,7 @@ export function CommentsPrinter({ application, user, disabled = false }: Comment
     content += `COMMENTS AND REVIEW HISTORY:\n`
     content += `${"-".repeat(40)}\n\n`
 
-    comments.forEach((comment, index) => {
+    commentsToUse.forEach((comment, index) => {
       content += `${index + 1}. ${getUserTypeLabel(comment.userType)}\n`
       content += `   Date: ${comment.createdAt.toLocaleString()}\n`
       content += `   Stage: ${comment.stage}\n`
@@ -245,6 +276,30 @@ export function CommentsPrinter({ application, user, disabled = false }: Comment
     URL.revokeObjectURL(url)
   }
 
+  // Check if user can print comments
+  if (!canPrintComments()) {
+    return (
+      <div className="space-y-2">
+        <Alert variant="destructive">
+          <AlertTitle>Cannot Print Comments</AlertTitle>
+          <AlertDescription>
+            {!user
+              ? "User not authenticated"
+              : !canPrintRejectionComments(user)
+                ? `User type '${user.userType}' cannot print comments. Only Permitting Officers, Permit Supervisors, ICT, Chairpersons, and Catchment Managers can print comments.`
+                : "No comments available for this application"}
+          </AlertDescription>
+        </Alert>
+        {user && (
+          <div className="text-sm text-gray-600">
+            Current user: {user.userType} | Comments available:{" "}
+            {(application.workflowComments?.length || 0) + comments.length}
+          </div>
+        )}
+      </div>
+    )
+  }
+
   if (disabled) {
     return (
       <Button disabled variant="outline" size="sm">
@@ -258,7 +313,7 @@ export function CommentsPrinter({ application, user, disabled = false }: Comment
     <div className="flex space-x-2">
       <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
         <DialogTrigger asChild>
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" onClick={() => setIsPreviewOpen(true)}>
             <Eye className="h-4 w-4 mr-2" />
             Preview Comments
           </Button>
@@ -267,6 +322,13 @@ export function CommentsPrinter({ application, user, disabled = false }: Comment
           <DialogHeader>
             <DialogTitle>Comments Report - {application.applicationId}</DialogTitle>
           </DialogHeader>
+
+          {error && (
+            <Alert variant="destructive">
+              <AlertTitle>Error</AlertTitle>
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
 
           {isLoading ? (
             <div className="flex justify-center p-8">Loading comments...</div>
@@ -285,8 +347,16 @@ export function CommentsPrinter({ application, user, disabled = false }: Comment
                     <div>{application.applicationId}</div>
                   </div>
                   <div className="info-item">
+                    <div className="info-label">System Generated Number:</div>
+                    <div>{application.id}</div>
+                  </div>
+                  <div className="info-item">
                     <div className="info-label">Applicant Name:</div>
                     <div>{application.applicantName}</div>
+                  </div>
+                  <div className="info-item">
+                    <div className="info-label">Account Number:</div>
+                    <div>{application.customerAccountNumber || "Not Assigned"}</div>
                   </div>
                   <div className="info-item">
                     <div className="info-label">Physical Address:</div>
@@ -297,20 +367,16 @@ export function CommentsPrinter({ application, user, disabled = false }: Comment
                     <div>{application.postalAddress || "N/A"}</div>
                   </div>
                   <div className="info-item">
-                    <div className="info-label">Customer Account:</div>
-                    <div>{application.customerAccountNumber || "N/A"}</div>
-                  </div>
-                  <div className="info-item">
-                    <div className="info-label">Cellular Number:</div>
-                    <div>{application.cellularNumber || "N/A"}</div>
-                  </div>
-                  <div className="info-item">
                     <div className="info-label">Permit Type:</div>
                     <div className="capitalize">{application.permitType.replace("_", " ")}</div>
                   </div>
                   <div className="info-item">
                     <div className="info-label">Water Source:</div>
                     <div className="capitalize">{application.waterSource}</div>
+                  </div>
+                  <div className="info-item">
+                    <div className="info-label">Cellular Number:</div>
+                    <div>{application.cellularNumber || "N/A"}</div>
                   </div>
                   <div className="info-item">
                     <div className="info-label">Intended Use:</div>
@@ -375,9 +441,12 @@ export function CommentsPrinter({ application, user, disabled = false }: Comment
               <div className="comments-section">
                 <h3>Comments and Review History</h3>
 
-                {comments.length > 0 ? (
-                  comments.map((comment, index) => (
-                    <div key={comment.id} className={`comment ${comment.isRejectionReason ? "rejection" : ""}`}>
+                {comments.length > 0 || (application.workflowComments?.length || 0) > 0 ? (
+                  (comments.length > 0 ? comments : application.workflowComments || []).map((comment, index) => (
+                    <div
+                      key={comment.id || index}
+                      className={`comment ${comment.isRejectionReason ? "rejection" : ""}`}
+                    >
                       <div className="comment-header">
                         <div className="comment-author">
                           {getUserTypeLabel(comment.userType)}

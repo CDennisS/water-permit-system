@@ -148,6 +148,7 @@ export function AdvancedDashboardFilters({ onFiltersChange, currentFilters, onCl
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="all">All Time</SelectItem>
                       <SelectItem value="today">Today</SelectItem>
                       <SelectItem value="yesterday">Yesterday</SelectItem>
                       <SelectItem value="last_7_days">Last 7 Days</SelectItem>

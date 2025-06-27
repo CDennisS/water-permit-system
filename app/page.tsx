@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect } from "react"
 import { LoginForm } from "@/components/login-form"
 import { DashboardHeader } from "@/components/dashboard-header"
 import { ApplicationForm } from "@/components/application-form"
@@ -8,17 +8,18 @@ import { WorkflowManager } from "@/components/workflow-manager"
 import { MessagingSystem } from "@/components/messaging-system"
 import { ReportsAnalytics } from "@/components/reports-analytics"
 import { ActivityLogs } from "@/components/activity-logs"
-import { EnhancedDashboardApplications } from "@/components/enhanced-dashboard-applications"
+import { DashboardApplications } from "@/components/dashboard-applications"
+import { RecordsSection } from "@/components/records-section"
 import { ChairpersonDashboard } from "@/components/chairperson-dashboard"
 import { PermitSupervisorDashboard } from "@/components/permit-supervisor-dashboard"
 import { ICTDashboard } from "@/components/ict-dashboard"
 import { CatchmentManagerDashboard } from "@/components/catchment-manager-dashboard"
 import { CatchmentChairpersonDashboard } from "@/components/catchment-chairperson-dashboard"
+import { ComprehensiveApplicationDetails } from "@/components/comprehensive-application-details"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import type { User, PermitApplication } from "@/types"
 import { db } from "@/lib/database"
-import { PermittingOfficerAdvancedAnalytics } from "@/components/permitting-officer-advanced-analytics"
 
 export default function Home() {
   /* ------------------------------ state ------------------------------ */
@@ -27,7 +28,6 @@ export default function Home() {
   const [selectedApplication, setSelectedApplication] = useState<PermitApplication | null>(null)
   const [isEditing, setIsEditing] = useState(false)
   const [unreadMessageCount, setUnreadMessageCount] = useState(0)
-  const dashboardRef = useRef<{ refreshApplications: () => void } | null>(null)
 
   /* ------------------------- message polling ------------------------- */
   useEffect(() => {
@@ -50,69 +50,53 @@ export default function Home() {
 
   /* --------------------------- callbacks ----------------------------- */
   const handleLogin = (u: User) => setUser(u)
-
   const handleLogout = () => {
     setUser(null)
     setCurrentView("dashboard")
   }
-
   const handleNewApp = () => {
     setIsEditing(true)
     setSelectedApplication(null)
     setCurrentView("application-form")
   }
-
   const handleEditApp = (a: PermitApplication) => {
     setIsEditing(true)
     setSelectedApplication(a)
     setCurrentView("application-form")
   }
-
   const handleViewApp = (a: PermitApplication) => {
     setIsEditing(false)
     setSelectedApplication(a)
-    setCurrentView("workflow")
+    setCurrentView("comprehensive-view")
   }
-
-  const handleSaveApp = async () => {
-    console.log("handleSaveApp called") // Add debugging
+  const handleSaveApp = () => {
     setIsEditing(false)
     setSelectedApplication(null)
     setCurrentView("dashboard")
-
-    // Add a small delay to ensure database operations are complete
-    await new Promise((resolve) => setTimeout(resolve, 200))
-
-    // Force refresh the applications list
-    if (dashboardRef.current?.refreshApplications) {
-      console.log("Refreshing applications...") // Add debugging
-      dashboardRef.current.refreshApplications()
-    } else {
-      console.warn("Dashboard ref not available for refresh") // Add debugging
-    }
   }
-
   const handleCancelEdit = () => {
     setIsEditing(false)
     setSelectedApplication(null)
     setCurrentView("dashboard")
   }
-
   const handleUpdateApp = (a: PermitApplication) => setSelectedApplication(a)
-
   const handleTabChange = (v: string) => {
     setCurrentView(v)
     if (v === "messages") setUnreadMessageCount(0)
   }
-
   const handleMessagesClick = () => {
     setCurrentView("messages")
     setUnreadMessageCount(0)
+  }
+  const handleBackToApplications = () => {
+    setSelectedApplication(null)
+    setCurrentView("dashboard")
   }
 
   /* ------------------------ tab configuration ------------------------ */
   const baseTabs = [
     { value: "dashboard", label: "Dashboard & Applications" },
+    { value: "records", label: "Records" },
     { value: "messages", label: "Messages" },
     { value: "reports", label: "Reports" },
     { value: "logs", label: "Activity Logs" },
@@ -120,25 +104,9 @@ export default function Home() {
 
   const getUserTabs = () => {
     if (!user) return baseTabs
-
-    const tabs = [
-      { value: "dashboard", label: "Dashboard & Applications" },
-      { value: "messages", label: "Messages" },
-    ]
-
-    // Add analytics tab for permitting officers
-    if (user.userType === "permitting_officer") {
-      tabs.push({ value: "analytics", label: "Analytics" })
-    }
-
-    // Add reports tab for specific roles
-    if (["permitting_officer", "permit_supervisor", "ict"].includes(user.userType)) {
-      tabs.push({ value: "reports", label: "Reports" })
-    }
-
-    tabs.push({ value: "logs", label: "Activity Logs" })
-
-    return tabs
+    return baseTabs.filter(
+      (t) => t.value !== "reports" || ["permitting_officer", "permit_supervisor", "ict"].includes(user.userType),
+    )
   }
 
   /* ------------------------------ UI -------------------------------- */
@@ -157,6 +125,12 @@ export default function Home() {
               onSave={handleSaveApp}
               onCancel={handleCancelEdit}
             />
+          ) : currentView === "comprehensive-view" && selectedApplication ? (
+            <ComprehensiveApplicationDetails
+              application={selectedApplication}
+              user={user}
+              onBack={handleBackToApplications}
+            />
           ) : currentView === "workflow" && selectedApplication ? (
             <div className="space-y-6">
               <div className="flex items-center justify-between">
@@ -169,7 +143,7 @@ export default function Home() {
             </div>
           ) : (
             <>
-              {/* Role-specific dashboards */}
+              {/* Specialized Dashboards */}
               {user.userType === "chairperson" ? (
                 <ChairpersonDashboard user={user} />
               ) : user.userType === "catchment_manager" ? (
@@ -191,9 +165,9 @@ export default function Home() {
                   onViewApplication={handleViewApp}
                 />
               ) : (
-                /* Default dashboard + tabs for permitting officers etc. */
+                /* Standard Dashboard for other users */
                 <Tabs value={currentView} onValueChange={handleTabChange} className="w-full">
-                  <TabsList className={`grid w-full grid-cols-${getUserTabs().length}`}>
+                  <TabsList className="grid w-full grid-cols-5">
                     {getUserTabs().map((tab) => (
                       <TabsTrigger key={tab.value} value={tab.value} className="relative">
                         {tab.label}
@@ -215,8 +189,7 @@ export default function Home() {
                       <p className="text-gray-600">Manage your permit applications and track progress</p>
                     </div>
 
-                    <EnhancedDashboardApplications
-                      ref={dashboardRef}
+                    <DashboardApplications
                       user={user}
                       onNewApplication={handleNewApp}
                       onEditApplication={handleEditApp}
@@ -224,8 +197,8 @@ export default function Home() {
                     />
                   </TabsContent>
 
-                  <TabsContent value="analytics">
-                    <PermittingOfficerAdvancedAnalytics user={user} />
+                  <TabsContent value="records">
+                    <RecordsSection user={user} onEditApplication={handleEditApp} onViewApplication={handleViewApp} />
                   </TabsContent>
 
                   <TabsContent value="messages">
