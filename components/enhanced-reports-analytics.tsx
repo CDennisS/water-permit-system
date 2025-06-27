@@ -2,6 +2,9 @@
 
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -21,80 +24,42 @@ import {
   AreaChart,
   Area,
 } from "recharts"
-import { FileText, Download, AlertTriangle, Clock, TrendingUp, BarChart3, PieChartIcon, Activity } from "lucide-react"
+import {
+  FileText,
+  Download,
+  AlertTriangle,
+  Clock,
+  TrendingUp,
+  BarChart3,
+  PieChartIcon,
+  Activity,
+  RefreshCw,
+  Search,
+  Calendar,
+  Filter,
+  X,
+} from "lucide-react"
 import type { PermitApplication } from "@/types"
 import { db } from "@/lib/database"
-import { AdvancedDashboardFilters, type DashboardFilterState } from "./advanced-dashboard-filters"
 
-interface ReportFilters {
-  dateRange: string
+interface SimpleFilters {
+  searchText: string
   startDate: string
   endDate: string
-  permitTypeFilter: string[]
-  statusFilter: string[]
-  stageFilter: string[]
-  waterSourceFilter: string[]
-  regionFilter: string
-  userTypeFilter: string[]
-  reportType: string
-  includeComparisons: boolean
-  includeForecasts: boolean
-  groupBy: string
-  aggregationType: string
-  waterAllocationMin: number
-  waterAllocationMax: number
-  landSizeMin: number
-  landSizeMax: number
+  permitType: string
 }
 
 export function EnhancedReportsAnalytics() {
   const [applications, setApplications] = useState<PermitApplication[]>([])
   const [filteredApplications, setFilteredApplications] = useState<PermitApplication[]>([])
-  const [dashboardFilters, setDashboardFilters] = useState<DashboardFilterState>({
-    timeRange: "last_30_days",
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [lastUpdated, setLastUpdated] = useState<Date>(new Date())
+  const [filters, setFilters] = useState<SimpleFilters>({
+    searchText: "",
     startDate: "",
     endDate: "",
-    compareWithPrevious: false,
-    statusFilter: [],
-    stageFilter: [],
-    permitTypeFilter: [],
-    waterSourceFilter: [],
-    showTrends: true,
-    showComparisons: false,
-    showPredictions: false,
-    regionFilter: "all",
-    gpsAreaFilter: false,
-    granularity: "monthly",
-    aggregationType: "count",
-    includeExpiring: false,
-    includeOverdue: false,
-    includeHighPriority: false,
-    userTypeFilter: [],
-    assignedToMe: false,
-    waterAllocationRange: [0, 1000],
-    landSizeRange: [0, 500],
-    processingTimeRange: [0, 365],
-  })
-
-  const [reportFilters, setReportFilters] = useState<ReportFilters>({
-    dateRange: "last_30_days",
-    startDate: "",
-    endDate: "",
-    permitTypeFilter: [],
-    statusFilter: [],
-    stageFilter: [],
-    waterSourceFilter: [],
-    regionFilter: "all",
-    userTypeFilter: [],
-    reportType: "overview",
-    includeComparisons: false,
-    includeForecasts: false,
-    groupBy: "status",
-    aggregationType: "count",
-    waterAllocationMin: 0,
-    waterAllocationMax: 1000,
-    landSizeMin: 0,
-    landSizeMax: 500,
+    permitType: "all",
   })
 
   useEffect(() => {
@@ -103,108 +68,87 @@ export function EnhancedReportsAnalytics() {
 
   useEffect(() => {
     filterApplications()
-  }, [applications, dashboardFilters, reportFilters])
+  }, [applications, filters])
 
   const loadApplications = async () => {
-    const apps = await db.getApplications()
-    setApplications(apps)
+    try {
+      setIsLoading(true)
+      setError(null)
+      const apps = await db.getApplications()
+      if (apps && Array.isArray(apps)) {
+        setApplications(apps)
+        setLastUpdated(new Date())
+      } else {
+        setApplications([])
+      }
+    } catch (error) {
+      console.error("Error loading applications:", error)
+      setError("Failed to load applications. Please try again.")
+      setApplications([])
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   const filterApplications = () => {
     let filtered = [...applications]
 
-    // Apply dashboard filters
-    if (dashboardFilters.statusFilter.length > 0) {
-      filtered = filtered.filter((app) => dashboardFilters.statusFilter.includes(app.status))
+    // Filter by search text (searches in applicant name, application ID, and permit type)
+    if (filters.searchText.trim()) {
+      const searchTerm = filters.searchText.toLowerCase().trim()
+      filtered = filtered.filter(
+        (app) =>
+          app.applicantName?.toLowerCase().includes(searchTerm) ||
+          app.applicationId?.toLowerCase().includes(searchTerm) ||
+          app.permitType?.toLowerCase().includes(searchTerm) ||
+          app.status?.toLowerCase().includes(searchTerm),
+      )
     }
 
-    if (dashboardFilters.permitTypeFilter.length > 0) {
-      filtered = filtered.filter((app) => dashboardFilters.permitTypeFilter.includes(app.permitType))
+    // Filter by permit type
+    if (filters.permitType && filters.permitType !== "all") {
+      filtered = filtered.filter((app) => app.permitType === filters.permitType)
     }
 
-    if (dashboardFilters.stageFilter.length > 0) {
-      filtered = filtered.filter((app) => dashboardFilters.stageFilter.includes(app.currentStage.toString()))
-    }
-
-    // Apply water allocation range
-    if (dashboardFilters.waterAllocationRange) {
-      const [min, max] = dashboardFilters.waterAllocationRange
-      filtered = filtered.filter((app) => app.waterAllocation >= min && app.waterAllocation <= max)
-    }
-
-    // Apply land size range
-    if (dashboardFilters.landSizeRange) {
-      const [min, max] = dashboardFilters.landSizeRange
-      filtered = filtered.filter((app) => app.landSize >= min && app.landSize <= max)
-    }
-
-    // Apply date range filtering
-    if (dashboardFilters.timeRange !== "all" && dashboardFilters.timeRange) {
-      const now = new Date()
-      let startDate: Date
-
-      switch (dashboardFilters.timeRange) {
-        case "today":
-          startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-          break
-        case "yesterday":
-          startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1)
-          break
-        case "last_7_days":
-          startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
-          break
-        case "last_30_days":
-          startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
-          break
-        case "last_90_days":
-          startDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000)
-          break
-        case "this_month":
-          startDate = new Date(now.getFullYear(), now.getMonth(), 1)
-          break
-        case "this_year":
-          startDate = new Date(now.getFullYear(), 0, 1)
-          break
-        default:
-          startDate = new Date(0)
-      }
-
+    // Filter by date range
+    if (filters.startDate) {
+      const startDate = new Date(filters.startDate)
+      startDate.setHours(0, 0, 0, 0)
       filtered = filtered.filter((app) => app.createdAt >= startDate)
+    }
+
+    if (filters.endDate) {
+      const endDate = new Date(filters.endDate)
+      endDate.setHours(23, 59, 59, 999)
+      filtered = filtered.filter((app) => app.createdAt <= endDate)
     }
 
     setFilteredApplications(filtered)
   }
 
-  const handleDashboardFiltersChange = (filters: DashboardFilterState) => {
-    setDashboardFilters(filters)
+  const handleFilterChange = (field: keyof SimpleFilters, value: string) => {
+    setFilters((prev) => ({
+      ...prev,
+      [field]: value,
+    }))
   }
 
-  const clearDashboardFilters = () => {
-    setDashboardFilters({
-      timeRange: "all",
+  const clearAllFilters = () => {
+    setFilters({
+      searchText: "",
       startDate: "",
       endDate: "",
-      compareWithPrevious: false,
-      statusFilter: [],
-      stageFilter: [],
-      permitTypeFilter: [],
-      waterSourceFilter: [],
-      showTrends: true,
-      showComparisons: false,
-      showPredictions: false,
-      regionFilter: "all",
-      gpsAreaFilter: false,
-      granularity: "monthly",
-      aggregationType: "count",
-      includeExpiring: false,
-      includeOverdue: false,
-      includeHighPriority: false,
-      userTypeFilter: [],
-      assignedToMe: false,
-      waterAllocationRange: [0, 1000],
-      landSizeRange: [0, 500],
-      processingTimeRange: [0, 365],
+      permitType: "all",
     })
+  }
+
+  const getActiveFiltersCount = () => {
+    let count = 0
+    if (filters.searchText.trim()) count++
+    if (filters.startDate) count++
+    if (filters.endDate) count++
+    if (filters.permitType && filters.permitType !== "all") count++
+    return count
   }
 
   const getStatistics = () => {
@@ -247,15 +191,16 @@ export function EnhancedReportsAnalytics() {
       approvalRate,
       expiringSoon,
       avgProcessingTime,
-      totalWaterAllocation: filteredApplications.reduce((sum, app) => sum + app.waterAllocation, 0),
-      totalLandSize: filteredApplications.reduce((sum, app) => sum + app.landSize, 0),
+      totalWaterAllocation: filteredApplications.reduce((sum, app) => sum + (app.waterAllocation || 0), 0),
+      totalLandSize: filteredApplications.reduce((sum, app) => sum + (app.landSize || 0), 0),
     }
   }
 
   const getPermitTypeDistribution = () => {
     const distribution = filteredApplications.reduce(
       (acc, app) => {
-        acc[app.permitType] = (acc[app.permitType] || 0) + 1
+        const type = app.permitType || "unknown"
+        acc[type] = (acc[type] || 0) + 1
         return acc
       },
       {} as Record<string, number>,
@@ -264,14 +209,15 @@ export function EnhancedReportsAnalytics() {
     return Object.entries(distribution).map(([type, count]) => ({
       name: type.replace("_", " ").toUpperCase(),
       value: count,
-      percentage: Math.round((count / filteredApplications.length) * 100),
+      percentage: filteredApplications.length > 0 ? Math.round((count / filteredApplications.length) * 100) : 0,
     }))
   }
 
   const getStatusDistribution = () => {
     const distribution = filteredApplications.reduce(
       (acc, app) => {
-        acc[app.status] = (acc[app.status] || 0) + 1
+        const status = app.status || "unknown"
+        acc[status] = (acc[status] || 0) + 1
         return acc
       },
       {} as Record<string, number>,
@@ -280,7 +226,7 @@ export function EnhancedReportsAnalytics() {
     return Object.entries(distribution).map(([status, count]) => ({
       name: status.replace("_", " ").toUpperCase(),
       value: count,
-      percentage: Math.round((count / filteredApplications.length) * 100),
+      percentage: filteredApplications.length > 0 ? Math.round((count / filteredApplications.length) * 100) : 0,
     }))
   }
 
@@ -312,7 +258,7 @@ export function EnhancedReportsAnalytics() {
         if (!acc[month]) {
           acc[month] = { month, allocation: 0, applications: 0 }
         }
-        acc[month].allocation += app.waterAllocation
+        acc[month].allocation += app.waterAllocation || 0
         acc[month].applications++
         return acc
       },
@@ -328,72 +274,119 @@ export function EnhancedReportsAnalytics() {
   }
 
   const exportDetailedReport = () => {
-    const stats = getStatistics()
-    const permitDistribution = getPermitTypeDistribution()
-    const statusDistribution = getStatusDistribution()
+    try {
+      const stats = getStatistics()
+      const permitDistribution = getPermitTypeDistribution()
+      const statusDistribution = getStatusDistribution()
 
-    const reportData = [
-      ["COMPREHENSIVE PERMIT MANAGEMENT REPORT"],
-      ["Generated:", new Date().toLocaleString()],
-      ["Filter Period:", dashboardFilters.timeRange.replace("_", " ").toUpperCase()],
-      [""],
-      ["EXECUTIVE SUMMARY"],
-      ["Total Applications:", stats.total],
-      ["Approved Applications:", stats.approved],
-      ["Rejected Applications:", stats.rejected],
-      ["Pending Applications:", stats.pending],
-      ["Overall Approval Rate:", `${stats.approvalRate}%`],
-      ["Average Processing Time:", `${stats.avgProcessingTime} days`],
-      ["Permits Expiring Soon:", stats.expiringSoon],
-      ["Total Water Allocation:", `${stats.totalWaterAllocation.toLocaleString()} ML`],
-      ["Total Land Coverage:", `${stats.totalLandSize.toLocaleString()} hectares`],
-      [""],
-      ["PERMIT TYPE DISTRIBUTION"],
-      ["Type", "Count", "Percentage"],
-      ...permitDistribution.map((item) => [item.name, item.value, `${item.percentage}%`]),
-      [""],
-      ["STATUS DISTRIBUTION"],
-      ["Status", "Count", "Percentage"],
-      ...statusDistribution.map((item) => [item.name, item.value, `${item.percentage}%`]),
-      [""],
-      ["DETAILED APPLICATION DATA"],
-      [
-        "Application ID",
-        "Applicant",
-        "Type",
-        "Status",
-        "Stage",
-        "Water Allocation",
-        "Land Size",
-        "Created",
-        "Submitted",
-        "Approved",
-      ],
-      ...filteredApplications.map((app) => [
-        app.applicationId,
-        app.applicantName,
-        app.permitType,
-        app.status,
-        app.currentStage,
-        app.waterAllocation,
-        app.landSize,
-        app.createdAt.toLocaleDateString(),
-        app.submittedAt?.toLocaleDateString() || "N/A",
-        app.approvedAt?.toLocaleDateString() || "N/A",
-      ]),
-    ]
+      const reportData = [
+        ["COMPREHENSIVE PERMIT MANAGEMENT REPORT"],
+        ["Generated:", new Date().toLocaleString()],
+        ["Filters Applied:", getActiveFiltersCount() > 0 ? "Yes" : "No"],
+        ["Search Term:", filters.searchText || "None"],
+        [
+          "Date Range:",
+          filters.startDate && filters.endDate ? `${filters.startDate} to ${filters.endDate}` : "All dates",
+        ],
+        [
+          "Permit Type:",
+          filters.permitType === "all" ? "All Types" : filters.permitType.replace("_", " ").toUpperCase(),
+        ],
+        ["Last Updated:", lastUpdated.toLocaleString()],
+        [""],
+        ["EXECUTIVE SUMMARY"],
+        ["Total Applications:", stats.total],
+        ["Approved Applications:", stats.approved],
+        ["Rejected Applications:", stats.rejected],
+        ["Pending Applications:", stats.pending],
+        ["Overall Approval Rate:", `${stats.approvalRate}%`],
+        ["Average Processing Time:", `${stats.avgProcessingTime} days`],
+        ["Permits Expiring Soon:", stats.expiringSoon],
+        ["Total Water Allocation:", `${stats.totalWaterAllocation.toLocaleString()} ML`],
+        ["Total Land Coverage:", `${stats.totalLandSize.toLocaleString()} hectares`],
+        [""],
+        ["PERMIT TYPE DISTRIBUTION"],
+        ["Type", "Count", "Percentage"],
+        ...permitDistribution.map((item) => [item.name, item.value, `${item.percentage}%`]),
+        [""],
+        ["STATUS DISTRIBUTION"],
+        ["Status", "Count", "Percentage"],
+        ...statusDistribution.map((item) => [item.name, item.value, `${item.percentage}%`]),
+        [""],
+        ["DETAILED APPLICATION DATA"],
+        [
+          "Application ID",
+          "Applicant",
+          "Type",
+          "Status",
+          "Stage",
+          "Water Allocation",
+          "Land Size",
+          "Created",
+          "Submitted",
+          "Approved",
+        ],
+        ...filteredApplications.map((app) => [
+          app.applicationId || "N/A",
+          app.applicantName || "N/A",
+          app.permitType || "N/A",
+          app.status || "N/A",
+          app.currentStage || "N/A",
+          app.waterAllocation || 0,
+          app.landSize || 0,
+          app.createdAt.toLocaleDateString(),
+          app.submittedAt?.toLocaleDateString() || "N/A",
+          app.approvedAt?.toLocaleDateString() || "N/A",
+        ]),
+      ]
 
-    const csvContent = reportData.map((row) => (Array.isArray(row) ? row.join(",") : row)).join("\n")
+      const csvContent = reportData.map((row) => (Array.isArray(row) ? row.join(",") : row)).join("\n")
 
-    const blob = new Blob([csvContent], { type: "text/csv" })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement("a")
-    a.href = url
-    a.download = `comprehensive_permit_report_${new Date().toISOString().split("T")[0]}.csv`
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
+      const blob = new Blob([csvContent], { type: "text/csv" })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = `permit_report_${new Date().toISOString().split("T")[0]}.csv`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error("Error exporting report:", error)
+      alert("Failed to export report. Please try again.")
+    }
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <Card className="border-red-200 bg-red-50">
+          <CardContent className="p-6 text-center">
+            <div className="text-red-600 mb-4">
+              <AlertTriangle className="h-12 w-12 mx-auto mb-2" />
+              <h3 className="text-lg font-semibold">Error Loading Analytics Data</h3>
+              <p className="text-sm">{error}</p>
+            </div>
+            <Button onClick={loadApplications} variant="outline" className="border-red-300 text-red-700 bg-transparent">
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Retry Loading
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading analytics data...</p>
+          <p className="text-sm text-gray-500 mt-2">Please wait while we fetch the latest data...</p>
+        </div>
+      </div>
+    )
   }
 
   const stats = getStatistics()
@@ -401,31 +394,156 @@ export function EnhancedReportsAnalytics() {
   const statusDistribution = getStatusDistribution()
   const monthlyTrends = getMonthlyTrends()
   const waterAllocationTrends = getWaterAllocationTrends()
+  const activeFiltersCount = getActiveFiltersCount()
 
   const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884D8", "#82CA9D", "#FFCC02", "#FF6B6B"]
 
   return (
     <div className="space-y-6">
-      {/* Advanced Dashboard Filters */}
-      <AdvancedDashboardFilters
-        onFiltersChange={handleDashboardFiltersChange}
-        currentFilters={dashboardFilters}
-        onClearFilters={clearDashboardFilters}
-      />
+      {/* Simple Filters Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center justify-between">
+            <div className="flex items-center">
+              <Filter className="h-5 w-5 mr-2 text-blue-600" />
+              Filters
+              {activeFiltersCount > 0 && (
+                <Badge variant="secondary" className="ml-2 bg-blue-100 text-blue-800">
+                  {activeFiltersCount} active
+                </Badge>
+              )}
+            </div>
+            {activeFiltersCount > 0 && (
+              <Button variant="ghost" size="sm" onClick={clearAllFilters} className="text-red-600 hover:text-red-800">
+                <X className="h-4 w-4 mr-1" />
+                Clear All
+              </Button>
+            )}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            {/* Search Input */}
+            <div className="space-y-2">
+              <Label htmlFor="search" className="text-sm font-medium">
+                Search Applications
+              </Label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                <Input
+                  id="search"
+                  type="text"
+                  placeholder="Search by name, ID, type..."
+                  value={filters.searchText}
+                  onChange={(e) => handleFilterChange("searchText", e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+            </div>
+
+            {/* Start Date */}
+            <div className="space-y-2">
+              <Label htmlFor="startDate" className="text-sm font-medium">
+                Start Date
+              </Label>
+              <div className="relative">
+                <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                <Input
+                  id="startDate"
+                  type="date"
+                  value={filters.startDate}
+                  onChange={(e) => handleFilterChange("startDate", e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+            </div>
+
+            {/* End Date */}
+            <div className="space-y-2">
+              <Label htmlFor="endDate" className="text-sm font-medium">
+                End Date
+              </Label>
+              <div className="relative">
+                <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                <Input
+                  id="endDate"
+                  type="date"
+                  value={filters.endDate}
+                  onChange={(e) => handleFilterChange("endDate", e.target.value)}
+                  min={filters.startDate}
+                  className="pl-10"
+                />
+              </div>
+            </div>
+
+            {/* Permit Type Dropdown */}
+            <div className="space-y-2">
+              <Label htmlFor="permitType" className="text-sm font-medium">
+                Permit Type
+              </Label>
+              <Select value={filters.permitType} onValueChange={(value) => handleFilterChange("permitType", value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select permit type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Types</SelectItem>
+                  <SelectItem value="urban">Urban</SelectItem>
+                  <SelectItem value="bulk_water">Bulk Water</SelectItem>
+                  <SelectItem value="irrigation">Irrigation</SelectItem>
+                  <SelectItem value="institution">Institution</SelectItem>
+                  <SelectItem value="industrial">Industrial</SelectItem>
+                  <SelectItem value="surface_water_storage">Surface Water Storage</SelectItem>
+                  <SelectItem value="surface_water_flow">Surface Water Flow</SelectItem>
+                  <SelectItem value="tempering">Tempering</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {/* Filter Summary */}
+          {activeFiltersCount > 0 && (
+            <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+              <div className="flex items-center justify-between">
+                <div className="text-sm text-blue-800">
+                  <strong>Active Filters:</strong>
+                  {filters.searchText && <span className="ml-2">Search: "{filters.searchText}"</span>}
+                  {filters.startDate && <span className="ml-2">From: {filters.startDate}</span>}
+                  {filters.endDate && <span className="ml-2">To: {filters.endDate}</span>}
+                  {filters.permitType !== "all" && (
+                    <span className="ml-2">Type: {filters.permitType.replace("_", " ").toUpperCase()}</span>
+                  )}
+                </div>
+                <div className="text-sm text-blue-600 font-medium">
+                  Showing {filteredApplications.length} of {applications.length} applications
+                </div>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Export Controls */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
             <div className="flex items-center">
-              <FileText className="h-5 w-5 mr-2" />
-              Enhanced Reports & Analytics
+              <FileText className="h-5 w-5 mr-2 text-blue-600" />
+              Reports & Analytics
+              <Badge variant="outline" className="ml-2 text-xs">
+                Last updated: {lastUpdated.toLocaleTimeString()}
+              </Badge>
             </div>
             <div className="flex items-center space-x-2">
-              <Badge variant="outline">{filteredApplications.length} applications</Badge>
-              <Button onClick={exportDetailedReport}>
+              <Badge variant="secondary" className="bg-green-100 text-green-800">
+                {filteredApplications.length} applications
+              </Badge>
+              <Button onClick={loadApplications} variant="outline" size="sm" disabled={isLoading}>
+                <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
+                Refresh
+              </Button>
+              <Button onClick={exportDetailedReport} disabled={filteredApplications.length === 0}>
                 <Download className="h-4 w-4 mr-2" />
-                Export Detailed Report
+                Export Report
               </Button>
             </div>
           </CardTitle>
@@ -434,7 +552,7 @@ export function EnhancedReportsAnalytics() {
 
       {/* Enhanced Statistics Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card>
+        <Card className="hover:shadow-md transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Applications</CardTitle>
             <FileText className="h-4 w-4 text-muted-foreground" />
@@ -448,7 +566,7 @@ export function EnhancedReportsAnalytics() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="hover:shadow-md transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Approval Rate</CardTitle>
             <TrendingUp className="h-4 w-4 text-green-600" />
@@ -462,7 +580,7 @@ export function EnhancedReportsAnalytics() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="hover:shadow-md transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Pending Review</CardTitle>
             <Clock className="h-4 w-4 text-yellow-600" />
@@ -473,7 +591,7 @@ export function EnhancedReportsAnalytics() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="hover:shadow-md transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Expiring Soon</CardTitle>
             <AlertTriangle className="h-4 w-4 text-red-600" />

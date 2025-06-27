@@ -91,12 +91,37 @@ export function canPerformAction(user: User, action: string): boolean {
 
   // Define specific permissions for other users
   const permissions = {
-    permitting_officer: ["create_application", "edit_application", "upload_documents", "view_applications"],
+    permitting_officer: [
+      "create_application",
+      "edit_application",
+      "upload_documents",
+      "view_applications",
+      "print_permits",
+    ],
     chairperson: ["review_applications", "add_comments", "view_applications"],
     catchment_manager: ["review_applications", "add_comments", "view_applications"],
     catchment_chairperson: ["review_applications", "add_comments", "view_applications"],
-    permit_supervisor: ["view_applications", "print_permits", "manage_user_credentials"],
+    permit_supervisor: ["view_applications", "print_permits", "manage_user_credentials", "print_rejection_comments"],
   }
 
   return permissions[user.userType]?.includes(action) || false
+}
+
+// Add a specific function to check permit printing permissions
+export function canPrintPermits(user: User): boolean {
+  const allowedUserTypes = ["permitting_officer", "permit_supervisor", "ict"]
+  return allowedUserTypes.includes(user.userType)
+}
+
+// Add a function to check rejection comment printing permissions
+export function canPrintRejectionComments(user: User): boolean {
+  const allowedUserTypes = [
+    "permitting_officer",
+    "permit_supervisor",
+    "ict",
+    "chairperson",
+    "catchment_manager",
+    "catchment_chairperson",
+  ]
+  return allowedUserTypes.includes(user.userType)
 }
