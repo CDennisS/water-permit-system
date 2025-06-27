@@ -2,6 +2,9 @@
 
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -31,30 +34,19 @@ import {
   PieChartIcon,
   Activity,
   RefreshCw,
+  Search,
+  Calendar,
+  Filter,
+  X,
 } from "lucide-react"
 import type { PermitApplication } from "@/types"
 import { db } from "@/lib/database"
-import { AdvancedDashboardFilters, type DashboardFilterState } from "./advanced-dashboard-filters"
 
-interface ReportFilters {
-  dateRange: string
+interface SimpleFilters {
+  searchText: string
   startDate: string
   endDate: string
-  permitTypeFilter: string[]
-  statusFilter: string[]
-  stageFilter: string[]
-  waterSourceFilter: string[]
-  regionFilter: string
-  userTypeFilter: string[]
-  reportType: string
-  includeComparisons: boolean
-  includeForecasts: boolean
-  groupBy: string
-  aggregationType: string
-  waterAllocationMin: number
-  waterAllocationMax: number
-  landSizeMin: number
-  landSizeMax: number
+  permitType: string
 }
 
 export function EnhancedReportsAnalytics() {
@@ -63,30 +55,11 @@ export function EnhancedReportsAnalytics() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date())
-  const [dashboardFilters, setDashboardFilters] = useState<DashboardFilterState>({
-    timeRange: "last_30_days",
+  const [filters, setFilters] = useState<SimpleFilters>({
+    searchText: "",
     startDate: "",
     endDate: "",
-    compareWithPrevious: false,
-    statusFilter: [],
-    stageFilter: [],
-    permitTypeFilter: [],
-    waterSourceFilter: [],
-    showTrends: true,
-    showComparisons: false,
-    showPredictions: false,
-    regionFilter: "all",
-    gpsAreaFilter: false,
-    granularity: "monthly",
-    aggregationType: "count",
-    includeExpiring: false,
-    includeOverdue: false,
-    includeHighPriority: false,
-    userTypeFilter: [],
-    assignedToMe: false,
-    waterAllocationRange: [0, 1000],
-    landSizeRange: [0, 500],
-    processingTimeRange: [0, 365],
+    permitType: "all",
   })
 
   useEffect(() => {
@@ -95,7 +68,7 @@ export function EnhancedReportsAnalytics() {
 
   useEffect(() => {
     filterApplications()
-  }, [applications, dashboardFilters])
+  }, [applications, filters])
 
   const loadApplications = async () => {
     try {
@@ -120,148 +93,62 @@ export function EnhancedReportsAnalytics() {
   const filterApplications = () => {
     let filtered = [...applications]
 
-    // Apply status filters
-    if (dashboardFilters.statusFilter && dashboardFilters.statusFilter.length > 0) {
-      filtered = filtered.filter((app) => dashboardFilters.statusFilter.includes(app.status))
+    // Filter by search text (searches in applicant name, application ID, and permit type)
+    if (filters.searchText.trim()) {
+      const searchTerm = filters.searchText.toLowerCase().trim()
+      filtered = filtered.filter(
+        (app) =>
+          app.applicantName?.toLowerCase().includes(searchTerm) ||
+          app.applicationId?.toLowerCase().includes(searchTerm) ||
+          app.permitType?.toLowerCase().includes(searchTerm) ||
+          app.status?.toLowerCase().includes(searchTerm),
+      )
     }
 
-    // Apply permit type filters
-    if (dashboardFilters.permitTypeFilter && dashboardFilters.permitTypeFilter.length > 0) {
-      filtered = filtered.filter((app) => dashboardFilters.permitTypeFilter.includes(app.permitType))
+    // Filter by permit type
+    if (filters.permitType && filters.permitType !== "all") {
+      filtered = filtered.filter((app) => app.permitType === filters.permitType)
     }
 
-    // Apply stage filters
-    if (dashboardFilters.stageFilter && dashboardFilters.stageFilter.length > 0) {
-      filtered = filtered.filter((app) => dashboardFilters.stageFilter.includes(app.currentStage.toString()))
-    }
-
-    // Apply water source filters
-    if (dashboardFilters.waterSourceFilter && dashboardFilters.waterSourceFilter.length > 0) {
-      filtered = filtered.filter((app) => dashboardFilters.waterSourceFilter.includes(app.waterSource))
-    }
-
-    // Apply water allocation range
-    if (dashboardFilters.waterAllocationRange) {
-      const [min, max] = dashboardFilters.waterAllocationRange
-      filtered = filtered.filter((app) => app.waterAllocation >= min && app.waterAllocation <= max)
-    }
-
-    // Apply land size range
-    if (dashboardFilters.landSizeRange) {
-      const [min, max] = dashboardFilters.landSizeRange
-      filtered = filtered.filter((app) => app.landSize >= min && app.landSize <= max)
-    }
-
-    // Apply date range filtering
-    if (dashboardFilters.timeRange && dashboardFilters.timeRange !== "all") {
-      const now = new Date()
-      let startDate: Date
-
-      switch (dashboardFilters.timeRange) {
-        case "today":
-          startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-          break
-        case "yesterday":
-          startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1)
-          break
-        case "last_7_days":
-          startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
-          break
-        case "last_30_days":
-          startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
-          break
-        case "last_90_days":
-          startDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000)
-          break
-        case "this_month":
-          startDate = new Date(now.getFullYear(), now.getMonth(), 1)
-          break
-        case "this_year":
-          startDate = new Date(now.getFullYear(), 0, 1)
-          break
-        default:
-          startDate = new Date(0)
-      }
-
+    // Filter by date range
+    if (filters.startDate) {
+      const startDate = new Date(filters.startDate)
+      startDate.setHours(0, 0, 0, 0)
       filtered = filtered.filter((app) => app.createdAt >= startDate)
     }
 
-    // Apply custom date range
-    if (dashboardFilters.startDate) {
-      const startDate = new Date(dashboardFilters.startDate)
-      filtered = filtered.filter((app) => app.createdAt >= startDate)
-    }
-
-    if (dashboardFilters.endDate) {
-      const endDate = new Date(dashboardFilters.endDate)
-      endDate.setHours(23, 59, 59, 999) // End of day
+    if (filters.endDate) {
+      const endDate = new Date(filters.endDate)
+      endDate.setHours(23, 59, 59, 999)
       filtered = filtered.filter((app) => app.createdAt <= endDate)
-    }
-
-    // Apply region filter
-    if (dashboardFilters.regionFilter && dashboardFilters.regionFilter !== "all") {
-      // For now, we'll use a simple region mapping based on GPS coordinates
-      filtered = filtered.filter((app) => {
-        // This is a simplified region filter - in a real system, you'd have proper region mapping
-        return true // Keep all for now since we don't have region data in our mock
-      })
-    }
-
-    // Apply expiring permits filter
-    if (dashboardFilters.includeExpiring) {
-      filtered = filtered.filter((app) => {
-        if (app.status !== "approved" || !app.approvedAt) return false
-        const expiryDate = new Date(app.approvedAt)
-        expiryDate.setFullYear(expiryDate.getFullYear() + 5)
-        const daysUntilExpiry = Math.ceil((expiryDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
-        return daysUntilExpiry <= 30 && daysUntilExpiry > 0
-      })
-    }
-
-    // Apply overdue filter
-    if (dashboardFilters.includeOverdue) {
-      filtered = filtered.filter((app) => {
-        if (app.status === "approved" || app.status === "rejected") return false
-        const daysSinceSubmission = app.submittedAt
-          ? Math.ceil((Date.now() - app.submittedAt.getTime()) / (1000 * 60 * 60 * 24))
-          : 0
-        return daysSinceSubmission > 30 // Consider overdue after 30 days
-      })
     }
 
     setFilteredApplications(filtered)
   }
 
-  const handleDashboardFiltersChange = (filters: DashboardFilterState) => {
-    setDashboardFilters(filters)
+  const handleFilterChange = (field: keyof SimpleFilters, value: string) => {
+    setFilters((prev) => ({
+      ...prev,
+      [field]: value,
+    }))
   }
 
-  const clearDashboardFilters = () => {
-    setDashboardFilters({
-      timeRange: "all",
+  const clearAllFilters = () => {
+    setFilters({
+      searchText: "",
       startDate: "",
       endDate: "",
-      compareWithPrevious: false,
-      statusFilter: [],
-      stageFilter: [],
-      permitTypeFilter: [],
-      waterSourceFilter: [],
-      showTrends: true,
-      showComparisons: false,
-      showPredictions: false,
-      regionFilter: "all",
-      gpsAreaFilter: false,
-      granularity: "monthly",
-      aggregationType: "count",
-      includeExpiring: false,
-      includeOverdue: false,
-      includeHighPriority: false,
-      userTypeFilter: [],
-      assignedToMe: false,
-      waterAllocationRange: [0, 1000],
-      landSizeRange: [0, 500],
-      processingTimeRange: [0, 365],
+      permitType: "all",
     })
+  }
+
+  const getActiveFiltersCount = () => {
+    let count = 0
+    if (filters.searchText.trim()) count++
+    if (filters.startDate) count++
+    if (filters.endDate) count++
+    if (filters.permitType && filters.permitType !== "all") count++
+    return count
   }
 
   const getStatistics = () => {
@@ -395,7 +282,16 @@ export function EnhancedReportsAnalytics() {
       const reportData = [
         ["COMPREHENSIVE PERMIT MANAGEMENT REPORT"],
         ["Generated:", new Date().toLocaleString()],
-        ["Filter Period:", dashboardFilters.timeRange.replace("_", " ").toUpperCase()],
+        ["Filters Applied:", getActiveFiltersCount() > 0 ? "Yes" : "No"],
+        ["Search Term:", filters.searchText || "None"],
+        [
+          "Date Range:",
+          filters.startDate && filters.endDate ? `${filters.startDate} to ${filters.endDate}` : "All dates",
+        ],
+        [
+          "Permit Type:",
+          filters.permitType === "all" ? "All Types" : filters.permitType.replace("_", " ").toUpperCase(),
+        ],
         ["Last Updated:", lastUpdated.toLocaleString()],
         [""],
         ["EXECUTIVE SUMMARY"],
@@ -450,7 +346,7 @@ export function EnhancedReportsAnalytics() {
       const url = URL.createObjectURL(blob)
       const a = document.createElement("a")
       a.href = url
-      a.download = `comprehensive_permit_report_${new Date().toISOString().split("T")[0]}.csv`
+      a.download = `permit_report_${new Date().toISOString().split("T")[0]}.csv`
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)
@@ -498,17 +394,133 @@ export function EnhancedReportsAnalytics() {
   const statusDistribution = getStatusDistribution()
   const monthlyTrends = getMonthlyTrends()
   const waterAllocationTrends = getWaterAllocationTrends()
+  const activeFiltersCount = getActiveFiltersCount()
 
   const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884D8", "#82CA9D", "#FFCC02", "#FF6B6B"]
 
   return (
     <div className="space-y-6">
-      {/* Advanced Dashboard Filters */}
-      <AdvancedDashboardFilters
-        onFiltersChange={handleDashboardFiltersChange}
-        currentFilters={dashboardFilters}
-        onClearFilters={clearDashboardFilters}
-      />
+      {/* Simple Filters Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center justify-between">
+            <div className="flex items-center">
+              <Filter className="h-5 w-5 mr-2 text-blue-600" />
+              Filters
+              {activeFiltersCount > 0 && (
+                <Badge variant="secondary" className="ml-2 bg-blue-100 text-blue-800">
+                  {activeFiltersCount} active
+                </Badge>
+              )}
+            </div>
+            {activeFiltersCount > 0 && (
+              <Button variant="ghost" size="sm" onClick={clearAllFilters} className="text-red-600 hover:text-red-800">
+                <X className="h-4 w-4 mr-1" />
+                Clear All
+              </Button>
+            )}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            {/* Search Input */}
+            <div className="space-y-2">
+              <Label htmlFor="search" className="text-sm font-medium">
+                Search Applications
+              </Label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                <Input
+                  id="search"
+                  type="text"
+                  placeholder="Search by name, ID, type..."
+                  value={filters.searchText}
+                  onChange={(e) => handleFilterChange("searchText", e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+            </div>
+
+            {/* Start Date */}
+            <div className="space-y-2">
+              <Label htmlFor="startDate" className="text-sm font-medium">
+                Start Date
+              </Label>
+              <div className="relative">
+                <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                <Input
+                  id="startDate"
+                  type="date"
+                  value={filters.startDate}
+                  onChange={(e) => handleFilterChange("startDate", e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+            </div>
+
+            {/* End Date */}
+            <div className="space-y-2">
+              <Label htmlFor="endDate" className="text-sm font-medium">
+                End Date
+              </Label>
+              <div className="relative">
+                <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                <Input
+                  id="endDate"
+                  type="date"
+                  value={filters.endDate}
+                  onChange={(e) => handleFilterChange("endDate", e.target.value)}
+                  min={filters.startDate}
+                  className="pl-10"
+                />
+              </div>
+            </div>
+
+            {/* Permit Type Dropdown */}
+            <div className="space-y-2">
+              <Label htmlFor="permitType" className="text-sm font-medium">
+                Permit Type
+              </Label>
+              <Select value={filters.permitType} onValueChange={(value) => handleFilterChange("permitType", value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select permit type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Types</SelectItem>
+                  <SelectItem value="urban">Urban</SelectItem>
+                  <SelectItem value="bulk_water">Bulk Water</SelectItem>
+                  <SelectItem value="irrigation">Irrigation</SelectItem>
+                  <SelectItem value="institution">Institution</SelectItem>
+                  <SelectItem value="industrial">Industrial</SelectItem>
+                  <SelectItem value="surface_water_storage">Surface Water Storage</SelectItem>
+                  <SelectItem value="surface_water_flow">Surface Water Flow</SelectItem>
+                  <SelectItem value="tempering">Tempering</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {/* Filter Summary */}
+          {activeFiltersCount > 0 && (
+            <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+              <div className="flex items-center justify-between">
+                <div className="text-sm text-blue-800">
+                  <strong>Active Filters:</strong>
+                  {filters.searchText && <span className="ml-2">Search: "{filters.searchText}"</span>}
+                  {filters.startDate && <span className="ml-2">From: {filters.startDate}</span>}
+                  {filters.endDate && <span className="ml-2">To: {filters.endDate}</span>}
+                  {filters.permitType !== "all" && (
+                    <span className="ml-2">Type: {filters.permitType.replace("_", " ").toUpperCase()}</span>
+                  )}
+                </div>
+                <div className="text-sm text-blue-600 font-medium">
+                  Showing {filteredApplications.length} of {applications.length} applications
+                </div>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Export Controls */}
       <Card>
@@ -516,14 +528,14 @@ export function EnhancedReportsAnalytics() {
           <CardTitle className="flex items-center justify-between">
             <div className="flex items-center">
               <FileText className="h-5 w-5 mr-2 text-blue-600" />
-              Enhanced Reports & Analytics
+              Reports & Analytics
               <Badge variant="outline" className="ml-2 text-xs">
                 Last updated: {lastUpdated.toLocaleTimeString()}
               </Badge>
             </div>
             <div className="flex items-center space-x-2">
-              <Badge variant="secondary" className="bg-blue-100 text-blue-800">
-                {filteredApplications.length} of {applications.length} applications
+              <Badge variant="secondary" className="bg-green-100 text-green-800">
+                {filteredApplications.length} applications
               </Badge>
               <Button onClick={loadApplications} variant="outline" size="sm" disabled={isLoading}>
                 <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
