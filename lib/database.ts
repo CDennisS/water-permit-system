@@ -1181,7 +1181,8 @@ class MockDatabase {
         applicationId: "app_pending_new_001",
         userId: "1",
         userType: "permitting_officer",
-        comment: "Hotel and conference center application received. Reviewing water allocation requirements for commercial hospitality use. Checking compliance with tourism development guidelines.",
+        comment:
+          "Hotel and conference center application received. Reviewing water allocation requirements for commercial hospitality use. Checking compliance with tourism development guidelines.",
         stage: 1,
         createdAt: new Date("2024-03-20"),
         isRejectionReason: false,
@@ -1191,7 +1192,8 @@ class MockDatabase {
         applicationId: "app_pending_new_002",
         userId: "1",
         userType: "permitting_officer",
-        comment: "Aquaculture application under review. Surface water extraction for fish farming requires environmental impact assessment. Checking downstream water quality implications.",
+        comment:
+          "Aquaculture application under review. Surface water extraction for fish farming requires environmental impact assessment. Checking downstream water quality implications.",
         stage: 1,
         createdAt: new Date("2024-03-19"),
         isRejectionReason: false,
@@ -1201,7 +1203,8 @@ class MockDatabase {
         applicationId: "app_pending_new_003",
         userId: "1",
         userType: "permitting_officer",
-        comment: "Domestic use application for large household. Water allocation appears reasonable for intended use. Documentation complete.",
+        comment:
+          "Domestic use application for large household. Water allocation appears reasonable for intended use. Documentation complete.",
         stage: 1,
         createdAt: new Date("2024-03-21"),
         isRejectionReason: false,
@@ -1213,7 +1216,8 @@ class MockDatabase {
         applicationId: "app_approved_new_001",
         userId: "1",
         userType: "permitting_officer",
-        comment: "Small scale irrigation application reviewed. Documentation complete. Water allocation of 2,000 m³/annum is reasonable for 20-hectare vegetable farming operation. Environmental impact minimal. Recommended for technical review.",
+        comment:
+          "Small scale irrigation application reviewed. Documentation complete. Water allocation of 2,000 m³/annum is reasonable for 20-hectare vegetable farming operation. Environmental impact minimal. Recommended for technical review.",
         stage: 1,
         createdAt: new Date("2024-02-27"),
         isRejectionReason: false,
@@ -1223,7 +1227,8 @@ class MockDatabase {
         applicationId: "app_approved_new_001",
         userId: "2",
         userType: "chairperson",
-        comment: "Technical review completed. Irrigation project aligns with agricultural development goals. Water source sustainable. Soil analysis indicates good drainage. Recommended for catchment manager approval.",
+        comment:
+          "Technical review completed. Irrigation project aligns with agricultural development goals. Water source sustainable. Soil analysis indicates good drainage. Recommended for catchment manager approval.",
         stage: 2,
         createdAt: new Date("2024-03-05"),
         isRejectionReason: false,
@@ -1233,7 +1238,8 @@ class MockDatabase {
         applicationId: "app_approved_new_001",
         userId: "3",
         userType: "catchment_manager",
-        comment: "Catchment assessment completed. Water allocation within sustainable limits for Bindura sub-catchment. No conflicts with existing water users. Environmental conditions satisfied. Application approved for permit issuance.",
+        comment:
+          "Catchment assessment completed. Water allocation within sustainable limits for Bindura sub-catchment. No conflicts with existing water users. Environmental conditions satisfied. Application approved for permit issuance.",
         stage: 3,
         createdAt: new Date("2024-03-12"),
         isRejectionReason: false,
@@ -1243,7 +1249,8 @@ class MockDatabase {
         applicationId: "app_approved_new_001",
         userId: "1",
         userType: "permitting_officer",
-        comment: "Final approval received. All conditions met. Permit ready for printing and issuance. Validity period: 5 years from issue date.",
+        comment:
+          "Final approval received. All conditions met. Permit ready for printing and issuance. Validity period: 5 years from issue date.",
         stage: 4,
         createdAt: new Date("2024-03-15"),
         isRejectionReason: false,
@@ -1255,7 +1262,8 @@ class MockDatabase {
         applicationId: "app_approved_new_002",
         userId: "1",
         userType: "permitting_officer",
-        comment: "Educational institution water extraction application reviewed. Secondary school with 800 students requires adequate water supply. Surface water extraction from approved source. Documentation complete.",
+        comment:
+          "Educational institution water extraction application reviewed. Secondary school with 800 students requires adequate water supply. Surface water extraction from approved source. Documentation complete.",
         stage: 1,
         createdAt: new Date("2024-02-22"),
         isRejectionReason: false,
@@ -1265,7 +1273,8 @@ class MockDatabase {
         applicationId: "app_approved_new_002",
         userId: "2",
         userType: "chairperson",
-        comment: "Educational facility water supply approved. Critical infrastructure for community development. Water allocation of 1,500 m³/annum appropriate for institutional use. Environmental impact assessment satisfactory.",
+        comment:
+          "Educational facility water supply approved. Critical infrastructure for community development. Water allocation of 1,500 m³/annum appropriate for institutional use. Environmental impact assessment satisfactory.",
         stage: 2,
         createdAt: new Date("2024-03-01"),
         isRejectionReason: false,
@@ -1275,7 +1284,8 @@ class MockDatabase {
         applicationId: "app_approved_new_002",
         userId: "3",
         userType: "catchment_manager",
-        comment: "Final approval granted for educational institution. Water allocation sustainable. Contributes to community development objectives. Permit approved for immediate issuance.",
+        comment:
+          "Final approval granted for educational institution. Water allocation sustainable. Contributes to community development objectives. Permit approved for immediate issuance.",
         stage: 3,
         createdAt: new Date("2024-03-08"),
         isRejectionReason: false,
@@ -1285,7 +1295,8 @@ class MockDatabase {
         applicationId: "app_approved_new_002",
         userId: "1",
         userType: "permitting_officer",
-        comment: "Educational institution permit approved and ready for printing. Special conditions: Monthly water usage reporting required. Permit valid for 10 years.",
+        comment:
+          "Educational institution permit approved and ready for printing. Special conditions: Monthly water usage reporting required. Permit valid for 10 years.",
         stage: 4,
         createdAt: new Date("2024-03-12"),
         isRejectionReason: false,
@@ -1297,7 +1308,8 @@ class MockDatabase {
         applicationId: "app_rejected_new_001",
         userId: "1",
         userType: "permitting_officer",
-        comment: "Gold mining operation water extraction application received. High volume surface water extraction (20,000 m³/annum) requires comprehensive environmental assessment. Initial documentation review indicates potential environmental concerns.",
+        comment:
+          "Gold mining operation water extraction application received. High volume surface water extraction (20,000 m³/annum) requires comprehensive environmental assessment. Initial documentation review indicates potential environmental concerns.",
         stage: 1,
         createdAt: new Date("2024-02-12"),
         isRejectionReason: false,
@@ -1307,7 +1319,8 @@ class MockDatabase {
         applicationId: "app_rejected_new_001",
         userId: "2",
         userType: "chairperson",
-        comment: "REJECTION: After comprehensive technical review, this gold mining water extraction application is REJECTED for the following reasons:\n\n1. ENVIRONMENTAL IMPACT CONCERNS:\n   - Insufficient environmental impact assessment for mining operations\n   - No adequate water treatment plan for mining discharge\n   - Potential contamination risk to downstream water users\n   - Missing rehabilitation plan for post-mining water resources\n\n2. WATER ALLOCATION ISSUES:\n   - Requested 20,000 m³/annum exceeds sustainable limits for the catchment area\n   - No water recycling or conservation measures proposed\n   - Potential conflict with existing agricultural water users downstream\n\n3. DOCUMENTATION DEFICIENCIES:\n   - Missing detailed mining operation plan\n   - Inadequate water quality monitoring proposal\n   - No emergency response plan for water contamination incidents\n   - Missing community consultation documentation\n\n4. REGULATORY COMPLIANCE:\n   - Environmental clearance certificate not provided\n   - Mining license documentation incomplete\n   - No compliance plan with water quality standards\n\nRECOMMENDATIONS FOR RESUBMISSION:\nApplicant may resubmit with:\n- Comprehensive environmental impact assessment by certified consultant\n- Detailed water treatment and recycling plan\n- Reduced water allocation request (maximum 8,000 m³/annum)\n- Complete environmental clearance documentation\n- Community consultation report\n- Emergency response and monitoring plan\n\nApplication rejected on: March 5, 2024\nReview conducted by: Upper Manyame Sub Catchment Council Chairman\nNext review: Available upon resubmission with required documentation",
+        comment:
+          "REJECTION: After comprehensive technical review, this gold mining water extraction application is REJECTED for the following reasons:\n\n1. ENVIRONMENTAL IMPACT CONCERNS:\n   - Insufficient environmental impact assessment for mining operations\n   - No adequate water treatment plan for mining discharge\n   - Potential contamination risk to downstream water users\n   - Missing rehabilitation plan for post-mining water resources\n\n2. WATER ALLOCATION ISSUES:\n   - Requested 20,000 m³/annum exceeds sustainable limits for the catchment area\n   - No water recycling or conservation measures proposed\n   - Potential conflict with existing agricultural water users downstream\n\n3. DOCUMENTATION DEFICIENCIES:\n   - Missing detailed mining operation plan\n   - Inadequate water quality monitoring proposal\n   - No emergency response plan for water contamination incidents\n   - Missing community consultation documentation\n\n4. REGULATORY COMPLIANCE:\n   - Environmental clearance certificate not provided\n   - Mining license documentation incomplete\n   - No compliance plan with water quality standards\n\nRECOMMENDATIONS FOR RESUBMISSION:\nApplicant may resubmit with:\n- Comprehensive environmental impact assessment by certified consultant\n- Detailed water treatment and recycling plan\n- Reduced water allocation request (maximum 8,000 m³/annum)\n- Complete environmental clearance documentation\n- Community consultation report\n- Emergency response and monitoring plan\n\nApplication rejected on: March 5, 2024\nReview conducted by: Upper Manyame Sub Catchment Council Chairman\nNext review: Available upon resubmission with required documentation",
         stage: 2,
         createdAt: new Date("2024-03-05"),
         isRejectionReason: true,
@@ -1318,7 +1331,8 @@ class MockDatabase {
         applicationId: "app_rejected_new_002",
         userId: "1",
         userType: "permitting_officer",
-        comment: "REJECTION: Car wash and service station water extraction application REJECTED at initial review stage for the following critical issues:\n\n1. EXCESSIVE WATER ALLOCATION:\n   - Requested 6,000 m³/annum for 3-hectare site is unreasonable\n   - Standard car wash operations require maximum 2,000 m³/annum\n   - No justification provided for excessive water demand\n\n2. MISSING WATER CONSERVATION MEASURES:\n   - No water recycling system proposed\n   - Missing water treatment and reuse plan\n   - No water-efficient equipment specifications\n   - Absence of water conservation strategy\n\n3. ENVIRONMENTAL CONCERNS:\n   - No wastewater treatment plan provided\n   - Missing discharge management strategy\n   - Potential groundwater contamination from chemicals\n   - No environmental impact mitigation measures\n\n4. DOCUMENTATION DEFICIENCIES:\n   - Incomplete business operation plan\n   - Missing local authority approvals\n   - No water quality monitoring proposal\n   - Inadequate site drainage plan\n\n5. LAND USE COMPATIBILITY:\n   - High water consumption inappropriate for small commercial site\n   - Potential conflicts with neighboring water users\n   - No demonstration of water use efficiency\n\nREQUIREMENTS FOR RESUBMISSION:\n- Reduce water allocation request to maximum 2,000 m³/annum\n- Provide comprehensive water recycling system design\n- Submit wastewater treatment and discharge plan\n- Include water-efficient equipment specifications\n- Provide environmental impact assessment\n- Submit local authority development approvals\n- Include water conservation and monitoring plan\n\nApplication rejected on: March 8, 2024\nReview conducted by: Permitting Officer\nResubmission deadline: Within 90 days with required modifications",
+        comment:
+          "REJECTION: Car wash and service station water extraction application REJECTED at initial review stage for the following critical issues:\n\n1. EXCESSIVE WATER ALLOCATION:\n   - Requested 6,000 m³/annum for 3-hectare site is unreasonable\n   - Standard car wash operations require maximum 2,000 m³/annum\n   - No justification provided for excessive water demand\n\n2. MISSING WATER CONSERVATION MEASURES:\n   - No water recycling system proposed\n   - Missing water treatment and reuse plan\n   - No water-efficient equipment specifications\n   - Absence of water conservation strategy\n\n3. ENVIRONMENTAL CONCERNS:\n   - No wastewater treatment plan provided\n   - Missing discharge management strategy\n   - Potential groundwater contamination from chemicals\n   - No environmental impact mitigation measures\n\n4. DOCUMENTATION DEFICIENCIES:\n   - Incomplete business operation plan\n   - Missing local authority approvals\n   - No water quality monitoring proposal\n   - Inadequate site drainage plan\n\n5. LAND USE COMPATIBILITY:\n   - High water consumption inappropriate for small commercial site\n   - Potential conflicts with neighboring water users\n   - No demonstration of water use efficiency\n\nREQUIREMENTS FOR RESUBMISSION:\n- Reduce water allocation request to maximum 2,000 m³/annum\n- Provide comprehensive water recycling system design\n- Submit wastewater treatment and discharge plan\n- Include water-efficient equipment specifications\n- Provide environmental impact assessment\n- Submit local authority development approvals\n- Include water conservation and monitoring plan\n\nApplication rejected on: March 8, 2024\nReview conducted by: Permitting Officer\nResubmission deadline: Within 90 days with required modifications",
         stage: 1,
         createdAt: new Date("2024-03-08"),
         isRejectionReason: true,
@@ -1329,7 +1343,8 @@ class MockDatabase {
         applicationId: "app_rejected_new_003",
         userId: "1",
         userType: "permitting_officer",
-        comment: "Brick manufacturing surface water extraction application under initial review. High water allocation for manufacturing process requires detailed assessment.",
+        comment:
+          "Brick manufacturing surface water extraction application under initial review. High water allocation for manufacturing process requires detailed assessment.",
         stage: 1,
         createdAt: new Date("2024-02-07"),
         isRejectionReason: false,
@@ -1339,7 +1354,8 @@ class MockDatabase {
         applicationId: "app_rejected_new_003",
         userId: "2",
         userType: "chairperson",
-        comment: "Technical review indicates concerns with water allocation and environmental impact. Brick manufacturing operations require comprehensive water management plan.",
+        comment:
+          "Technical review indicates concerns with water allocation and environmental impact. Brick manufacturing operations require comprehensive water management plan.",
         stage: 2,
         createdAt: new Date("2024-02-15"),
         isRejectionReason: false,
@@ -1349,35 +1365,113 @@ class MockDatabase {
         applicationId: "app_rejected_new_003",
         userId: "3",
         userType: "catchment_manager",
-        comment: \"REJECTION: After final catchment assessment, this brick manufacturing water extraction application is REJECTED for the following reasons:\n\n1. WATER ALLOCATION CONCERNS:\n   - Requested 8,000 m³/annum exceeds sustainable limits for 12-hectare site\n   - Surface water extraction conflicts with downstream agricultural users\n   - No demonstration of water use efficiency in brick production\n\n2. ENVIRONMENTAL IMPACT ISSUES:\n   - Inadequate assessment of surface water quality impact\n   - Missing sediment control measures for clay extraction\n   - No plan for managing industrial runoff\n   - Potential impact on aquatic ecosystem downstream\n\n3. TECHNICAL DEFICIENCIES:\n   - No water recycling system in production process\n   - Missing water treatment plan for process water\n   - Inadequate drainage and containment systems\n   - No monitoring plan for water quality parameters\n\n4. REGULATORY COMPLIANCE:\n   - Environmental clearance documentation incomplete\n   - Missing industrial operation permits\n\
-   - No compliance plan with discharge standards\n\nRECOMMENDATIONS:\n- Reduce water allocation to maximum 4,000 m³/annum\n- Implement closed-loop water recycling system\n- Provide comprehensive environmental management plan\n- Submit detailed water treatment and monitoring proposal\n- Obtain all required environmental and industrial permits\n\nApplication rejected on: March 1, 2024\nFinal review by: Catchment Manager\nResubmission allowed with required modifications within 120 days",
-    stage: 3,
-    createdAt: new Date("2024-03-01"),
-    isRejectionReason: true,
-  },
+        comment: `REJECTION: After final catchment assessment, this brick manufacturing water extraction application is REJECTED for the following reasons:
 
-  {
-    id: \"comment_rejected_new_004_stage1",
-    applicationId: "app_rejected_new_004",
-    userId: "1",
-    userType: \"permitting_officer",
-    comment: \"Chemical manufacturing water extraction application received. High-risk industrial operation requires comprehensive safety and environmental assessment.",
-    stage: 1,
-    createdAt: new Date("2024-01-27"),
-    isRejectionReason: false,
-  },
-  {
-    id: \"comment_rejected_new_004_stage2",
-    applicationId: "app_rejected_new_004",
-    userId: "2",
-    userType: "chairperson",\
-    comment: \"REJECTION: Chemical manufacturing water extraction application REJECTED after technical review for the following critical safety and environmental concerns:\n\n1. HIGH-RISK INDUSTRIAL OPERATION:\n   - Chemical manufacturing poses significant contamination risk\n   - Insufficient safety measures for hazardous material handling\n   - No emergency response plan for chemical spills or leaks\n   - Missing hazardous waste management strategy\n\n2. ENVIRONMENTAL PROTECTION ISSUES:\n   - Inadequate environmental impact assessment for chemical operations\n   - No groundwater protection measures specified\n   - Missing air quality impact assessment\n   - Insufficient wastewater treatment specifications\n\n3. WATER ALLOCATION AND SAFETY:\n   - Requested 15,000 m³/annum poses risk to water resource quality\n   - No demonstration of water treatment capability for chemical processes\n   - Missing water quality monitoring and testing protocols\n   - No contingency plan for water contamination incidents\n\n4. REGULATORY AND DOCUMENTATION GAPS:\n   - Environmental clearance certificate not provided\n   - Missing industrial operation license\n   - No compliance plan with chemical safety regulations\n   - Inadequate community consultation documentation\n   - Missing detailed chemical process descriptions\n\n5. TECHNICAL SPECIFICATIONS:\n   - No closed-loop water system design\n   - Missing chemical containment systems\n   - Inadequate water treatment technology specifications\n   - No water recycling and reuse plan\n\nCRITICAL REQUIREMENTS FOR RESUBMISSION:\n- Comprehensive environmental and safety impact assessment by certified consultants\n- Detailed chemical process and safety management plan\n- Advanced wastewater treatment system design\n- Emergency response and contamination prevention plan\n- Complete environmental and industrial operation permits\n- Community consultation and acceptance documentation\n- Reduced water allocation request with full recycling system\n- Independent safety audit and certification\n\nApplication rejected on: February 20, 2024\nReview conducted by: Upper Manyame Sub Catchment Council Chairman\nNote: Resubmission requires pre-approval consultation with environmental authorities",
-    stage: 2,
-    createdAt: new Date("2024-02-20"),
-    isRejectionReason: true,
-  },
-]
-    \
+1. WATER ALLOCATION CONCERNS:
+   - Requested 8,000 m³/annum exceeds sustainable limits for 12-hectare site
+   - Surface water extraction conflicts with downstream agricultural users
+   - No demonstration of water use efficiency in brick production
+
+2. ENVIRONMENTAL IMPACT ISSUES:
+   - Inadequate assessment of surface water quality impact
+   - Missing sediment control measures for clay extraction
+   - No plan for managing industrial runoff
+   - Potential impact on aquatic ecosystem downstream
+
+3. TECHNICAL DEFICIENCIES:
+   - No water recycling system in production process
+   - Missing water treatment plan for process water
+   - Inadequate drainage and containment systems
+   - No monitoring plan for water quality parameters
+
+4. REGULATORY COMPLIANCE:
+   - Environmental clearance documentation incomplete
+   - Missing industrial operation permits
+   - No compliance plan with discharge standards
+
+RECOMMENDATIONS:
+- Reduce water allocation to maximum 4,000 m³/annum
+- Implement closed-loop water recycling system
+- Provide comprehensive environmental management plan
+- Submit detailed water treatment and monitoring proposal
+- Obtain all required environmental and industrial permits
+
+Application rejected on: March 1, 2024
+Final review by: Catchment Manager
+Resubmission allowed with required modifications within 120 days`,
+        stage: 3,
+        createdAt: new Date("2024-03-01"),
+        isRejectionReason: true,
+      },
+
+      {
+        id: "comment_rejected_new_004_stage1",
+        applicationId: "app_rejected_new_004",
+        userId: "1",
+        userType: "permitting_officer",
+        comment:
+          "Chemical manufacturing water extraction application received. High-risk industrial operation requires comprehensive safety and environmental assessment.",
+        stage: 1,
+        createdAt: new Date("2024-01-27"),
+        isRejectionReason: false,
+      },
+      {
+        id: "comment_rejected_new_004_stage2",
+        applicationId: "app_rejected_new_004",
+        userId: "2",
+        userType: "chairperson",
+        comment: `REJECTION: Chemical manufacturing water extraction application REJECTED after technical review for the following critical safety and environmental concerns:
+
+1. HIGH-RISK INDUSTRIAL OPERATION:
+   - Chemical manufacturing poses significant contamination risk
+   - Insufficient safety measures for hazardous material handling
+   - No emergency response plan for chemical spills or leaks
+   - Missing hazardous waste management strategy
+
+2. ENVIRONMENTAL PROTECTION ISSUES:
+   - Inadequate environmental impact assessment for chemical operations
+   - No groundwater protection measures specified
+   - Missing air quality impact assessment
+   - Insufficient wastewater treatment specifications
+
+3. WATER ALLOCATION AND SAFETY:
+   - Requested 15,000 m³/annum poses risk to water resource quality
+   - No demonstration of water treatment capability for chemical processes
+   - Missing water quality monitoring and testing protocols
+   - No contingency plan for water contamination incidents
+
+4. REGULATORY AND DOCUMENTATION GAPS:
+   - Environmental clearance certificate not provided
+   - Missing industrial operation license
+   - No compliance plan with chemical safety regulations
+   - Inadequate community consultation documentation
+   - Missing detailed chemical process descriptions
+
+5. TECHNICAL SPECIFICATIONS:
+   - No closed-loop water system design
+   - Missing chemical containment systems
+   - Inadequate water treatment technology specifications
+   - No water recycling and reuse plan
+
+CRITICAL REQUIREMENTS FOR RESUBMISSION:
+- Comprehensive environmental and safety impact assessment by certified consultants
+- Detailed chemical process and safety management plan
+- Advanced wastewater treatment system design
+- Emergency response and contamination prevention plan
+- Complete environmental and industrial operation permits
+- Community consultation and acceptance documentation
+- Reduced water allocation request with full recycling system
+- Independent safety audit and certification
+
+Application rejected on: February 20, 2024
+Review conducted by: Upper Manyame Sub Catchment Council Chairman
+Note: Resubmission requires pre-approval consultation with environmental authorities`,
+        stage: 2,
+        createdAt: new Date("2024-02-20"),
+        isRejectionReason: true,
+      },
+    ]
+
     // Additional activity logs for new mock applications
     const additionalMockLogs: ActivityLog[] = [
       // Logs for unsubmitted applications
