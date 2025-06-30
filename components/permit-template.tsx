@@ -8,6 +8,19 @@ interface PermitTemplateProps {
 }
 
 export function PermitTemplate({ permitData, id = "permit-template" }: PermitTemplateProps) {
+  // Validate required data
+  if (!permitData) {
+    return <div className="p-4 text-center text-red-600">Error: No permit data provided</div>
+  }
+
+  if (!permitData.applicantName || !permitData.permitNumber) {
+    return (
+      <div className="p-4 text-center text-red-600">
+        Error: Missing required permit data (applicant name or permit number)
+      </div>
+    )
+  }
+
   return (
     <div
       id={id}
@@ -72,7 +85,9 @@ export function PermitTemplate({ permitData, id = "permit-template" }: PermitTem
             </p>
           </div>
           <div className="flex-1 ml-8">
-            <p className="text-justify">3. Postal address: {permitData.postalAddress || "N/A"}</p>
+            <p className="text-justify">
+              3. Postal address: <strong>{permitData.postalAddress || "N/A"}</strong>
+            </p>
           </div>
         </div>
 
@@ -92,7 +107,7 @@ export function PermitTemplate({ permitData, id = "permit-template" }: PermitTem
         <div>
           <p className="text-justify">
             Total allocated abstraction (m<sup>3</sup>/annum):{" "}
-            <strong>{permitData.totalAllocatedAbstraction.toLocaleString()}</strong>
+            <strong>{permitData.totalAllocatedAbstraction?.toLocaleString() || "0"}</strong>
           </p>
         </div>
       </div>
@@ -133,26 +148,48 @@ export function PermitTemplate({ permitData, id = "permit-template" }: PermitTem
             </tr>
           </thead>
           <tbody>
-            {permitData.boreholeDetails.map((borehole, index) => (
-              <tr key={index}>
-                <td className="border border-black p-1 text-center font-bold">{index + 1}</td>
-                <td className="border border-black p-1 text-center">{borehole.boreholeNumber}</td>
-                <td className="border border-black p-1 text-center">{borehole.allocatedAmount.toLocaleString()}</td>
-                <td className="border border-black p-1 text-center">-</td>
-                <td className="border border-black p-1 text-center">{borehole.gpsX}</td>
-                <td className="border border-black p-1 text-center">{borehole.gpsY}</td>
-                <td className="border border-black p-1 text-center">{borehole.intendedUse}</td>
+            {permitData.boreholeDetails && permitData.boreholeDetails.length > 0 ? (
+              permitData.boreholeDetails.map((borehole, index) => (
+                <tr key={index}>
+                  <td className="border border-black p-1 text-center font-bold">{index + 1}</td>
+                  <td className="border border-black p-1 text-center">{borehole.boreholeNumber}</td>
+                  <td className="border border-black p-1 text-center">
+                    {borehole.allocatedAmount?.toLocaleString() || "0"}
+                  </td>
+                  <td className="border border-black p-1 text-center">-</td>
+                  <td className="border border-black p-1 text-center">{borehole.gpsX}</td>
+                  <td className="border border-black p-1 text-center">{borehole.gpsY}</td>
+                  <td className="border border-black p-1 text-center">{borehole.intendedUse}</td>
+                  <td className="border border-black p-1 text-center">
+                    {borehole.maxAbstractionRate?.toLocaleString() || borehole.allocatedAmount?.toLocaleString() || "0"}
+                  </td>
+                  <td className="border border-black p-1 text-center">{borehole.waterSampleFrequency || "3 months"}</td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td className="border border-black p-1 text-center font-bold">1</td>
+                <td className="border border-black p-1 text-center">BH-01</td>
                 <td className="border border-black p-1 text-center">
-                  {borehole.maxAbstractionRate?.toLocaleString() || borehole.allocatedAmount.toLocaleString()}
+                  {permitData.totalAllocatedAbstraction?.toLocaleString() || "0"}
                 </td>
-                <td className="border border-black p-1 text-center">{borehole.waterSampleFrequency || "3 months"}</td>
+                <td className="border border-black p-1 text-center">-</td>
+                <td className="border border-black p-1 text-center">{permitData.gpsCoordinates?.latitude || "N/A"}</td>
+                <td className="border border-black p-1 text-center">{permitData.gpsCoordinates?.longitude || "N/A"}</td>
+                <td className="border border-black p-1 text-center">{permitData.intendedUse}</td>
+                <td className="border border-black p-1 text-center">
+                  {permitData.totalAllocatedAbstraction?.toLocaleString() || "0"}
+                </td>
+                <td className="border border-black p-1 text-center">3 months</td>
               </tr>
-            ))}
+            )}
             {/* Fill empty rows if less than 5 boreholes */}
-            {Array.from({ length: Math.max(0, 5 - permitData.boreholeDetails.length) }).map((_, index) => (
+            {Array.from({
+              length: Math.max(0, 5 - (permitData.boreholeDetails?.length || 1)),
+            }).map((_, index) => (
               <tr key={`empty-${index}`}>
                 <td className="border border-black p-1 text-center font-bold">
-                  {permitData.boreholeDetails.length + index + 1}
+                  {(permitData.boreholeDetails?.length || 1) + index + 1}
                 </td>
                 <td className="border border-black p-1">&nbsp;</td>
                 <td className="border border-black p-1">&nbsp;</td>
@@ -168,7 +205,7 @@ export function PermitTemplate({ permitData, id = "permit-template" }: PermitTem
         </table>
         <p className="text-xs mt-1">
           <sup>a</sup> Intended use: irrigation, livestock farming, industrial, mining, urban, national parks, other
-          (specify): <strong>{permitData.intendedUse.toUpperCase()}</strong>
+          (specify): <strong>{permitData.intendedUse?.toUpperCase() || "N/A"}</strong>
         </p>
       </div>
 
