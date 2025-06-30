@@ -1042,3 +1042,413 @@ describe("Print Preview Template Error Tests", () => {
     })
   })
 })
+
+describe("Print Preview Stress Tests", () => {
+  const mockApplication: PermitApplication = {
+    id: "1",
+    applicationNumber: "APP001",
+    applicantName: "John Doe",
+    applicantAddress: "123 Main St, Harare",
+    contactNumber: "+263771234567",
+    emailAddress: "john@email.com",
+    intendedUse: "Domestic",
+    waterAllocation: 50,
+    numberOfBoreholes: 1,
+    gpsCoordinates: "-17.8252, 31.0335",
+    status: "approved",
+    submissionDate: new Date(),
+    lastModified: new Date(),
+    documents: [],
+    comments: [],
+    workflowStage: "approved",
+    assignedTo: "permit_supervisor",
+  }
+
+  const mockUser: User = {
+    id: "1",
+    username: "admin",
+    userType: "permitting_officer",
+    password: "admin",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  }
+
+  it("should handle multiple concurrent dialog opens", async () => {
+    const user = userEvent.setup()
+
+    const promises = []
+
+    for (let i = 0; i < 10; i++) {
+      const { unmount } = render(<PermitPreviewDialog application={mockApplication} currentUser={mockUser} />)
+
+      const previewButton = screen.getByRole("button", { name: /preview permit/i })
+      promises.push(user.click(previewButton))
+
+      unmount()
+    }
+
+    await Promise.all(promises)
+
+    // Should not crash with concurrent operations
+    expect(true).toBe(true)
+  })
+
+  it("should handle rapid component mounting/unmounting", () => {
+    const startTime = performance.now()
+
+    for (let i = 0; i < 100; i++) {
+      const { unmount } = render(<PermitPreviewDialog application={mockApplication} currentUser={mockUser} />)
+      unmount()
+    }
+
+    const endTime = performance.now()
+    const totalTime = endTime - startTime
+
+    // Should handle rapid mounting/unmounting within reasonable time
+    expect(totalTime).toBeLessThan(5000)
+  })
+
+  it("should handle extreme data sizes", async () => {
+    const user = userEvent.setup()
+
+    const extremeApplication = {
+      ...mockApplication,
+      applicantName: "X".repeat(1000000), // 1MB of text
+      applicantAddress: "Y".repeat(1000000),
+      numberOfBoreholes: 10000,
+      documents: Array.from({ length: 1000 }, (_, i) => ({
+        id: `doc-${i}`,
+        filename: `document-${i}.pdf`,
+        uploadDate: new Date(),
+        fileSize: 1024000,
+        fileType: "application/pdf",
+        uploadedBy: "applicant",
+      })),
+    }
+
+    const startTime = performance.now()
+
+    render(<PermitPreviewDialog application={extremeApplication} currentUser={mockUser} />)
+
+    const previewButton = screen.getByRole("button", { name: /preview permit/i })
+    await user.click(previewButton)
+
+    await waitFor(
+      () => {
+        expect(screen.getByRole("dialog")).toBeInTheDocument()
+      },
+      { timeout: 15000 },
+    )
+
+    const endTime = performance.now()
+    const renderTime = endTime - startTime
+
+    // Should handle extreme data within 15 seconds
+    expect(renderTime).toBeLessThan(15000)
+  })
+
+  it("should handle memory pressure scenarios", () => {
+    const components = []
+
+    // Create many components to simulate memory pressure
+    for (let i = 0; i < 1000; i++) {
+      const { container } = render(<PermitPreviewDialog application={mockApplication} currentUser={mockUser} />)
+      components.push(container)
+    }
+
+    // Should not crash under memory pressure
+    expect(components.length).toBe(1000)
+
+    // Clean up
+    components.forEach((component) => {
+      if (component.parentNode) {
+        component.parentNode.removeChild(component)
+      }
+    })
+  })
+
+  it("should handle continuous operations over time", async () => {
+    const user = userEvent.setup()
+
+    const mockElement = { innerHTML: "<div>Test content</div>" }
+    vi.spyOn(document, "getElementById").mockReturnValue(mockElement as any)
+
+    const mockPrintWindow = {
+      document: { write: vi.fn(), close: vi.fn() },
+      focus: vi.fn(),
+      print: vi.fn(),
+      close: vi.fn(),
+    }
+
+    Object.defineProperty(window, "open", {
+      writable: true,
+      value: vi.fn(() => mockPrintWindow),
+    })
+
+    render(<PermitPreviewDialog application={mockApplication} currentUser={mockUser} />)
+
+    const previewButton = screen.getByRole("button", { name: /preview permit/i })
+    await user.click(previewButton)
+
+    await waitFor(() => {
+      expect(screen.getByRole("dialog")).toBeInTheDocument()
+    })
+
+    const printButton = screen.getByRole("button", { name: /print/i })
+
+    // Perform continuous operations
+    for (let i = 0; i < 50; i++) {
+      await user.click(printButton)
+      await new Promise((resolve) => setTimeout(resolve, 10)) // Small delay
+    }
+
+    // Should handle continuous operations without degradation
+    expect(mockPrintWindow.print).toHaveBeenCalledTimes(50)
+  })
+})
+
+describe("Print Preview Performance Benchmarks", () => {
+  const mockApplication: PermitApplication = {
+    id: "1",
+    applicationNumber: "APP001",
+    applicantName: "John Doe",
+    applicantAddress: "123 Main St, Harare",
+    contactNumber: "+263771234567",
+    emailAddress: "john@email.com",
+    intendedUse: "Domestic",
+    waterAllocation: 50,
+    numberOfBoreholes: 1,
+    gpsCoordinates: "-17.8252, 31.0335",
+    status: "approved",
+    submissionDate: new Date(),
+    lastModified: new Date(),
+    documents: [],
+    comments: [],
+    workflowStage: "approved",
+    assignedTo: "permit_supervisor",
+  }
+
+  const mockUser: User = {
+    id: "1",
+    username: "admin",
+    userType: "permitting_officer",
+    password: "admin",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  }
+
+  it("should render component within 100ms", () => {
+    const startTime = performance.now()
+
+    render(<PermitPreviewDialog application={mockApplication} currentUser={mockUser} />)
+
+    const endTime = performance.now()
+    const renderTime = endTime - startTime
+
+    expect(renderTime).toBeLessThan(100)
+  })
+
+  it("should open dialog within 200ms", async () => {
+    const user = userEvent.setup()
+
+    render(<PermitPreviewDialog application={mockApplication} currentUser={mockUser} />)
+
+    const previewButton = screen.getByRole("button", { name: /preview permit/i })
+
+    const startTime = performance.now()
+    await user.click(previewButton)
+
+    await waitFor(() => {
+      expect(screen.getByRole("dialog")).toBeInTheDocument()
+    })
+
+    const endTime = performance.now()
+    const clickTime = endTime - startTime
+
+    expect(clickTime).toBeLessThan(200)
+  })
+
+  it("should handle print preparation within 500ms", async () => {
+    const user = userEvent.setup()
+
+    const mockElement = { innerHTML: "<div>Test content</div>" }
+    vi.spyOn(document, "getElementById").mockReturnValue(mockElement as any)
+
+    const mockPrintWindow = {
+      document: { write: vi.fn(), close: vi.fn() },
+      focus: vi.fn(),
+      print: vi.fn(),
+      close: vi.fn(),
+    }
+
+    Object.defineProperty(window, "open", {
+      writable: true,
+      value: vi.fn(() => mockPrintWindow),
+    })
+
+    render(<PermitPreviewDialog application={mockApplication} currentUser={mockUser} />)
+
+    const previewButton = screen.getByRole("button", { name: /preview permit/i })
+    await user.click(previewButton)
+
+    await waitFor(() => {
+      expect(screen.getByRole("dialog")).toBeInTheDocument()
+    })
+
+    const printButton = screen.getByRole("button", { name: /print/i })
+
+    const startTime = performance.now()
+    await user.click(printButton)
+
+    await waitFor(() => {
+      expect(mockPrintWindow.print).toHaveBeenCalled()
+    })
+
+    const endTime = performance.now()
+    const printTime = endTime - startTime
+
+    expect(printTime).toBeLessThan(500)
+  })
+
+  it("should handle download generation within 300ms", async () => {
+    const user = userEvent.setup()
+
+    const mockElement = { innerHTML: "<div>Test content</div>" }
+    vi.spyOn(document, "getElementById").mockReturnValue(mockElement as any)
+
+    const mockAnchor = {
+      href: "",
+      download: "",
+      click: vi.fn(),
+    }
+    vi.spyOn(document, "createElement").mockReturnValue(mockAnchor as any)
+    vi.spyOn(document.body, "appendChild").mockImplementation(() => mockAnchor as any)
+    vi.spyOn(document.body, "removeChild").mockImplementation(() => mockAnchor as any)
+
+    Object.defineProperty(URL, "createObjectURL", {
+      writable: true,
+      value: vi.fn(() => "blob:mock-url"),
+    })
+
+    Object.defineProperty(URL, "revokeObjectURL", {
+      writable: true,
+      value: vi.fn(),
+    })
+
+    render(<PermitPreviewDialog application={mockApplication} currentUser={mockUser} />)
+
+    const previewButton = screen.getByRole("button", { name: /preview permit/i })
+    await user.click(previewButton)
+
+    await waitFor(() => {
+      expect(screen.getByRole("dialog")).toBeInTheDocument()
+    })
+
+    const downloadButton = screen.getByRole("button", { name: /download/i })
+
+    const startTime = performance.now()
+    await user.click(downloadButton)
+
+    await waitFor(() => {
+      expect(mockAnchor.click).toHaveBeenCalled()
+    })
+
+    const endTime = performance.now()
+    const downloadTime = endTime - startTime
+
+    expect(downloadTime).toBeLessThan(300)
+  })
+
+  it("should handle large data sets efficiently", async () => {
+    const user = userEvent.setup()
+
+    const largeApplication = {
+      ...mockApplication,
+      numberOfBoreholes: 100,
+      waterAllocation: 5000,
+      documents: Array.from({ length: 100 }, (_, i) => ({
+        id: `doc-${i}`,
+        filename: `document-${i}.pdf`,
+        uploadDate: new Date(),
+        fileSize: 1024000,
+        fileType: "application/pdf",
+        uploadedBy: "applicant",
+      })),
+      comments: Array.from({ length: 200 }, (_, i) => ({
+        id: `comment-${i}`,
+        comment: `Detailed comment ${i} with extensive information`,
+        author: "reviewer",
+        timestamp: new Date(),
+        type: "review" as const,
+      })),
+    }
+
+    const startTime = performance.now()
+
+    render(<PermitPreviewDialog application={largeApplication} currentUser={mockUser} />)
+
+    const previewButton = screen.getByRole("button", { name: /preview permit/i })
+    await user.click(previewButton)
+
+    await waitFor(() => {
+      expect(screen.getByRole("dialog")).toBeInTheDocument()
+    })
+
+    const endTime = performance.now()
+    const totalTime = endTime - startTime
+
+    // Should handle large data within 2 seconds
+    expect(totalTime).toBeLessThan(2000)
+  })
+
+  it("should maintain performance under repeated operations", async () => {
+    const user = userEvent.setup()
+
+    const mockElement = { innerHTML: "<div>Test content</div>" }
+    vi.spyOn(document, "getElementById").mockReturnValue(mockElement as any)
+
+    const mockPrintWindow = {
+      document: { write: vi.fn(), close: vi.fn() },
+      focus: vi.fn(),
+      print: vi.fn(),
+      close: vi.fn(),
+    }
+
+    Object.defineProperty(window, "open", {
+      writable: true,
+      value: vi.fn(() => mockPrintWindow),
+    })
+
+    render(<PermitPreviewDialog application={mockApplication} currentUser={mockUser} />)
+
+    const previewButton = screen.getByRole("button", { name: /preview permit/i })
+    await user.click(previewButton)
+
+    await waitFor(() => {
+      expect(screen.getByRole("dialog")).toBeInTheDocument()
+    })
+
+    const printButton = screen.getByRole("button", { name: /print/i })
+
+    const times = []
+
+    // Perform 20 print operations and measure each
+    for (let i = 0; i < 20; i++) {
+      const startTime = performance.now()
+      await user.click(printButton)
+      await waitFor(() => {
+        expect(mockPrintWindow.print).toHaveBeenCalledTimes(i + 1)
+      })
+      const endTime = performance.now()
+      times.push(endTime - startTime)
+    }
+
+    // Performance should not degrade significantly
+    const firstTime = times[0]
+    const lastTime = times[times.length - 1]
+    const degradation = lastTime / firstTime
+
+    // Should not degrade more than 50%
+    expect(degradation).toBeLessThan(1.5)
+  })
+})
