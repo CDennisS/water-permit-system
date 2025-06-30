@@ -2,6 +2,9 @@
   "currentVersion": "1.0.0",
   "lastDeployedVersion": "none",
   "deploymentHistory": [],
+  "deployments": [],
+  "lastUpdated": "2024-03-15T00:00:00.000Z",
+  "notes": "No deployments recorded yet. This is the initial development version ready for first deployment.",
   "pendingChanges": [
     "Enhanced permit preview system",
     "Fixed permit printing functionality",

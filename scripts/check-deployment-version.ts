@@ -1,279 +1,109 @@
-import { execSync } from "child_process"
-import { existsSync, readFileSync, writeFileSync } from "fs"
+import fs from "fs"
+import path from "path"
 
 interface DeploymentRecord {
   version: string
-  timestamp: string
+  deployedAt: string
   environment: string
-  status: "deployed" | "failed" | "pending"
+  status: string
   features: string[]
   buildHash?: string
-  deploymentUrl?: string
-}
-
-interface VersionHistory {
-  currentVersion: string
-  lastDeployedVersion: string
-  deploymentHistory: DeploymentRecord[]
-  pendingChanges: string[]
 }
 
 class DeploymentVersionChecker {
-  private versionHistoryPath = "deployment-history.json"
+  private deploymentHistoryPath = path.join(process.cwd(), "deployment-history.json")
+  private packageJsonPath = path.join(process.cwd(), "package.json")
 
-  constructor() {
-    console.log("🔍 UMSCC Deployment Version Checker")
-    console.log("===================================")
-  }
-
-  getCurrentVersion(): string {
+  async checkCurrentVersion(): Promise<string> {
     try {
-      const packageJson = JSON.parse(readFileSync("package.json", "utf8"))
+      const packageJson = JSON.parse(fs.readFileSync(this.packageJsonPath, "utf8"))
       return packageJson.version || "1.0.0"
     } catch (error) {
-      console.warn("⚠️ Could not read package.json, defaulting to 1.0.0")
+      console.error("Error reading package.json:", error)
       return "1.0.0"
     }
   }
 
-  getGitInfo(): { hash: string; branch: string; hasChanges: boolean } {
+  async getDeploymentHistory(): Promise<DeploymentRecord[]> {
     try {
-      const hash = execSync("git rev-parse --short HEAD", { encoding: "utf8" }).trim()
-      const branch = execSync("git rev-parse --abbrev-ref HEAD", { encoding: "utf8" }).trim()
-
-      let hasChanges = false
-      try {
-        const status = execSync("git status --porcelain", { encoding: "utf8" }).trim()
-        hasChanges = status.length > 0
-      } catch {
-        hasChanges = true // Assume changes if we can't check
+      if (!fs.existsSync(this.deploymentHistoryPath)) {
+        return []
       }
-
-      return { hash, branch, hasChanges }
+      const history = JSON.parse(fs.readFileSync(this.deploymentHistoryPath, "utf8"))
+      return history.deployments || []
     } catch (error) {
-      return { hash: "unknown", branch: "unknown", hasChanges: true }
+      console.error("Error reading deployment history:", error)
+      return []
     }
   }
 
-  loadVersionHistory(): VersionHistory {
-    if (existsSync(this.versionHistoryPath)) {
-      try {
-        return JSON.parse(readFileSync(this.versionHistoryPath, "utf8"))
-      } catch (error) {
-        console.warn("⚠️ Could not parse version history, creating new one")
-      }
+  async getLastDeployedVersion(): Promise<DeploymentRecord | null> {
+    const history = await this.getDeploymentHistory()
+    const productionDeployments = history.filter((d) => d.environment === "production")
+
+    if (productionDeployments.length === 0) {
+      return null
     }
 
-    // Create default version history
-    const defaultHistory: VersionHistory = {
-      currentVersion: this.getCurrentVersion(),
-      lastDeployedVersion: "none",
-      deploymentHistory: [],
-      pendingChanges: [],
-    }
-
-    this.saveVersionHistory(defaultHistory)
-    return defaultHistory
+    return productionDeployments.sort((a, b) => new Date(b.deployedAt).getTime() - new Date(a.deployedAt).getTime())[0]
   }
 
-  saveVersionHistory(history: VersionHistory) {
-    writeFileSync(this.versionHistoryPath, JSON.stringify(history, null, 2))
-  }
+  async generateDeploymentReport(): Promise<void> {
+    console.log("🔍 UMSCC Permit Management System - Deployment Version Check")
+    console.log("=".repeat(60))
 
-  checkDeploymentStatus(): {
-    isDeployed: boolean
-    needsDeployment: boolean
-    lastDeployment?: DeploymentRecord
-    currentStatus: string
-  } {
-    const history = this.loadVersionHistory()
-    const currentVersion = this.getCurrentVersion()
-    const gitInfo = this.getGitInfo()
+    const currentVersion = await this.checkCurrentVersion()
+    const lastDeployed = await this.getLastDeployedVersion()
+    const allDeployments = await this.getDeploymentHistory()
 
-    const lastDeployment = history.deploymentHistory
-      .filter((d) => d.status === "deployed")
-      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0]
-
-    const isDeployed = lastDeployment !== undefined
-    const needsDeployment = !isDeployed || currentVersion !== history.lastDeployedVersion || gitInfo.hasChanges
-
-    let currentStatus = "Unknown"
-    if (!isDeployed) {
-      currentStatus = "Never Deployed"
-    } else if (needsDeployment) {
-      currentStatus = "Needs Deployment"
-    } else {
-      currentStatus = "Up to Date"
-    }
-
-    return {
-      isDeployed,
-      needsDeployment,
-      lastDeployment,
-      currentStatus,
-    }
-  }
-
-  recordDeployment(environment = "production", features: string[] = []) {
-    const history = this.loadVersionHistory()
-    const currentVersion = this.getCurrentVersion()
-    const gitInfo = this.getGitInfo()
-
-    const deploymentRecord: DeploymentRecord = {
-      version: currentVersion,
-      timestamp: new Date().toISOString(),
-      environment,
-      status: "deployed",
-      features,
-      buildHash: gitInfo.hash,
-    }
-
-    history.deploymentHistory.push(deploymentRecord)
-    history.lastDeployedVersion = currentVersion
-    history.currentVersion = currentVersion
-    history.pendingChanges = []
-
-    this.saveVersionHistory(history)
-
-    console.log(`✅ Recorded deployment of version ${currentVersion}`)
-    return deploymentRecord
-  }
-
-  generateDeploymentReport(): string {
-    const history = this.loadVersionHistory()
-    const status = this.checkDeploymentStatus()
-    const gitInfo = this.getGitInfo()
-    const currentVersion = this.getCurrentVersion()
-
-    const report = `# UMSCC Permit Management System - Deployment Status
-
-## Current Status
-- **Current Version**: ${currentVersion}
-- **Last Deployed Version**: ${history.lastDeployedVersion}
-- **Deployment Status**: ${status.currentStatus}
-- **Git Branch**: ${gitInfo.branch}
-- **Git Hash**: ${gitInfo.hash}
-- **Has Uncommitted Changes**: ${gitInfo.hasChanges ? "Yes" : "No"}
-- **Needs Deployment**: ${status.needsDeployment ? "Yes" : "No"}
-
-## Last Deployment
-${
-  status.lastDeployment
-    ? `
-- **Version**: ${status.lastDeployment.version}
-- **Date**: ${new Date(status.lastDeployment.timestamp).toLocaleString()}
-- **Environment**: ${status.lastDeployment.environment}
-- **Build Hash**: ${status.lastDeployment.buildHash || "N/A"}
-- **Features**: ${status.lastDeployment.features.length > 0 ? status.lastDeployment.features.join(", ") : "None specified"}
-`
-    : "**No previous deployments recorded**"
-}
-
-## Deployment History
-${
-  history.deploymentHistory.length > 0
-    ? history.deploymentHistory
-        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-        .slice(0, 5) // Show last 5 deployments
-        .map(
-          (d) => `- **${d.version}** (${new Date(d.timestamp).toLocaleDateString()}) - ${d.environment} - ${d.status}`,
-        )
-        .join("\n")
-    : "No deployment history available"
-}
-
-## System Features (Current)
-- ✅ Application Management System
-- ✅ Multi-role Dashboard System
-- ✅ Document Upload & Management
-- ✅ Workflow Management
-- ✅ Permit Printing System
-- ✅ Messaging System with Notifications
-- ✅ Advanced Reporting & Analytics
-- ✅ User Management & Authentication
-- ✅ Mobile Responsive Design
-- ✅ Print & Export Functionality
-
-## Recommendations
-${
-  status.needsDeployment
-    ? `
-⚠️ **Deployment Required**
-- Current version (${currentVersion}) differs from deployed version (${history.lastDeployedVersion})
-- Run deployment process to update production environment
-- Ensure all tests pass before deployment
-`
-    : `
-✅ **System Up to Date**
-- Production environment matches current version
-- No immediate deployment required
-- Continue monitoring for new changes
-`
-}
-
----
-*Generated on ${new Date().toLocaleString()}*
-`
-
-    return report
-  }
-
-  printStatus() {
-    const status = this.checkDeploymentStatus()
-    const currentVersion = this.getCurrentVersion()
-    const gitInfo = this.getGitInfo()
-
-    console.log("\n📊 DEPLOYMENT STATUS SUMMARY")
-    console.log("============================")
     console.log(`📦 Current Version: ${currentVersion}`)
-    console.log(`🚀 Last Deployed: ${status.lastDeployment?.version || "Never"}`)
-    console.log(
-      `📅 Last Deployment Date: ${status.lastDeployment ? new Date(status.lastDeployment.timestamp).toLocaleString() : "N/A"}`,
-    )
-    console.log(`🌿 Git Branch: ${gitInfo.branch}`)
-    console.log(`🔗 Git Hash: ${gitInfo.hash}`)
-    console.log(`📝 Uncommitted Changes: ${gitInfo.hasChanges ? "Yes" : "No"}`)
-    console.log(`⚡ Status: ${status.currentStatus}`)
-    console.log(`🎯 Needs Deployment: ${status.needsDeployment ? "YES" : "NO"}`)
 
-    if (status.lastDeployment) {
-      console.log(`\n🏷️ Last Deployment Features:`)
-      if (status.lastDeployment.features.length > 0) {
-        status.lastDeployment.features.forEach((feature) => {
-          console.log(`   ✅ ${feature}`)
-        })
-      } else {
-        console.log(`   📝 No features specified`)
-      }
+    if (lastDeployed) {
+      console.log(`🚀 Last Deployed Version: ${lastDeployed.version}`)
+      console.log(`📅 Last Deployment Date: ${lastDeployed.deployedAt}`)
+      console.log(`🌍 Environment: ${lastDeployed.environment}`)
+      console.log(`✅ Status: ${lastDeployed.status}`)
+    } else {
+      console.log("🚀 Last Deployed Version: NEVER DEPLOYED")
+      console.log("📅 Last Deployment Date: N/A")
+      console.log("🌍 Environment: N/A")
+      console.log("❌ Status: NOT DEPLOYED")
     }
 
-    console.log("============================")
+    console.log(`📊 Total Deployments: ${allDeployments.length}`)
+
+    if (allDeployments.length > 0) {
+      console.log("\n📋 Deployment History:")
+      allDeployments.forEach((deployment, index) => {
+        console.log(`  ${index + 1}. v${deployment.version} - ${deployment.deployedAt} (${deployment.environment})`)
+      })
+    }
+
+    console.log("\n🎯 System Features:")
+    const features = [
+      "Application Management System",
+      "Multi-role Dashboard System",
+      "Document Upload & Management",
+      "Workflow Management with Comments",
+      "Permit Printing System",
+      "Messaging System with Notifications",
+      "Advanced Reporting & Analytics",
+      "User Management & Authentication",
+      "Mobile Responsive Design",
+      "Print & Export Functionality",
+    ]
+
+    features.forEach((feature) => {
+      console.log(`  ✅ ${feature}`)
+    })
+
+    if (!lastDeployed) {
+      console.log("\n⚠️  RECOMMENDATION: READY FOR INITIAL PRODUCTION DEPLOYMENT")
+      console.log("   This would be version 1.0.0 - the first production release")
+    }
   }
 }
 
-async function checkDeploymentVersion() {
-  const checker = new DeploymentVersionChecker()
-
-  try {
-    checker.printStatus()
-
-    const report = checker.generateDeploymentReport()
-    const reportPath = `deployment-status-${Date.now()}.md`
-    writeFileSync(reportPath, report)
-
-    console.log(`\n💾 Detailed report saved: ${reportPath}`)
-
-    const status = checker.checkDeploymentStatus()
-    process.exit(status.needsDeployment ? 1 : 0)
-  } catch (error) {
-    console.error("❌ Failed to check deployment version:", error)
-    process.exit(1)
-  }
-}
-
-// Execute if run directly
-if (require.main === module) {
-  checkDeploymentVersion()
-}
-
-export { DeploymentVersionChecker, checkDeploymentVersion }
+// Execute the version check
+const checker = new DeploymentVersionChecker()
+checker.generateDeploymentReport().catch(console.error)

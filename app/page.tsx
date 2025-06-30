@@ -22,78 +22,112 @@ import type { User, PermitApplication } from "@/types"
 import { db } from "@/lib/database"
 
 export default function Home() {
-  /* ------------------------------ state ------------------------------ */
   const [user, setUser] = useState<User | null>(null)
   const [currentView, setCurrentView] = useState("dashboard")
   const [selectedApplication, setSelectedApplication] = useState<PermitApplication | null>(null)
   const [isEditing, setIsEditing] = useState(false)
   const [unreadMessageCount, setUnreadMessageCount] = useState(0)
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  /* ------------------------- message polling ------------------------- */
+  // Message polling effect
   useEffect(() => {
     if (!user) return
 
     const loadUnread = async () => {
-      const publicMsgs = await db.getMessages(user.id, /* public */ true)
-      const privateMsgs = await db.getMessages(user.id, /* public */ false)
+      try {
+        const publicMsgs = await db.getMessages(user.id, true)
+        const privateMsgs = await db.getMessages(user.id, false)
 
-      const unreadPublic = publicMsgs.filter((m) => m.senderId !== user.id && !m.readAt).length
-      const unreadPrivate = privateMsgs.filter((m) => m.senderId !== user.id && !m.readAt).length
+        const unreadPublic = publicMsgs.filter((m) => m.senderId !== user.id && !m.readAt).length
+        const unreadPrivate = privateMsgs.filter((m) => m.senderId !== user.id && !m.readAt).length
 
-      setUnreadMessageCount(unreadPublic + unreadPrivate)
+        setUnreadMessageCount(unreadPublic + unreadPrivate)
+      } catch (err) {
+        console.error("Error loading unread messages:", err)
+      }
     }
 
     loadUnread()
-    const id = setInterval(loadUnread, 30_000) // refresh every 30 s
-    return () => clearInterval(id)
+    const interval = setInterval(loadUnread, 30000) // refresh every 30s
+    return () => clearInterval(interval)
   }, [user])
 
-  /* --------------------------- callbacks ----------------------------- */
-  const handleLogin = (u: User) => setUser(u)
+  // Event handlers
+  const handleLogin = (u: User) => {
+    setUser(u)
+    setError(null)
+  }
+
   const handleLogout = () => {
     setUser(null)
     setCurrentView("dashboard")
+    setSelectedApplication(null)
+    setIsEditing(false)
+    setUnreadMessageCount(0)
   }
+
   const handleNewApp = () => {
     setIsEditing(true)
     setSelectedApplication(null)
     setCurrentView("application-form")
   }
+
   const handleEditApp = (a: PermitApplication) => {
     setIsEditing(true)
     setSelectedApplication(a)
     setCurrentView("application-form")
   }
+
   const handleViewApp = (a: PermitApplication) => {
     setIsEditing(false)
     setSelectedApplication(a)
     setCurrentView("comprehensive-view")
   }
-  const handleSaveApp = () => {
-    setIsEditing(false)
-    setSelectedApplication(null)
-    setCurrentView("dashboard")
+
+  const handleSaveApp = async () => {
+    setIsLoading(true)
+    try {
+      // Add save logic here if needed
+      setIsEditing(false)
+      setSelectedApplication(null)
+      setCurrentView("dashboard")
+    } catch (err) {
+      setError("Failed to save application")
+      console.error("Save error:", err)
+    } finally {
+      setIsLoading(false)
+    }
   }
+
   const handleCancelEdit = () => {
     setIsEditing(false)
     setSelectedApplication(null)
     setCurrentView("dashboard")
   }
-  const handleUpdateApp = (a: PermitApplication) => setSelectedApplication(a)
+
+  const handleUpdateApp = (a: PermitApplication) => {
+    setSelectedApplication(a)
+  }
+
   const handleTabChange = (v: string) => {
     setCurrentView(v)
-    if (v === "messages") setUnreadMessageCount(0)
+    if (v === "messages") {
+      setUnreadMessageCount(0)
+    }
   }
+
   const handleMessagesClick = () => {
     setCurrentView("messages")
     setUnreadMessageCount(0)
   }
+
   const handleBackToApplications = () => {
     setSelectedApplication(null)
     setCurrentView("dashboard")
   }
 
-  /* ------------------------ tab configuration ------------------------ */
+  // Tab configuration
   const baseTabs = [
     { value: "dashboard", label: "Dashboard & Applications" },
     { value: "records", label: "Records" },
@@ -109,8 +143,31 @@ export default function Home() {
     )
   }
 
-  /* ------------------------------ UI -------------------------------- */
-  if (!user) return <LoginForm onLogin={handleLogin} />
+  // Error boundary
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-red-600 mb-4">Application Error</h1>
+          <p className="text-gray-600 mb-4">{error}</p>
+          <button
+            onClick={() => {
+              setError(null)
+              window.location.reload()
+            }}
+            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+          >
+            Reload Application
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  // Login screen
+  if (!user) {
+    return <LoginForm onLogin={handleLogin} />
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
