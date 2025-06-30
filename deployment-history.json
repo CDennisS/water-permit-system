@@ -4,30 +4,12 @@
   "deploymentHistory": [],
   "deployments": [],
   "lastUpdated": "2024-03-15T00:00:00.000Z",
-  "notes": "Initial development version - never deployed to production",
+  "notes": "No deployments recorded yet. This is the initial development version ready for first deployment.",
   "pendingChanges": [
     "Enhanced permit preview system",
     "Fixed permit printing functionality",
     "Added comprehensive testing suite",
     "Improved error handling",
     "Added deployment validation scripts"
-  ],
-  "version": "1.0.0",
-  "status": "never-deployed",
-  "lastDeployed": null,
-  "environment": "development",
-  "buildStatus": "ready",
-  "testStatus": "passed",
-  "features": {
-    "applicationManagement": true,
-    "multiRoleDashboard": true,
-    "documentManagement": true,
-    "workflowManagement": true,
-    "permitPrinting": true,
-    "messagingSystem": true,
-    "reportingAnalytics": true,
-    "userManagement": true,
-    "mobileResponsive": true,
-    "printExport": true
-  }
+  ]
 }

@@ -3,215 +3,261 @@ import fs from "fs"
 
 interface TestResult {
   name: string
-  status: "pass" | "fail" | "warning"
+  status: "PASS" | "FAIL" | "WARN"
   message: string
   details?: string[]
 }
 
-export async function runComprehensiveDeploymentTest(): Promise<TestResult[]> {
-  const results: TestResult[] = []
+class ComprehensiveDeploymentTest {
+  private results: TestResult[] = []
 
-  // Test 1: File Structure
-  try {
+  private addResult(name: string, status: "PASS" | "FAIL" | "WARN", message: string, details?: string[]) {
+    this.results.push({ name, status, message, details })
+  }
+
+  async testFileStructure(): Promise<void> {
+    console.log("🔍 Testing file structure...")
+
     const requiredFiles = [
       "package.json",
       "next.config.mjs",
       "tailwind.config.ts",
       "tsconfig.json",
-      "app/page.tsx",
       "app/layout.tsx",
+      "app/page.tsx",
+      "components/ui/button.tsx",
+      "components/ui/dialog.tsx",
       "components/permit-preview-dialog.tsx",
-      "components/application-details.tsx",
-      "components/permitting-officer-applications-table.tsx",
       "lib/database.ts",
       "types/index.ts",
     ]
 
-    const missingFiles = requiredFiles.filter((file) => !fs.existsSync(file))
+    const missingFiles: string[] = []
+
+    for (const file of requiredFiles) {
+      if (!fs.existsSync(file)) {
+        missingFiles.push(file)
+      }
+    }
 
     if (missingFiles.length === 0) {
-      results.push({
-        name: "File Structure",
-        status: "pass",
-        message: "All required files present",
-      })
+      this.addResult("File Structure", "PASS", "All required files present")
     } else {
-      results.push({
-        name: "File Structure",
-        status: "fail",
-        message: "Missing required files",
-        details: missingFiles,
-      })
+      this.addResult("File Structure", "FAIL", "Missing required files", missingFiles)
     }
-  } catch (error) {
-    results.push({
-      name: "File Structure",
-      status: "fail",
-      message: `Error checking files: ${error}`,
-    })
   }
 
-  // Test 2: TypeScript Compilation
-  try {
-    execSync("npx tsc --noEmit", { stdio: "pipe" })
-    results.push({
-      name: "TypeScript Compilation",
-      status: "pass",
-      message: "TypeScript compiles without errors",
-    })
-  } catch (error) {
-    results.push({
-      name: "TypeScript Compilation",
-      status: "fail",
-      message: "TypeScript compilation failed",
-      details: [error.toString()],
-    })
+  async testTypeScript(): Promise<void> {
+    console.log("🔍 Testing TypeScript compilation...")
+
+    try {
+      execSync("npx tsc --noEmit", { stdio: "pipe" })
+      this.addResult("TypeScript", "PASS", "TypeScript compilation successful")
+    } catch (error) {
+      this.addResult("TypeScript", "FAIL", "TypeScript compilation failed", [error.toString()])
+    }
   }
 
-  // Test 3: Build Process
-  try {
-    execSync("npm run build", { stdio: "pipe" })
-    results.push({
-      name: "Build Process",
-      status: "pass",
-      message: "Application builds successfully",
-    })
-  } catch (error) {
-    results.push({
-      name: "Build Process",
-      status: "fail",
-      message: "Build process failed",
-      details: [error.toString()],
-    })
-  }
+  async testDependencies(): Promise<void> {
+    console.log("🔍 Testing dependencies...")
 
-  // Test 4: Component Integration
-  try {
-    const permitPreviewExists = fs.existsSync("components/permit-preview-dialog.tsx")
-    const applicationDetailsExists = fs.existsSync("components/application-details.tsx")
+    try {
+      const packageJson = JSON.parse(fs.readFileSync("package.json", "utf8"))
+      const requiredDeps = [
+        "react",
+        "react-dom",
+        "next",
+        "typescript",
+        "@types/react",
+        "@types/node",
+        "tailwindcss",
+        "lucide-react",
+      ]
 
-    if (permitPreviewExists && applicationDetailsExists) {
-      // Check if PermitPreviewDialog is properly imported in ApplicationDetails
-      const applicationDetailsContent = fs.readFileSync("components/application-details.tsx", "utf8")
-      const hasPermitPreviewImport = applicationDetailsContent.includes("PermitPreviewDialog")
+      const allDeps = { ...packageJson.dependencies, ...packageJson.devDependencies }
+      const missingDeps = requiredDeps.filter((dep) => !allDeps[dep])
 
-      if (hasPermitPreviewImport) {
-        results.push({
-          name: "Component Integration",
-          status: "pass",
-          message: "PermitPreviewDialog properly integrated",
-        })
+      if (missingDeps.length === 0) {
+        this.addResult("Dependencies", "PASS", "All required dependencies present")
       } else {
-        results.push({
-          name: "Component Integration",
-          status: "fail",
-          message: "PermitPreviewDialog not properly imported",
-        })
+        this.addResult("Dependencies", "FAIL", "Missing dependencies", missingDeps)
       }
-    } else {
-      results.push({
-        name: "Component Integration",
-        status: "fail",
-        message: "Required components missing",
-      })
+    } catch (error) {
+      this.addResult("Dependencies", "FAIL", "Failed to check dependencies", [error.toString()])
     }
-  } catch (error) {
-    results.push({
-      name: "Component Integration",
-      status: "fail",
-      message: `Error checking component integration: ${error}`,
-    })
   }
 
-  // Test 5: Database Mock Data
-  try {
-    const databaseContent = fs.readFileSync("lib/database.ts", "utf8")
-    const hasApprovedApplications = databaseContent.includes('status: "approved"')
+  async testBuild(): Promise<void> {
+    console.log("🔍 Testing build process...")
 
-    if (hasApprovedApplications) {
-      results.push({
-        name: "Database Mock Data",
-        status: "pass",
-        message: "Mock data includes approved applications for testing",
-      })
-    } else {
-      results.push({
-        name: "Database Mock Data",
-        status: "warning",
-        message: "No approved applications found in mock data",
-      })
+    try {
+      execSync("npm run build", { stdio: "pipe" })
+      this.addResult("Build", "PASS", "Build process successful")
+    } catch (error) {
+      this.addResult("Build", "FAIL", "Build process failed", [error.toString()])
     }
-  } catch (error) {
-    results.push({
-      name: "Database Mock Data",
-      status: "fail",
-      message: `Error checking database: ${error}`,
-    })
   }
 
-  // Test 6: Permit Preview Functionality
-  try {
-    const permitPreviewContent = fs.readFileSync("components/permit-preview-dialog.tsx", "utf8")
-    const hasCurrentUserProp = permitPreviewContent.includes("currentUser")
-    const hasGeneratePermitData = permitPreviewContent.includes("generatePermitData")
-    const hasPrintFunction = permitPreviewContent.includes("handlePrint")
+  async testPermitPreview(): Promise<void> {
+    console.log("🔍 Testing permit preview functionality...")
 
-    if (hasCurrentUserProp && hasGeneratePermitData && hasPrintFunction) {
-      results.push({
-        name: "Permit Preview Functionality",
-        status: "pass",
-        message: "All permit preview functions implemented",
-      })
-    } else {
-      results.push({
-        name: "Permit Preview Functionality",
-        status: "fail",
-        message: "Missing permit preview functionality",
-        details: [
-          !hasCurrentUserProp ? "Missing currentUser prop" : "",
-          !hasGeneratePermitData ? "Missing generatePermitData function" : "",
-          !hasPrintFunction ? "Missing print function" : "",
-        ].filter(Boolean),
-      })
+    try {
+      // Check if permit preview component exists and has required exports
+      const permitPreviewPath = "components/permit-preview-dialog.tsx"
+      if (!fs.existsSync(permitPreviewPath)) {
+        this.addResult("Permit Preview", "FAIL", "PermitPreviewDialog component not found")
+        return
+      }
+
+      const content = fs.readFileSync(permitPreviewPath, "utf8")
+
+      const requiredElements = [
+        "PermitPreviewDialog",
+        "handlePrint",
+        "handleDownload",
+        "generatePermitData",
+        "Dialog",
+        "DialogContent",
+      ]
+
+      const missingElements = requiredElements.filter((element) => !content.includes(element))
+
+      if (missingElements.length === 0) {
+        this.addResult("Permit Preview", "PASS", "Permit preview component complete")
+      } else {
+        this.addResult("Permit Preview", "FAIL", "Missing permit preview elements", missingElements)
+      }
+    } catch (error) {
+      this.addResult("Permit Preview", "FAIL", "Failed to test permit preview", [error.toString()])
     }
-  } catch (error) {
-    results.push({
-      name: "Permit Preview Functionality",
-      status: "fail",
-      message: `Error checking permit preview: ${error}`,
-    })
   }
 
-  return results
-}
+  async testDatabase(): Promise<void> {
+    console.log("🔍 Testing database functionality...")
 
-// Run if called directly
-if (require.main === module) {
-  runComprehensiveDeploymentTest().then((results) => {
-    console.log("=== COMPREHENSIVE DEPLOYMENT TEST RESULTS ===\n")
+    try {
+      const dbPath = "lib/database.ts"
+      if (!fs.existsSync(dbPath)) {
+        this.addResult("Database", "FAIL", "Database module not found")
+        return
+      }
 
-    results.forEach((result) => {
-      const statusIcon = result.status === "pass" ? "✅" : result.status === "warning" ? "⚠️" : "❌"
-      console.log(`${statusIcon} ${result.name}: ${result.message}`)
+      const content = fs.readFileSync(dbPath, "utf8")
+
+      const requiredMethods = [
+        "getApplications",
+        "getApplicationById",
+        "createApplication",
+        "updateApplication",
+        "getUsers",
+        "addComment",
+        "getCommentsByApplication",
+      ]
+
+      const missingMethods = requiredMethods.filter((method) => !content.includes(method))
+
+      if (missingMethods.length === 0) {
+        this.addResult("Database", "PASS", "Database functionality complete")
+      } else {
+        this.addResult("Database", "FAIL", "Missing database methods", missingMethods)
+      }
+    } catch (error) {
+      this.addResult("Database", "FAIL", "Failed to test database", [error.toString()])
+    }
+  }
+
+  async testTypes(): Promise<void> {
+    console.log("🔍 Testing type definitions...")
+
+    try {
+      const typesPath = "types/index.ts"
+      if (!fs.existsSync(typesPath)) {
+        this.addResult("Types", "FAIL", "Types file not found")
+        return
+      }
+
+      const content = fs.readFileSync(typesPath, "utf8")
+
+      const requiredTypes = [
+        "User",
+        "PermitApplication",
+        "WorkflowComment",
+        "ActivityLog",
+        "Message",
+        "Document",
+        "PermitData",
+        "BoreholeDetail",
+      ]
+
+      const missingTypes = requiredTypes.filter((type) => !content.includes(`interface ${type}`))
+
+      if (missingTypes.length === 0) {
+        this.addResult("Types", "PASS", "All type definitions present")
+      } else {
+        this.addResult("Types", "FAIL", "Missing type definitions", missingTypes)
+      }
+    } catch (error) {
+      this.addResult("Types", "FAIL", "Failed to test types", [error.toString()])
+    }
+  }
+
+  async runAllTests(): Promise<void> {
+    console.log("🚀 Starting Comprehensive Deployment Test")
+    console.log("=".repeat(60))
+
+    await this.testFileStructure()
+    await this.testDependencies()
+    await this.testTypes()
+    await this.testDatabase()
+    await this.testPermitPreview()
+    await this.testTypeScript()
+    await this.testBuild()
+
+    this.generateReport()
+  }
+
+  private generateReport(): void {
+    console.log("\n📊 DEPLOYMENT TEST RESULTS")
+    console.log("=".repeat(60))
+
+    const passed = this.results.filter((r) => r.status === "PASS").length
+    const failed = this.results.filter((r) => r.status === "FAIL").length
+    const warnings = this.results.filter((r) => r.status === "WARN").length
+
+    this.results.forEach((result) => {
+      const icon = result.status === "PASS" ? "✅" : result.status === "FAIL" ? "❌" : "⚠️"
+      console.log(`${icon} ${result.name}: ${result.message}`)
 
       if (result.details && result.details.length > 0) {
         result.details.forEach((detail) => {
           console.log(`   - ${detail}`)
         })
       }
-      console.log("")
     })
 
-    const passCount = results.filter((r) => r.status === "pass").length
-    const failCount = results.filter((r) => r.status === "fail").length
-    const warningCount = results.filter((r) => r.status === "warning").length
+    console.log("\n📈 SUMMARY")
+    console.log(`✅ Passed: ${passed}`)
+    console.log(`❌ Failed: ${failed}`)
+    console.log(`⚠️  Warnings: ${warnings}`)
+    console.log(`📊 Total: ${this.results.length}`)
 
-    console.log(`Summary: ${passCount} passed, ${warningCount} warnings, ${failCount} failed`)
+    const overallStatus = failed === 0 ? "READY FOR DEPLOYMENT" : "DEPLOYMENT BLOCKED"
+    const statusIcon = failed === 0 ? "🚀" : "🚫"
 
-    if (failCount === 0) {
-      console.log("🚀 DEPLOYMENT READY!")
+    console.log(`\n${statusIcon} OVERALL STATUS: ${overallStatus}`)
+
+    if (failed === 0) {
+      console.log("\n🎉 All tests passed! The application is ready for deployment.")
+      console.log("Next steps:")
+      console.log("1. Deploy to production environment")
+      console.log("2. Update deployment history")
+      console.log("3. Monitor application performance")
     } else {
-      console.log("❌ DEPLOYMENT NOT READY - Fix failing tests first")
+      console.log("\n🔧 Please fix the failing tests before deployment.")
     }
-  })
+  }
 }
+
+// Run the comprehensive test
+const tester = new ComprehensiveDeploymentTest()
+tester.runAllTests().catch(console.error)

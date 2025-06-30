@@ -1,56 +1,109 @@
 import fs from "fs"
 import path from "path"
 
-interface DeploymentInfo {
+interface DeploymentRecord {
   version: string
-  lastDeployed: string | null
+  deployedAt: string
   environment: string
   status: string
+  features: string[]
+  buildHash?: string
 }
 
-export async function checkDeploymentVersion(): Promise<DeploymentInfo> {
-  try {
-    // Read package.json for current version
-    const packageJsonPath = path.join(process.cwd(), "package.json")
-    const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, "utf8"))
+class DeploymentVersionChecker {
+  private deploymentHistoryPath = path.join(process.cwd(), "deployment-history.json")
+  private packageJsonPath = path.join(process.cwd(), "package.json")
 
-    // Check if deployment history exists
-    const deploymentHistoryPath = path.join(process.cwd(), "deployment-history.json")
-    let deploymentHistory = { deployments: [] }
+  async checkCurrentVersion(): Promise<string> {
+    try {
+      const packageJson = JSON.parse(fs.readFileSync(this.packageJsonPath, "utf8"))
+      return packageJson.version || "1.0.0"
+    } catch (error) {
+      console.error("Error reading package.json:", error)
+      return "1.0.0"
+    }
+  }
 
-    if (fs.existsSync(deploymentHistoryPath)) {
-      deploymentHistory = JSON.parse(fs.readFileSync(deploymentHistoryPath, "utf8"))
+  async getDeploymentHistory(): Promise<DeploymentRecord[]> {
+    try {
+      if (!fs.existsSync(this.deploymentHistoryPath)) {
+        return []
+      }
+      const history = JSON.parse(fs.readFileSync(this.deploymentHistoryPath, "utf8"))
+      return history.deployments || []
+    } catch (error) {
+      console.error("Error reading deployment history:", error)
+      return []
+    }
+  }
+
+  async getLastDeployedVersion(): Promise<DeploymentRecord | null> {
+    const history = await this.getDeploymentHistory()
+    const productionDeployments = history.filter((d) => d.environment === "production")
+
+    if (productionDeployments.length === 0) {
+      return null
     }
 
-    const lastDeployment =
-      deploymentHistory.deployments.length > 0
-        ? deploymentHistory.deployments[deploymentHistory.deployments.length - 1]
-        : null
+    return productionDeployments.sort((a, b) => new Date(b.deployedAt).getTime() - new Date(a.deployedAt).getTime())[0]
+  }
 
-    return {
-      version: packageJson.version,
-      lastDeployed: lastDeployment ? lastDeployment.timestamp : null,
-      environment: process.env.NODE_ENV || "development",
-      status: lastDeployment ? "deployed" : "never deployed",
+  async generateDeploymentReport(): Promise<void> {
+    console.log("🔍 UMSCC Permit Management System - Deployment Version Check")
+    console.log("=".repeat(60))
+
+    const currentVersion = await this.checkCurrentVersion()
+    const lastDeployed = await this.getLastDeployedVersion()
+    const allDeployments = await this.getDeploymentHistory()
+
+    console.log(`📦 Current Version: ${currentVersion}`)
+
+    if (lastDeployed) {
+      console.log(`🚀 Last Deployed Version: ${lastDeployed.version}`)
+      console.log(`📅 Last Deployment Date: ${lastDeployed.deployedAt}`)
+      console.log(`🌍 Environment: ${lastDeployed.environment}`)
+      console.log(`✅ Status: ${lastDeployed.status}`)
+    } else {
+      console.log("🚀 Last Deployed Version: NEVER DEPLOYED")
+      console.log("📅 Last Deployment Date: N/A")
+      console.log("🌍 Environment: N/A")
+      console.log("❌ Status: NOT DEPLOYED")
     }
-  } catch (error) {
-    console.error("Error checking deployment version:", error)
-    return {
-      version: "unknown",
-      lastDeployed: null,
-      environment: "unknown",
-      status: "error",
+
+    console.log(`📊 Total Deployments: ${allDeployments.length}`)
+
+    if (allDeployments.length > 0) {
+      console.log("\n📋 Deployment History:")
+      allDeployments.forEach((deployment, index) => {
+        console.log(`  ${index + 1}. v${deployment.version} - ${deployment.deployedAt} (${deployment.environment})`)
+      })
+    }
+
+    console.log("\n🎯 System Features:")
+    const features = [
+      "Application Management System",
+      "Multi-role Dashboard System",
+      "Document Upload & Management",
+      "Workflow Management with Comments",
+      "Permit Printing System",
+      "Messaging System with Notifications",
+      "Advanced Reporting & Analytics",
+      "User Management & Authentication",
+      "Mobile Responsive Design",
+      "Print & Export Functionality",
+    ]
+
+    features.forEach((feature) => {
+      console.log(`  ✅ ${feature}`)
+    })
+
+    if (!lastDeployed) {
+      console.log("\n⚠️  RECOMMENDATION: READY FOR INITIAL PRODUCTION DEPLOYMENT")
+      console.log("   This would be version 1.0.0 - the first production release")
     }
   }
 }
 
-// Run if called directly
-if (require.main === module) {
-  checkDeploymentVersion().then((info) => {
-    console.log("Deployment Information:")
-    console.log(`Version: ${info.version}`)
-    console.log(`Last Deployed: ${info.lastDeployed || "Never"}`)
-    console.log(`Environment: ${info.environment}`)
-    console.log(`Status: ${info.status}`)
-  })
-}
+// Execute the version check
+const checker = new DeploymentVersionChecker()
+checker.generateDeploymentReport().catch(console.error)

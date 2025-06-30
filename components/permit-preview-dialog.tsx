@@ -12,11 +12,11 @@ import type { PermitApplication, User, PermitData, BoreholeDetail } from "@/type
 
 interface PermitPreviewDialogProps {
   application: PermitApplication
-  currentUser: User
+  user: User
   trigger?: React.ReactNode
 }
 
-export function PermitPreviewDialog({ application, currentUser, trigger }: PermitPreviewDialogProps) {
+export function PermitPreviewDialog({ application, user, trigger }: PermitPreviewDialogProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
 
@@ -393,9 +393,7 @@ export function PermitPreviewDialog({ application, currentUser, trigger }: Permi
 
   // Check if user can preview permits
   const canPreview =
-    currentUser.userType === "permitting_officer" ||
-    currentUser.userType === "permit_supervisor" ||
-    currentUser.userType === "ict"
+    user.userType === "permitting_officer" || user.userType === "permit_supervisor" || user.userType === "ict"
 
   if (!canPreview) {
     return null
