@@ -1,63 +1,86 @@
 #!/bin/bash
 
-echo "🔍 UMSCC Permit Management System - Deployment Status Check"
-echo "============================================================"
+echo "=== UMSCC Permit Management System - Deployment Status ==="
+echo ""
 
-# Check if package.json exists
-if [ ! -f "package.json" ]; then
-    echo "❌ Error: package.json not found"
+# Check if Node.js is available
+if ! command -v node &> /dev/null; then
+    echo "❌ Node.js is not installed"
     exit 1
 fi
 
-# Get current version from package.json
-CURRENT_VERSION=$(node -p "require('./package.json').version")
-echo "📦 Current Version: $CURRENT_VERSION"
-
-# Check if deployment history exists
-if [ ! -f "deployment-history.json" ]; then
-    echo "📋 Creating deployment history file..."
-    cat > deployment-history.json << EOF
-{
-  "deployments": [],
-  "lastUpdated": "$(date -u +"%Y-%m-%dT%H:%M:%S.%3NZ")",
-  "notes": "No deployments recorded yet. This is the initial development version ready for first deployment."
-}
-EOF
+# Check if npm is available
+if ! command -v npm &> /dev/null; then
+    echo "❌ npm is not installed"
+    exit 1
 fi
 
-# Check deployment history
-DEPLOYMENT_COUNT=$(node -p "require('./deployment-history.json').deployments.length")
-echo "📊 Total Deployments: $DEPLOYMENT_COUNT"
+echo "✅ Node.js and npm are available"
 
-if [ "$DEPLOYMENT_COUNT" -eq 0 ]; then
-    echo "🚀 Last Deployed Version: NEVER DEPLOYED"
-    echo "📅 Last Deployment Date: N/A"
-    echo "❌ Status: NOT DEPLOYED"
-    echo ""
-    echo "⚠️  RECOMMENDATION: READY FOR INITIAL PRODUCTION DEPLOYMENT"
-    echo "   This would be version $CURRENT_VERSION - the first production release"
+# Check package.json exists
+if [ ! -f "package.json" ]; then
+    echo "❌ package.json not found"
+    exit 1
+fi
+
+echo "✅ package.json found"
+
+# Get version from package.json
+VERSION=$(node -p "require('./package.json').version")
+echo "📦 Current Version: $VERSION"
+
+# Check if deployment history exists
+if [ -f "deployment-history.json" ]; then
+    echo "✅ Deployment history found"
+    LAST_DEPLOYED=$(node -p "require('./deployment-history.json').lastDeployed || 'Never'")
+    STATUS=$(node -p "require('./deployment-history.json').status")
+    echo "🚀 Last Deployed: $LAST_DEPLOYED"
+    echo "📊 Status: $STATUS"
 else
-    echo "🚀 Deployment history found with $DEPLOYMENT_COUNT deployments"
+    echo "⚠️  No deployment history found"
+    echo "🚀 Last Deployed: Never"
+    echo "📊 Status: never-deployed"
 fi
 
 # Check if build directory exists
 if [ -d ".next" ]; then
     echo "✅ Build directory exists"
 else
-    echo "⚠️  Build directory not found - run 'npm run build' before deployment"
+    echo "⚠️  No build directory found - run 'npm run build'"
 fi
 
-# Check if node_modules exists
-if [ -d "node_modules" ]; then
-    echo "✅ Dependencies installed"
+# Check key files exist
+echo ""
+echo "=== File Structure Check ==="
+FILES=(
+    "app/page.tsx"
+    "components/permit-preview-dialog.tsx"
+    "components/permitting-officer-applications-table.tsx"
+    "lib/database.ts"
+    "types/index.ts"
+)
+
+for file in "${FILES[@]}"; do
+    if [ -f "$file" ]; then
+        echo "✅ $file"
+    else
+        echo "❌ $file missing"
+    fi
+done
+
+echo ""
+echo "=== Deployment Readiness ==="
+if [ "$STATUS" = "never-deployed" ]; then
+    echo "🎯 READY FOR INITIAL DEPLOYMENT"
+    echo "   This would be version $VERSION - first production release"
 else
-    echo "⚠️  Dependencies not installed - run 'npm install' first"
+    echo "🔄 READY FOR UPDATE DEPLOYMENT"
+    echo "   Current version: $VERSION"
 fi
 
 echo ""
-echo "🎯 Next Steps:"
-echo "  1. Run 'npm install' to install dependencies"
-echo "  2. Run 'npm run build' to create production build"
-echo "  3. Run 'npm run test' to verify functionality"
-echo "  4. Deploy to production environment"
-echo "  5. Update deployment history"
+echo "=== Next Steps ==="
+echo "1. Run 'npm run build' to create production build"
+echo "2. Run 'npm run test' to verify all functionality"
+echo "3. Deploy to production environment"
+echo "4. Update deployment history"
