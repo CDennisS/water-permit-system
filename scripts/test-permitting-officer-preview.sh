@@ -127,13 +127,13 @@ echo -e "${YELLOW}Phase 10: Integration Tests${NC}"
 echo "==========================="
 
 run_test "Full Workflow Integration" \
-    "npm test -- tests/permitting-officer-integration-test.ts -t 'should complete full workflow'"
+    "npm test -- tests/permitting-officer-integration.test.ts -t 'should complete full workflow'"
 
 run_test "Permission Matrix Validation" \
-    "npm test -- tests/permitting-officer-integration-test.ts -t 'should show correct permissions for permitting officer'"
+    "npm test -- tests/permitting-officer-integration.test.ts -t 'should show correct permissions for permitting officer'"
 
 run_test "Bulk Operations Integration" \
-    "npm test -- tests/permitting-officer-integration-test.ts -t 'should handle bulk submission of unsubmitted applications'"
+    "npm test -- tests/permitting-officer-integration.test.ts -t 'should handle bulk submission of unsubmitted applications'"
 
 # Generate comprehensive test report
 echo -e "${BLUE}Generating Test Report...${NC}"
