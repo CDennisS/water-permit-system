@@ -176,16 +176,7 @@ export function PermitPreviewDialog({ application, currentUser, onPrint, onDownl
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
-        <Button
-          variant="outline"
-          size="sm"
-          className="gap-2 bg-transparent"
-          type="button"
-          onClick={(e) => {
-            e.preventDefault()
-            e.stopPropagation()
-          }}
-        >
+        <Button variant="outline" size="sm" className="gap-2 bg-transparent hover:bg-gray-50" type="button">
           <Eye className="h-4 w-4" />
           Preview Permit
         </Button>
@@ -225,11 +216,9 @@ export function PermitPreviewDialog({ application, currentUser, onPrint, onDownl
         <Separator />
 
         <ScrollArea className="flex-1 p-6">
-          {isOpen && (
-            <div id="permit-preview-content" className="bg-white">
-              <PermitTemplate permitData={permitData} id="permit-preview-template" />
-            </div>
-          )}
+          <div id="permit-preview-content" className="bg-white">
+            <PermitTemplate permitData={permitData} id="permit-preview-template" />
+          </div>
         </ScrollArea>
       </DialogContent>
     </Dialog>
