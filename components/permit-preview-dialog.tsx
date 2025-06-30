@@ -24,6 +24,12 @@ export function PermitPreviewDialog({ application, currentUser, onPrint, onDownl
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  console.log("PermitPreviewDialog rendered", {
+    application: application.applicationId,
+    status: application.status,
+    userType: currentUser.userType,
+  })
+
   // Check if user can preview permits
   const canPreview = [
     "permitting_officer",
@@ -36,7 +42,10 @@ export function PermitPreviewDialog({ application, currentUser, onPrint, onDownl
   // Only show for approved applications
   const canShowPreview = application.status === "approved" || application.status === "permit_issued"
 
+  console.log("Preview permissions", { canPreview, canShowPreview })
+
   if (!canPreview || !canShowPreview) {
+    console.log("Preview not allowed", { canPreview, canShowPreview, status: application.status })
     return null
   }
 
@@ -44,6 +53,7 @@ export function PermitPreviewDialog({ application, currentUser, onPrint, onDownl
   let permitData
   try {
     permitData = preparePermitData(application)
+    console.log("Permit data prepared", permitData)
   } catch (err) {
     console.error("Error preparing permit data:", err)
     return (
@@ -55,6 +65,7 @@ export function PermitPreviewDialog({ application, currentUser, onPrint, onDownl
   }
 
   const handlePrint = async () => {
+    console.log("Print button clicked")
     setIsLoading(true)
     setError(null)
 
@@ -63,6 +74,8 @@ export function PermitPreviewDialog({ application, currentUser, onPrint, onDownl
       await new Promise((resolve) => setTimeout(resolve, 1000))
 
       const printContent = document.getElementById("permit-preview-template")
+      console.log("Print content element:", printContent)
+
       if (!printContent) {
         throw new Error("Print content not found")
       }
@@ -168,6 +181,7 @@ export function PermitPreviewDialog({ application, currentUser, onPrint, onDownl
       }, 500)
 
       onPrint?.()
+      console.log("Print completed successfully")
     } catch (error) {
       console.error("Print failed:", error)
       setError(error instanceof Error ? error.message : "Print failed")
@@ -177,6 +191,7 @@ export function PermitPreviewDialog({ application, currentUser, onPrint, onDownl
   }
 
   const handleDownload = async () => {
+    console.log("Download button clicked")
     setIsLoading(true)
     setError(null)
 
@@ -236,6 +251,7 @@ export function PermitPreviewDialog({ application, currentUser, onPrint, onDownl
       URL.revokeObjectURL(url)
 
       onDownload?.()
+      console.log("Download completed successfully")
     } catch (error) {
       console.error("Download failed:", error)
       setError(error instanceof Error ? error.message : "Download failed")
@@ -244,8 +260,16 @@ export function PermitPreviewDialog({ application, currentUser, onPrint, onDownl
     }
   }
 
+  const handleDialogOpen = (open: boolean) => {
+    console.log("Dialog open state changed:", open)
+    setIsOpen(open)
+    if (open) {
+      setError(null)
+    }
+  }
+
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+    <Dialog open={isOpen} onOpenChange={handleDialogOpen}>
       <DialogTrigger asChild>
         <Button
           variant="outline"
@@ -253,8 +277,7 @@ export function PermitPreviewDialog({ application, currentUser, onPrint, onDownl
           className="gap-2 bg-transparent hover:bg-gray-50"
           type="button"
           onClick={() => {
-            console.log("Preview button clicked", { application, permitData })
-            setIsOpen(true)
+            console.log("Preview button clicked", { application: application.applicationId, permitData })
           }}
         >
           <Eye className="h-4 w-4" />
