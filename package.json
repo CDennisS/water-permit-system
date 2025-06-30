@@ -58,6 +58,7 @@
     "@testing-library/dom": "latest",
     "@types/debug": "latest",
     "@vitest/browser": "latest",
+    "child_process": "latest",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "latest",
