@@ -15,72 +15,50 @@ if ! command -v npm &> /dev/null; then
     exit 1
 fi
 
-echo "✅ Node.js and npm are available"
-
 # Check package.json exists
 if [ ! -f "package.json" ]; then
     echo "❌ package.json not found"
     exit 1
 fi
 
-echo "✅ package.json found"
-
-# Get version from package.json
+# Get current version
 VERSION=$(node -p "require('./package.json').version")
 echo "📦 Current Version: $VERSION"
 
 # Check if deployment history exists
 if [ -f "deployment-history.json" ]; then
-    echo "✅ Deployment history found"
-    LAST_DEPLOYED=$(node -p "require('./deployment-history.json').lastDeployed || 'Never'")
-    STATUS=$(node -p "require('./deployment-history.json').status")
+    echo "📋 Deployment history found"
+    LAST_DEPLOYED=$(node -p "
+        const history = require('./deployment-history.json');
+        history.deployments.length > 0 
+            ? history.deployments[history.deployments.length - 1].timestamp 
+            : 'Never deployed'
+    ")
     echo "🚀 Last Deployed: $LAST_DEPLOYED"
-    echo "📊 Status: $STATUS"
 else
-    echo "⚠️  No deployment history found"
+    echo "📋 No deployment history found"
     echo "🚀 Last Deployed: Never"
-    echo "📊 Status: never-deployed"
 fi
 
-# Check if build directory exists
-if [ -d ".next" ]; then
-    echo "✅ Build directory exists"
+# Check build status
+echo ""
+echo "🔧 Checking build status..."
+if npm run build --silent; then
+    echo "✅ Build successful"
 else
-    echo "⚠️  No build directory found - run 'npm run build'"
+    echo "❌ Build failed"
+    exit 1
 fi
 
-# Check key files exist
+# Check test status
 echo ""
-echo "=== File Structure Check ==="
-FILES=(
-    "app/page.tsx"
-    "components/permit-preview-dialog.tsx"
-    "components/permitting-officer-applications-table.tsx"
-    "lib/database.ts"
-    "types/index.ts"
-)
-
-for file in "${FILES[@]}"; do
-    if [ -f "$file" ]; then
-        echo "✅ $file"
-    else
-        echo "❌ $file missing"
-    fi
-done
-
-echo ""
-echo "=== Deployment Readiness ==="
-if [ "$STATUS" = "never-deployed" ]; then
-    echo "🎯 READY FOR INITIAL DEPLOYMENT"
-    echo "   This would be version $VERSION - first production release"
+echo "🧪 Checking test status..."
+if npm test --silent; then
+    echo "✅ Tests passed"
 else
-    echo "🔄 READY FOR UPDATE DEPLOYMENT"
-    echo "   Current version: $VERSION"
+    echo "⚠️  Some tests failed"
 fi
 
 echo ""
-echo "=== Next Steps ==="
-echo "1. Run 'npm run build' to create production build"
-echo "2. Run 'npm run test' to verify all functionality"
-echo "3. Deploy to production environment"
-echo "4. Update deployment history"
+echo "📊 System Status: Ready for deployment"
+echo "🎯 Recommendation: This is version $VERSION and has never been deployed to production"

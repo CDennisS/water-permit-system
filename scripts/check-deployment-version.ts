@@ -6,64 +6,51 @@ interface DeploymentInfo {
   lastDeployed: string | null
   environment: string
   status: string
-  features: string[]
 }
 
-async function checkDeploymentVersion(): Promise<DeploymentInfo> {
+export async function checkDeploymentVersion(): Promise<DeploymentInfo> {
   try {
-    // Read package.json for version
+    // Read package.json for current version
     const packageJsonPath = path.join(process.cwd(), "package.json")
     const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, "utf8"))
 
     // Check if deployment history exists
     const deploymentHistoryPath = path.join(process.cwd(), "deployment-history.json")
-    let deploymentHistory = null
+    let deploymentHistory = { deployments: [] }
 
     if (fs.existsSync(deploymentHistoryPath)) {
       deploymentHistory = JSON.parse(fs.readFileSync(deploymentHistoryPath, "utf8"))
     }
 
-    const deploymentInfo: DeploymentInfo = {
-      version: packageJson.version || "1.0.0",
-      lastDeployed: deploymentHistory?.lastDeployed || null,
+    const lastDeployment =
+      deploymentHistory.deployments.length > 0
+        ? deploymentHistory.deployments[deploymentHistory.deployments.length - 1]
+        : null
+
+    return {
+      version: packageJson.version,
+      lastDeployed: lastDeployment ? lastDeployment.timestamp : null,
       environment: process.env.NODE_ENV || "development",
-      status: deploymentHistory?.status || "never-deployed",
-      features: [
-        "Application Management System",
-        "Multi-role Dashboard System",
-        "Document Upload & Management",
-        "Workflow Management with Comments",
-        "Permit Printing System",
-        "Messaging System with Notifications",
-        "Advanced Reporting & Analytics",
-        "User Management & Authentication",
-        "Mobile Responsive Design",
-        "Print & Export Functionality",
-      ],
+      status: lastDeployment ? "deployed" : "never deployed",
     }
-
-    console.log("=== DEPLOYMENT VERSION CHECK ===")
-    console.log(`Current Version: ${deploymentInfo.version}`)
-    console.log(`Last Deployed: ${deploymentInfo.lastDeployed || "Never"}`)
-    console.log(`Environment: ${deploymentInfo.environment}`)
-    console.log(`Status: ${deploymentInfo.status}`)
-    console.log("\nFeatures:")
-    deploymentInfo.features.forEach((feature) => {
-      console.log(`  ✅ ${feature}`)
-    })
-
-    return deploymentInfo
   } catch (error) {
     console.error("Error checking deployment version:", error)
-    throw error
+    return {
+      version: "unknown",
+      lastDeployed: null,
+      environment: "unknown",
+      status: "error",
+    }
   }
 }
 
 // Run if called directly
 if (require.main === module) {
-  checkDeploymentVersion()
-    .then(() => process.exit(0))
-    .catch(() => process.exit(1))
+  checkDeploymentVersion().then((info) => {
+    console.log("Deployment Information:")
+    console.log(`Version: ${info.version}`)
+    console.log(`Last Deployed: ${info.lastDeployed || "Never"}`)
+    console.log(`Environment: ${info.environment}`)
+    console.log(`Status: ${info.status}`)
+  })
 }
-
-export { checkDeploymentVersion }

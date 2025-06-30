@@ -4,7 +4,7 @@
   "deploymentHistory": [],
   "deployments": [],
   "lastUpdated": "2024-03-15T00:00:00.000Z",
-  "notes": "Initial development version ready for first deployment",
+  "notes": "Initial development version - never deployed to production",
   "pendingChanges": [
     "Enhanced permit preview system",
     "Fixed permit printing functionality",
