@@ -1866,4 +1866,5 @@ Note: Resubmission requires pre-approval consultation with environmental authori
 }
 
 const mockDatabase = new MockDatabase()
+export const db = mockDatabase
 export default mockDatabase
