@@ -59,7 +59,7 @@ export function EnhancedMessagingSystem({ user }: EnhancedMessagingSystemProps) 
       const allUsers = await db.getUsers()
       console.log("All users from database:", allUsers)
 
-      // Remove current user and deduplicate by user ID
+      // Remove current user and deduplicate by user ID using Map
       const filteredUsers = allUsers.filter((u) => u.id !== user.id)
       console.log("After filtering current user:", filteredUsers)
 
