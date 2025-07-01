@@ -1,58 +1,41 @@
 import type { PermitApplication, PermitData, BoreholeDetail } from "@/types"
 
 export function preparePermitData(application: PermitApplication): PermitData {
-  try {
-    // Validate input
-    if (!application) {
-      throw new Error("Application data is required")
-    }
+  // Generate permit number if not exists
+  const permitNumber = application.permitNumber || generatePermitNumber(application)
 
-    if (!application.applicantName) {
-      throw new Error("Applicant name is required")
-    }
+  // Calculate validity date (typically 1 year from approval)
+  const validUntil = calculateValidityDate(application.approvedAt)
 
-    // Generate permit number if not exists
-    const permitNumber = application.permitNumber || generatePermitNumber(application)
+  // Prepare borehole details
+  const boreholeDetails: BoreholeDetail[] = generateBoreholeDetails(application)
 
-    // Calculate validity date (typically 1 year from approval)
-    const validUntil = calculateValidityDate(application.approvedAt)
+  // Calculate total allocated abstraction
+  const totalAllocatedAbstraction = boreholeDetails.reduce((total, borehole) => total + borehole.allocatedAmount, 0)
 
-    // Prepare borehole details
-    const boreholeDetails: BoreholeDetail[] = generateBoreholeDetails(application)
-
-    // Calculate total allocated abstraction
-    const totalAllocatedAbstraction = boreholeDetails.reduce(
-      (total, borehole) => total + (borehole.allocatedAmount || 0),
-      0,
-    )
-
-    return {
-      permitNumber,
-      applicantName: application.applicantName,
-      physicalAddress: application.physicalAddress || "N/A",
-      postalAddress: application.postalAddress || "N/A",
-      landSize: application.landSize || 0,
-      numberOfBoreholes: application.numberOfBoreholes || 1,
-      totalAllocatedAbstraction: totalAllocatedAbstraction || application.waterAllocation * 1000 || 0,
-      intendedUse: application.intendedUse || "General use",
-      validUntil,
-      boreholeDetails,
-      issueDate: new Date().toLocaleDateString("en-ZA", {
-        year: "numeric",
-        month: "long",
-        day: "2-digit",
-      }),
-      gpsCoordinates: {
-        latitude: application.gpsLatitude?.toString() || "N/A",
-        longitude: application.gpsLongitude?.toString() || "N/A",
-      },
-      catchment: "MANYAME",
-      subCatchment: "UPPER MANYAME",
-      permitType: "temporary",
-    }
-  } catch (error) {
-    console.error("Error in preparePermitData:", error)
-    throw error
+  return {
+    permitNumber,
+    applicantName: application.applicantName,
+    physicalAddress: application.physicalAddress,
+    postalAddress: application.postalAddress,
+    landSize: application.landSize,
+    numberOfBoreholes: application.numberOfBoreholes,
+    totalAllocatedAbstraction,
+    intendedUse: application.intendedUse,
+    validUntil,
+    boreholeDetails,
+    issueDate: new Date().toLocaleDateString("en-ZA", {
+      year: "numeric",
+      month: "long",
+      day: "2-digit",
+    }),
+    gpsCoordinates: {
+      latitude: application.gpsLatitude,
+      longitude: application.gpsLongitude,
+    },
+    catchment: "MANYAME",
+    subCatchment: "UPPER MANYAME",
+    permitType: "temporary",
   }
 }
 
@@ -78,20 +61,19 @@ function calculateValidityDate(approvedAt?: Date): string {
 
 function generateBoreholeDetails(application: PermitApplication): BoreholeDetail[] {
   const details: BoreholeDetail[] = []
-  const numberOfBoreholes = application.numberOfBoreholes || 1
-  const totalAllocation = (application.waterAllocation || 0) * 1000 // Convert ML to m³
-  const allocationPerBorehole = Math.floor(totalAllocation / numberOfBoreholes)
+  const totalAllocation = application.waterAllocation * 1000 // Convert ML to m³
+  const allocationPerBorehole = Math.floor(totalAllocation / application.numberOfBoreholes)
 
-  for (let i = 1; i <= numberOfBoreholes; i++) {
+  for (let i = 1; i <= application.numberOfBoreholes; i++) {
     details.push({
       boreholeNumber: `BH-${String(i).padStart(2, "0")}`,
       allocatedAmount:
-        i === numberOfBoreholes
-          ? totalAllocation - allocationPerBorehole * (numberOfBoreholes - 1) // Last borehole gets remainder
+        i === application.numberOfBoreholes
+          ? totalAllocation - allocationPerBorehole * (application.numberOfBoreholes - 1) // Last borehole gets remainder
           : allocationPerBorehole,
-      gpsX: generateGPSCoordinate(application.gpsLatitude || -17.8252, 0.001),
-      gpsY: generateGPSCoordinate(application.gpsLongitude || 31.0335, 0.001),
-      intendedUse: application.intendedUse || "General use",
+      gpsX: generateGPSCoordinate(application.gpsLatitude, 0.001),
+      gpsY: generateGPSCoordinate(application.gpsLongitude, 0.001),
+      intendedUse: application.intendedUse,
       maxAbstractionRate: Math.floor(allocationPerBorehole * 1.1), // 10% buffer
       waterSampleFrequency: "3 months",
     })
@@ -148,9 +130,7 @@ Intended Use: ${permitData.intendedUse}
 BOREHOLE DETAILS
 ----------------
 ${permitData.boreholeDetails
-  .map(
-    (bh) => `${bh.boreholeNumber}: ${bh.allocatedAmount?.toLocaleString() || 0} m³/annum (GPS: ${bh.gpsX}, ${bh.gpsY})`,
-  )
+  .map((bh) => `${bh.boreholeNumber}: ${bh.allocatedAmount.toLocaleString()} m³/annum (GPS: ${bh.gpsX}, ${bh.gpsY})`)
   .join("\n")}
 
 This permit is issued under the authority of the Upper Manyame Sub Catchment Council.

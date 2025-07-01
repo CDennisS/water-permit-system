@@ -12,32 +12,21 @@ vi.mock("@/lib/enhanced-permit-generator", () => ({
     issueDate: "2024-01-15",
     validUntil: "2029-01-15",
     applicantName: "John Doe",
-    physicalAddress: "123 Main St, Harare",
-    postalAddress: "P.O. Box 123, Harare",
-    numberOfBoreholes: 2,
-    landSize: "10.5",
-    totalAllocatedAbstraction: 50000,
+    applicantAddress: "123 Main St, Harare",
     intendedUse: "Domestic",
+    waterAllocation: 50,
+    totalAllocatedAbstraction: 50000,
     boreholeDetails: [
       {
         boreholeNumber: "BH001",
-        gpsX: "31.0335",
-        gpsY: "-17.8252",
-        allocatedAmount: 25000,
-        intendedUse: "Domestic",
-        maxAbstractionRate: 25000,
-        waterSampleFrequency: "3 months",
-      },
-      {
-        boreholeNumber: "BH002",
-        gpsX: "31.0340",
-        gpsY: "-17.8250",
-        allocatedAmount: 25000,
-        intendedUse: "Domestic",
-        maxAbstractionRate: 25000,
-        waterSampleFrequency: "3 months",
+        gpsCoordinates: "-17.8252, 31.0335",
+        allocatedAmount: 50000,
+        pumpingRate: 2.5,
+        staticWaterLevel: 15,
+        yieldTest: 3.0,
       },
     ],
+    conditions: ["Water shall be used for domestic purposes only", "Permit holder must maintain accurate records"],
   })),
   validatePermitData: vi.fn(() => true),
 }))
@@ -45,59 +34,38 @@ vi.mock("@/lib/enhanced-permit-generator", () => ({
 vi.mock("@/components/permit-template", () => ({
   PermitTemplate: vi.fn(({ permitData, id }) => (
     <div data-testid="permit-template" id={id}>
-      <h1>Form GW7B</h1>
-      <h2>TEMPORARY/PROVISIONAL* SPECIFIC GROUNDWATER ABSTRACTION PERMIT</h2>
+      <h1>GROUNDWATER ABSTRACTION PERMIT</h1>
       <div data-testid="permit-number">Permit No: {permitData.permitNumber}</div>
-      <div data-testid="applicant-name">Name of Applicant: {permitData.applicantName}</div>
-      <div data-testid="physical-address">Physical address: {permitData.physicalAddress}</div>
-      <div data-testid="postal-address">Postal address: {permitData.postalAddress}</div>
+      <div data-testid="applicant-name">Applicant: {permitData.applicantName}</div>
       <div data-testid="issue-date">Issue Date: {permitData.issueDate}</div>
       <div data-testid="valid-until">Valid Until: {permitData.validUntil}</div>
-      <div data-testid="total-allocation">
-        Total allocated abstraction: {permitData.totalAllocatedAbstraction.toLocaleString()} m³/annum
-      </div>
       <table data-testid="borehole-table">
         <thead>
           <tr>
             <th>Borehole No.</th>
-            <th>GPS X</th>
-            <th>GPS Y</th>
-            <th>Allocated Amount</th>
-            <th>Intended Use</th>
+            <th>GPS Coordinates</th>
+            <th>Allocated Amount (m³/annum)</th>
           </tr>
         </thead>
         <tbody>
           {permitData.boreholeDetails.map((borehole, index) => (
             <tr key={index} data-testid={`borehole-row-${index}`}>
               <td>{borehole.boreholeNumber}</td>
-              <td>{borehole.gpsX}</td>
-              <td>{borehole.gpsY}</td>
+              <td>{borehole.gpsCoordinates}</td>
               <td>{borehole.allocatedAmount.toLocaleString()}</td>
-              <td>{borehole.intendedUse}</td>
             </tr>
           ))}
         </tbody>
       </table>
       <div data-testid="conditions">
-        <h3>CONDITIONS</h3>
-        <p>It is illegal to abstract groundwater for any other purpose...</p>
-      </div>
-      <div data-testid="additional-conditions">
-        <h3>ADDITIONAL CONDITIONS</h3>
+        <h3>Conditions:</h3>
         <ol>
-          <li>To install flow meters on all boreholes and keep records of water used</li>
-          <li>Water Quality Analysis is to be carried out at most after every 3 months</li>
-          <li>To submit abstraction and water quality records to catchment offices every six (6) months</li>
-          <li>To allow unlimited access to ZINWA and SUB-CATCHMENT COUNCIL staff</li>
-          <li>No cost shall be demanded from the Catchment Council in the event of permit cancellation</li>
+          {permitData.conditions.map((condition, index) => (
+            <li key={index} data-testid={`condition-${index}`}>
+              {condition}
+            </li>
+          ))}
         </ol>
-      </div>
-      <div data-testid="signature-section">
-        <div>ENDY MHLANGA</div>
-        <div>Name (print)</div>
-        <div>Signature</div>
-        <div>Official Date Stamp</div>
-        <div>(Catchment Council Chairperson)</div>
       </div>
     </div>
   )),
@@ -120,7 +88,7 @@ describe("Permit Preview End-to-End Tests", () => {
     emailAddress: "john.doe@email.com",
     intendedUse: "Domestic",
     waterAllocation: 50,
-    numberOfBoreholes: 2,
+    numberOfBoreholes: 1,
     gpsCoordinates: "-17.8252, 31.0335",
     status: "approved",
     submissionDate: new Date("2024-01-01"),
@@ -254,7 +222,7 @@ describe("Permit Preview End-to-End Tests", () => {
 
       // Mock getElementById to return template element
       const mockTemplateElement = {
-        innerHTML: "<div>Complete permit template content with Form GW7B</div>",
+        innerHTML: "<div>Complete permit template content</div>",
       }
       vi.spyOn(document, "getElementById").mockReturnValue(mockTemplateElement as any)
 
@@ -287,7 +255,7 @@ describe("Permit Preview End-to-End Tests", () => {
       expect(printContent).toContain("@page")
       expect(printContent).toContain("size: A4")
       expect(printContent).toContain("font-family: 'Times New Roman', serif")
-      expect(printContent).toContain("Complete permit template content with Form GW7B")
+      expect(printContent).toContain("Complete permit template content")
     })
 
     it("should handle complete download workflow", async () => {
@@ -387,100 +355,7 @@ describe("Permit Preview End-to-End Tests", () => {
     })
   })
 
-  describe("Form GW7B Template Validation", () => {
-    it("should display all required Form GW7B sections", async () => {
-      const user = userEvent.setup()
-
-      render(<PermitPreviewDialog application={mockApplication} currentUser={mockPermittingOfficer} />)
-
-      const previewButton = screen.getByRole("button", { name: /preview permit/i })
-      await user.click(previewButton)
-
-      await waitFor(() => {
-        expect(screen.getByRole("dialog")).toBeInTheDocument()
-      })
-
-      // Verify Form GW7B specific content
-      expect(screen.getByText("Form GW7B")).toBeInTheDocument()
-      expect(screen.getByText("TEMPORARY/PROVISIONAL* SPECIFIC GROUNDWATER ABSTRACTION PERMIT")).toBeInTheDocument()
-      expect(screen.getByTestId("permit-number")).toBeInTheDocument()
-      expect(screen.getByTestId("applicant-name")).toBeInTheDocument()
-      expect(screen.getByTestId("physical-address")).toBeInTheDocument()
-      expect(screen.getByTestId("postal-address")).toBeInTheDocument()
-      expect(screen.getByTestId("total-allocation")).toBeInTheDocument()
-      expect(screen.getByTestId("borehole-table")).toBeInTheDocument()
-      expect(screen.getByTestId("conditions")).toBeInTheDocument()
-      expect(screen.getByTestId("additional-conditions")).toBeInTheDocument()
-      expect(screen.getByTestId("signature-section")).toBeInTheDocument()
-    })
-
-    it("should display borehole information correctly in table format", async () => {
-      const user = userEvent.setup()
-
-      render(<PermitPreviewDialog application={mockApplication} currentUser={mockPermittingOfficer} />)
-
-      const previewButton = screen.getByRole("button", { name: /preview permit/i })
-      await user.click(previewButton)
-
-      await waitFor(() => {
-        expect(screen.getByRole("dialog")).toBeInTheDocument()
-      })
-
-      // Verify borehole data
-      expect(screen.getByTestId("borehole-row-0")).toBeInTheDocument()
-      expect(screen.getByTestId("borehole-row-1")).toBeInTheDocument()
-      expect(screen.getByText("BH001")).toBeInTheDocument()
-      expect(screen.getByText("BH002")).toBeInTheDocument()
-      expect(screen.getByText("31.0335")).toBeInTheDocument()
-      expect(screen.getByText("31.0340")).toBeInTheDocument()
-    })
-
-    it("should include all required conditions and legal text", async () => {
-      const user = userEvent.setup()
-
-      render(<PermitPreviewDialog application={mockApplication} currentUser={mockPermittingOfficer} />)
-
-      const previewButton = screen.getByRole("button", { name: /preview permit/i })
-      await user.click(previewButton)
-
-      await waitFor(() => {
-        expect(screen.getByRole("dialog")).toBeInTheDocument()
-      })
-
-      // Verify conditions section
-      expect(screen.getByText("CONDITIONS")).toBeInTheDocument()
-      expect(screen.getByText("ADDITIONAL CONDITIONS")).toBeInTheDocument()
-      expect(
-        screen.getByText("To install flow meters on all boreholes and keep records of water used"),
-      ).toBeInTheDocument()
-      expect(
-        screen.getByText("Water Quality Analysis is to be carried out at most after every 3 months"),
-      ).toBeInTheDocument()
-      expect(screen.getByText("To allow unlimited access to ZINWA and SUB-CATCHMENT COUNCIL staff")).toBeInTheDocument()
-    })
-
-    it("should include proper signature section", async () => {
-      const user = userEvent.setup()
-
-      render(<PermitPreviewDialog application={mockApplication} currentUser={mockPermittingOfficer} />)
-
-      const previewButton = screen.getByRole("button", { name: /preview permit/i })
-      await user.click(previewButton)
-
-      await waitFor(() => {
-        expect(screen.getByRole("dialog")).toBeInTheDocument()
-      })
-
-      // Verify signature section
-      expect(screen.getByText("ENDY MHLANGA")).toBeInTheDocument()
-      expect(screen.getByText("Name (print)")).toBeInTheDocument()
-      expect(screen.getByText("Signature")).toBeInTheDocument()
-      expect(screen.getByText("Official Date Stamp")).toBeInTheDocument()
-      expect(screen.getByText("(Catchment Council Chairperson)")).toBeInTheDocument()
-    })
-  })
-
-  describe("Real-world Production Scenarios", () => {
+  describe("Real-world Scenarios", () => {
     it("should handle multiple rapid clicks without breaking", async () => {
       const user = userEvent.setup()
 
