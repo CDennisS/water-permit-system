@@ -1,14 +1,4 @@
-export interface User {
-  id: string
-  username: string
-  userType: UserType
-  password?: string // Optional for security, only used during creation/updates
-  createdAt: Date
-  updatedAt: Date
-}
-
 export type UserType =
-  | "applicant"
   | "permitting_officer"
   | "chairperson"
   | "catchment_manager"
@@ -16,52 +6,37 @@ export type UserType =
   | "permit_supervisor"
   | "ict"
 
-export interface PermitApplication {
+export interface User {
   id: string
-  applicationId: string
-  applicantName: string
-  physicalAddress: string
-  postalAddress?: string
-  customerAccountNumber: string
-  cellularNumber: string
-  permitType: string
-  waterSource: string
-  intendedUse: string
-  numberOfBoreholes: number
-  landSize: number
-  waterAllocation: number
-  gpsLatitude: number
-  gpsLongitude: number
-  status: ApplicationStatus
-  currentStage: number
-  workflowComments: WorkflowComment[]
-  documents?: Document[]
+  username: string
+  password: string
+  userType: UserType
   createdAt: Date
-  updatedAt: Date
-  submittedAt?: Date
-  approvedAt?: Date
-  assignedTo?: string
+  lastLogin?: Date
+  isActive: boolean
 }
 
-export type ApplicationStatus =
-  | "draft"
-  | "pending"
-  | "submitted"
-  | "under_review"
-  | "technical_review"
-  | "approved"
-  | "rejected"
-  | "permit_issued"
-
-export interface WorkflowComment {
+export interface Application {
   id: string
-  applicationId: string
-  userId: string
-  userType: UserType
-  comment: string
-  stage: number
-  createdAt: Date
-  isRejectionReason: boolean
+  applicantName: string
+  applicantEmail: string
+  applicantPhone: string
+  applicantAddress: string
+  businessName: string
+  businessType: string
+  businessAddress: string
+  permitType: string
+  description: string
+  status: "pending" | "under_review" | "approved" | "rejected"
+  submittedAt: Date
+  reviewedAt?: Date
+  reviewedBy?: string
+  comments?: string
+  documents: Document[]
+  catchmentArea?: string
+  estimatedCost?: number
+  validityPeriod?: string
+  conditions?: string[]
 }
 
 export interface Document {
@@ -71,12 +46,24 @@ export interface Document {
   fileType: string
   fileSize: number
   uploadedAt: Date
+  uploadedBy: string
+  url: string
+}
+
+export interface Comment {
+  id: string
+  applicationId: string
+  userId: string
+  userType: UserType
+  content: string
+  createdAt: Date
+  isInternal: boolean
 }
 
 export interface ActivityLog {
   id: string
   userId: string
-  userType?: UserType
+  userType: UserType
   action: string
   details: string
   timestamp: Date
@@ -87,49 +74,32 @@ export interface Message {
   id: string
   senderId: string
   receiverId?: string
+  subject?: string
   content: string
-  isPublic: boolean
   createdAt: Date
   readAt?: Date
+  isPublic: boolean
   applicationId?: string
-  subject?: string
+  messageType?: "system" | "user" | "notification"
 }
 
-export type MessageType =
-  | "general"
-  | "application_update"
-  | "approval_notification"
-  | "rejection_notification"
-  | "clarification_request"
-  | "system_notification"
-
-export interface PermitData {
-  permitNumber: string
-  applicantName: string
-  physicalAddress: string
-  postalAddress?: string
-  landSize: number
-  numberOfBoreholes: number
-  totalAllocatedAbstraction: number
-  intendedUse: string
-  validUntil: string
-  issueDate: string
-  boreholeDetails: BoreholeDetail[]
-  gpsCoordinates: {
-    latitude: number
-    longitude: number
-  }
-  catchment: string
-  subCatchment: string
-  permitType: "temporary" | "provisional"
+export interface DashboardStats {
+  totalApplications: number
+  pendingApplications: number
+  approvedApplications: number
+  rejectedApplications: number
+  underReviewApplications: number
+  recentApplications: Application[]
 }
 
-export interface BoreholeDetail {
-  boreholeNumber: string
-  allocatedAmount: number
-  gpsX: string
-  gpsY: string
-  intendedUse: string
-  maxAbstractionRate: number
-  waterSampleFrequency: string
+export interface ReportData {
+  applications: Application[]
+  period: string
+  totalCount: number
+  statusBreakdown: Record<string, number>
+  typeBreakdown: Record<string, number>
+  monthlyTrends: Array<{
+    month: string
+    count: number
+  }>
 }

@@ -57,10 +57,23 @@ export function EnhancedMessagingSystem({ user }: EnhancedMessagingSystemProps) 
   const loadUsers = async () => {
     try {
       const allUsers = await db.getUsers()
+      console.log("All users from database:", allUsers)
+
       // Remove current user and deduplicate by user ID
-      const uniqueUsers = allUsers
-        .filter((u) => u.id !== user.id)
-        .filter((user, index, self) => index === self.findIndex((u) => u.id === user.id))
+      const filteredUsers = allUsers.filter((u) => u.id !== user.id)
+      console.log("After filtering current user:", filteredUsers)
+
+      // Create a Map to ensure unique users by ID
+      const uniqueUsersMap = new Map()
+      filteredUsers.forEach((u) => {
+        if (!uniqueUsersMap.has(u.id)) {
+          uniqueUsersMap.set(u.id, u)
+        }
+      })
+
+      const uniqueUsers = Array.from(uniqueUsersMap.values())
+      console.log("Final unique users:", uniqueUsers)
+
       setUsers(uniqueUsers)
     } catch (error) {
       console.error("Failed to load users:", error)
@@ -412,7 +425,7 @@ export function EnhancedMessagingSystem({ user }: EnhancedMessagingSystemProps) 
                   </SelectTrigger>
                   <SelectContent>
                     {users.map((recipient) => (
-                      <SelectItem key={`recipient-${recipient.id}`} value={recipient.id}>
+                      <SelectItem key={recipient.id} value={recipient.id}>
                         <div className="flex items-center space-x-2">
                           <Avatar className="h-6 w-6">
                             <AvatarFallback className="text-xs">{getUserInitials(recipient.userType)}</AvatarFallback>
