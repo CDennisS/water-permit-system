@@ -10,76 +10,98 @@ export interface User {
 export type UserType =
   | "applicant"
   | "permitting_officer"
-  | "permit_supervisor"
+  | "chairperson"
   | "catchment_manager"
   | "catchment_chairperson"
+  | "permit_supervisor"
   | "ict"
 
 export interface PermitApplication {
   id: string
-  applicationNumber: string
+  applicationId: string
   applicantName: string
-  applicantId: string
   physicalAddress: string
   postalAddress?: string
-  landSize: number
-  numberOfBoreholes: number
-  waterAllocation: number // in ML
+  customerAccountNumber: string
+  cellularNumber: string
+  permitType: string
+  waterSource: string
   intendedUse: string
+  numberOfBoreholes: number
+  landSize: number
+  waterAllocation: number
   gpsLatitude: number
   gpsLongitude: number
   status: ApplicationStatus
-  submittedAt: Date
+  currentStage: number
+  workflowComments: WorkflowComment[]
+  documents?: Document[]
+  createdAt: Date
+  updatedAt: Date
+  submittedAt?: Date
   approvedAt?: Date
-  rejectedAt?: Date
-  permitNumber?: string
-  documents: ApplicationDocument[]
-  comments: ApplicationComment[]
-  workflowStage: WorkflowStage
+  assignedTo?: string
 }
 
-export type ApplicationStatus = "draft" | "submitted" | "under_review" | "approved" | "rejected" | "permit_issued"
-
-export type WorkflowStage =
-  | "application_submitted"
+export type ApplicationStatus =
+  | "draft"
+  | "pending"
+  | "submitted"
+  | "under_review"
   | "technical_review"
-  | "supervisor_review"
-  | "manager_approval"
-  | "chairperson_approval"
-  | "permit_issued"
+  | "approved"
   | "rejected"
+  | "permit_issued"
 
-export interface ApplicationDocument {
+export interface WorkflowComment {
+  id: string
+  applicationId: string
+  userId: string
+  userType: UserType
+  comment: string
+  stage: number
+  createdAt: Date
+  isRejectionReason: boolean
+}
+
+export interface Document {
   id: string
   applicationId: string
   fileName: string
   fileType: string
   fileSize: number
   uploadedAt: Date
-  uploadedBy: string
-  documentType: DocumentType
 }
 
-export type DocumentType =
-  | "application_form"
-  | "site_plan"
-  | "water_impact_assessment"
-  | "environmental_clearance"
-  | "proof_of_ownership"
-  | "other"
-
-export interface ApplicationComment {
+export interface ActivityLog {
   id: string
-  applicationId: string
   userId: string
-  userType: UserType
-  comment: string
-  commentType: CommentType
-  createdAt: Date
-  isInternal: boolean
+  userType?: UserType
+  action: string
+  details: string
+  timestamp: Date
+  applicationId?: string
 }
 
-export type CommentType = "general" | "technical_review" | "approval" | "rejection" | "clarification_request"
+export interface Message {
+  id: string
+  senderId: string
+  receiverId?: string
+  content: string
+  isPublic: boolean
+  createdAt: Date
+  readAt?: Date
+  applicationId?: string
+  subject?: string
+}
+
+export type MessageType =
+  | "general"
+  | "application_update"
+  | "approval_notification"
+  | "rejection_notification"
+  | "clarification_request"
+  | "system_notification"
 
 export interface PermitData {
   permitNumber: string
@@ -111,34 +133,3 @@ export interface BoreholeDetail {
   maxAbstractionRate: number
   waterSampleFrequency: string
 }
-
-export interface ActivityLog {
-  id: string
-  userId: string
-  userType: UserType
-  action: string
-  description: string
-  timestamp: Date
-  applicationId?: string
-  metadata?: Record<string, any>
-}
-
-export interface Message {
-  id: string
-  senderId: string
-  receiverId: string
-  subject: string
-  content: string
-  sentAt: Date
-  readAt?: Date
-  applicationId?: string
-  messageType: MessageType
-}
-
-export type MessageType =
-  | "general"
-  | "application_update"
-  | "approval_notification"
-  | "rejection_notification"
-  | "clarification_request"
-  | "system_notification"

@@ -102,7 +102,7 @@ export function EnhancedMessagingSystem({ user }: EnhancedMessagingSystemProps) 
       })
 
       setNewPublicMessage("")
-      loadMessages()
+      await loadMessages()
     } catch (error) {
       console.error("Failed to send public message:", error)
     }
@@ -112,6 +112,8 @@ export function EnhancedMessagingSystem({ user }: EnhancedMessagingSystemProps) 
     if (!newPrivateMessage.trim() || !selectedRecipient) return
 
     try {
+      const recipient = users.find((u) => u.id === selectedRecipient)
+
       await db.sendMessage({
         senderId: user.id,
         receiverId: selectedRecipient,
@@ -123,12 +125,12 @@ export function EnhancedMessagingSystem({ user }: EnhancedMessagingSystemProps) 
         userId: user.id,
         userType: user.userType,
         action: "Sent Private Message",
-        details: `Sent private message to ${getUserTypeLabel(users.find((u) => u.id === selectedRecipient)?.userType || "permitting_officer")}`,
+        details: `Sent private message to ${recipient ? getUserTypeLabel(recipient.userType) : "user"}`,
       })
 
       setNewPrivateMessage("")
       setSelectedRecipient("")
-      loadMessages()
+      await loadMessages()
     } catch (error) {
       console.error("Failed to send private message:", error)
     }
@@ -136,7 +138,8 @@ export function EnhancedMessagingSystem({ user }: EnhancedMessagingSystemProps) 
 
   const formatMessageTime = (date: Date) => {
     const now = new Date()
-    const diff = now.getTime() - date.getTime()
+    const messageDate = new Date(date)
+    const diff = now.getTime() - messageDate.getTime()
     const hours = Math.floor(diff / (1000 * 60 * 60))
 
     if (hours < 1) {
@@ -148,7 +151,7 @@ export function EnhancedMessagingSystem({ user }: EnhancedMessagingSystemProps) 
       const days = Math.floor(hours / 24)
       if (days === 1) return "Yesterday"
       if (days < 7) return `${days} days ago`
-      return date.toLocaleDateString()
+      return messageDate.toLocaleDateString()
     }
   }
 
@@ -170,13 +173,10 @@ export function EnhancedMessagingSystem({ user }: EnhancedMessagingSystemProps) 
     }
 
     if (filterType !== "all") {
-      const senderUserType = users.find((u) => u.id === filterType)?.userType
-      if (senderUserType) {
-        filtered = filtered.filter((msg) => {
-          const sender = users.find((u) => u.id === msg.senderId)
-          return sender?.userType === senderUserType
-        })
-      }
+      filtered = filtered.filter((msg) => {
+        const sender = users.find((u) => u.id === msg.senderId) || user
+        return sender.userType === filterType
+      })
     }
 
     return filtered
@@ -282,7 +282,8 @@ export function EnhancedMessagingSystem({ user }: EnhancedMessagingSystemProps) 
               <ScrollArea className="h-96 border rounded-lg p-4 bg-gray-50">
                 <div className="space-y-4">
                   {filterMessages(publicMessages).map((message) => {
-                    const sender = users.find((u) => u.id === message.senderId)
+                    const sender =
+                      users.find((u) => u.id === message.senderId) || (message.senderId === user.id ? user : null)
                     const isUnread = message.senderId !== user.id && !message.readAt
 
                     return (
@@ -293,14 +294,14 @@ export function EnhancedMessagingSystem({ user }: EnhancedMessagingSystemProps) 
                         <div className="flex items-start space-x-3">
                           <Avatar className="h-8 w-8">
                             <AvatarFallback className="text-xs bg-blue-100 text-blue-800">
-                              {getUserInitials(sender?.userType || user.userType)}
+                              {getUserInitials(sender?.userType || "permitting_officer")}
                             </AvatarFallback>
                           </Avatar>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center justify-between mb-1">
                               <div className="flex items-center space-x-2">
                                 <Badge variant="outline" className="text-xs">
-                                  {getUserTypeLabel(sender?.userType || user.userType)}
+                                  {sender ? getUserTypeLabel(sender.userType) : "Unknown User"}
                                 </Badge>
                                 {isUnread && (
                                   <Badge variant="destructive" className="text-xs">
@@ -357,7 +358,8 @@ export function EnhancedMessagingSystem({ user }: EnhancedMessagingSystemProps) 
               <ScrollArea className="h-96 border rounded-lg p-4 bg-gray-50">
                 <div className="space-y-4">
                   {filterMessages(privateMessages).map((message) => {
-                    const sender = users.find((u) => u.id === message.senderId)
+                    const sender =
+                      users.find((u) => u.id === message.senderId) || (message.senderId === user.id ? user : null)
                     const isFromMe = message.senderId === user.id
                     const isUnread = !isFromMe && !message.readAt
 
@@ -377,7 +379,7 @@ export function EnhancedMessagingSystem({ user }: EnhancedMessagingSystemProps) 
                               variant="outline"
                               className={`text-xs ${isFromMe ? "border-blue-200 text-blue-100" : ""}`}
                             >
-                              {isFromMe ? "You" : getUserTypeLabel(sender?.userType || "permitting_officer")}
+                              {isFromMe ? "You" : sender ? getUserTypeLabel(sender.userType) : "Unknown User"}
                             </Badge>
                             <span className={`text-xs ${isFromMe ? "text-blue-100" : "text-gray-500"}`}>
                               {formatMessageTime(message.createdAt)}
