@@ -31,9 +31,11 @@ export function MessagingSystem({ user }: MessagingSystemProps) {
 
   const loadMessages = async () => {
     const publicMsgs = await db.getMessages(user.id, true)
+    // Filter private messages to only show conversations involving current user
     const privateMsgs = await db.getMessages(user.id, false)
+    const filteredPrivateMsgs = privateMsgs.filter((msg) => msg.senderId === user.id || msg.receiverId === user.id)
     setPublicMessages(publicMsgs)
-    setPrivateMessages(privateMsgs)
+    setPrivateMessages(filteredPrivateMsgs)
   }
 
   const loadUsers = async () => {
@@ -207,20 +209,23 @@ export function MessagingSystem({ user }: MessagingSystemProps) {
                   <div
                     key={message.id}
                     className={`p-3 rounded-lg max-w-xs ${
-                      message.senderId === user.id ? "bg-blue-100 ml-auto" : "bg-gray-100"
+                      message.senderId === user.id ? "bg-blue-100 ml-auto text-right" : "bg-gray-100 mr-auto text-left"
                     }`}
                   >
                     <div className="flex items-center justify-between mb-1">
                       <Badge variant="outline" className="text-xs">
                         {message.senderId === user.id
                           ? "You"
-                          : getUserTypeLabel(
-                              users.find((u) => u.id === message.senderId)?.userType || "permitting_officer",
-                            )}
+                          : `To: ${users.find((u) => u.id === message.receiverId)?.username || "Unknown"}`}
                       </Badge>
                       <span className="text-xs text-gray-500">{formatMessageTime(message.createdAt)}</span>
                     </div>
                     <p className="text-sm">{message.content}</p>
+                    {message.senderId !== user.id && (
+                      <div className="text-xs text-gray-400 mt-1">
+                        From: {users.find((u) => u.id === message.senderId)?.username || "Unknown"}
+                      </div>
+                    )}
                   </div>
                 ))}
                 {privateMessages.length === 0 && (
