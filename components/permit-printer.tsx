@@ -4,12 +4,12 @@ import { useState, useMemo, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { useToast } from "@/hooks/use-toast"
 import { Printer, Download, Eye } from "lucide-react"
 import { PermitTemplate } from "./permit-template"
 import { preparePermitData } from "@/lib/enhanced-permit-generator"
-import type { User, PermitApplication, PermitData } from "@/types"
+import type { User, PermitApplication } from "@/types"
 import { canPrintPermits } from "@/lib/auth"
+import { useToast } from "@/hooks/use-toast"
 
 interface PermitPrinterProps {
   application: PermitApplication
@@ -17,205 +17,69 @@ interface PermitPrinterProps {
   disabled?: boolean
 }
 
-interface PermissionStatus {
-  canPrint: boolean
-  reason: string
+// Helper to generate print HTML
+function getPrintHtml(permitData: any, innerHtml: string) {
+  return `
+    <!DOCTYPE html>
+    <html lang="en">
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>Permit ${permitData.permitNumber}</title>
+        <style>
+          @page { size: A4; margin: 15mm; }
+          * { box-sizing: border-box; margin: 0; padding: 0; }
+          body { font-family: 'Times New Roman', serif; line-height: 1.4; color: #000; font-size: 12pt; background: white; }
+          @media print { body { margin: 0; padding: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; } .no-print { display: none !important; } .page-break { page-break-before: always; } }
+          h1 { font-size: 18pt; font-weight: bold; margin: 0 0 8px 0; text-align: center; }
+          h2 { font-size: 16pt; font-weight: bold; margin: 0 0 16px 0; text-align: center; }
+          h3 { font-size: 14pt; font-weight: bold; margin: 0 0 12px 0; }
+          p { margin: 0 0 8px 0; font-size: 12pt; }
+          .text-center { text-align: center; }
+          .text-sm { font-size: 11pt; }
+          .text-xs { font-size: 10pt; }
+          .font-bold { font-weight: bold; }
+          .mb-2 { margin-bottom: 8px; }
+          .mb-4 { margin-bottom: 16px; }
+          .mb-6 { margin-bottom: 24px; }
+          .mb-8 { margin-bottom: 32px; }
+          .mt-4 { margin-top: 16px; }
+          .mt-12 { margin-top: 48px; }
+          .p-2 { padding: 8px; }
+          .grid-cols-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+          .grid-cols-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 32px; }
+          table { border-collapse: collapse; width: 100%; margin: 16px 0; border: 2px solid #000; }
+          th, td { border: 1px solid #000; padding: 6px 8px; text-align: left; font-size: 11pt; vertical-align: top; }
+          th { font-weight: bold; background-color: #f0f0f0; text-align: center; }
+          .text-center td, .text-center th { text-align: center; }
+          .signature-section { margin-top: 48px; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 32px; text-align: center; }
+          .signature-line { border-bottom: 1px solid #000; height: 48px; margin-bottom: 8px; }
+          ol { padding-left: 20px; margin: 16px 0; }
+          li { margin-bottom: 4px; font-size: 11pt; }
+          .space-y-2 > * + * { margin-top: 8px; }
+          .space-y-4 > * + * { margin-top: 16px; }
+          .permit-container { max-width: 100%; margin: 0 auto; padding: 20px; background: white; }
+        </style>
+      </head>
+      <body>
+        <div class="permit-container">
+          ${innerHtml}
+        </div>
+      </body>
+    </html>
+  `
 }
 
-// Extract print styles to a separate function for better readability
-const generatePrintStyles = (): string => `
-  @page {
-    size: A4;
-    margin: 15mm;
-  }
-  
-  * {
-    box-sizing: border-box;
-    margin: 0;
-    padding: 0;
-  }
-  
-  body { 
-    font-family: 'Times New Roman', serif; 
-    line-height: 1.4;
-    color: #000;
-    font-size: 12pt;
-    background: white;
-  }
-  
-  @media print {
-    body { 
-      margin: 0; 
-      padding: 0; 
-      -webkit-print-color-adjust: exact;
-      print-color-adjust: exact;
-    }
-    .no-print { display: none !important; }
-    .page-break { page-break-before: always; }
-  }
-  
-  /* Typography */
-  h1 { 
-    font-size: 18pt; 
-    font-weight: bold; 
-    margin: 0 0 8px 0; 
-    text-align: center;
-  }
-  h2 { 
-    font-size: 16pt; 
-    font-weight: bold; 
-    margin: 0 0 16px 0; 
-    text-align: center;
-  }
-  h3 { 
-    font-size: 14pt; 
-    font-weight: bold; 
-    margin: 0 0 12px 0; 
-  }
-  p { 
-    margin: 0 0 8px 0; 
-    font-size: 12pt; 
-  }
-  
-  /* Layout utilities */
-  .text-center { text-align: center; }
-  .text-sm { font-size: 11pt; }
-  .text-xs { font-size: 10pt; }
-  .font-bold { font-weight: bold; }
-  .mb-2 { margin-bottom: 8px; }
-  .mb-4 { margin-bottom: 16px; }
-  .mb-6 { margin-bottom: 24px; }
-  .mb-8 { margin-bottom: 32px; }
-  .mt-4 { margin-top: 16px; }
-  .mt-12 { margin-top: 48px; }
-  .p-2 { padding: 8px; }
-  
-  /* Grid layouts */
-  .grid-cols-2 { 
-    display: grid; 
-    grid-template-columns: 1fr 1fr; 
-    gap: 16px; 
-    margin-bottom: 16px;
-  }
-  .grid-cols-3 { 
-    display: grid; 
-    grid-template-columns: 1fr 1fr 1fr; 
-    gap: 32px; 
-  }
-  
-  /* Table styles */
-  table { 
-    border-collapse: collapse; 
-    width: 100%; 
-    margin: 16px 0;
-    border: 2px solid #000;
-  }
-  th, td { 
-    border: 1px solid #000; 
-    padding: 6px 8px; 
-    text-align: left; 
-    font-size: 11pt;
-    vertical-align: top;
-  }
-  th { 
-    font-weight: bold; 
-    background-color: #f0f0f0;
-    text-align: center;
-  }
-  .text-center td, 
-  .text-center th { 
-    text-align: center; 
-  }
-  
-  /* Signature section */
-  .signature-section {
-    margin-top: 48px;
-    display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
-    gap: 32px;
-    text-align: center;
-  }
-  .signature-line {
-    border-bottom: 1px solid #000;
-    height: 48px;
-    margin-bottom: 8px;
-  }
-  
-  /* Lists */
-  ol { 
-    padding-left: 20px; 
-    margin: 16px 0;
-  }
-  li { 
-    margin-bottom: 4px; 
-    font-size: 11pt;
-  }
-  
-  /* Spacing */
-  .space-y-2 > * + * { margin-top: 8px; }
-  .space-y-4 > * + * { margin-top: 16px; }
-  
-  /* Container */
-  .permit-container {
-    max-width: 100%;
-    margin: 0 auto;
-    padding: 20px;
-    background: white;
-  }
-`
-
-// Generate print HTML template
-const generatePrintHTML = (permitContent: string, permitNumber: string): string => `
-  <!DOCTYPE html>
-  <html lang="en">
-    <head>
-      <meta charset="utf-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1">
-      <title>Permit ${permitNumber}</title>
-      <style>
-        ${generatePrintStyles()}
-      </style>
-    </head>
-    <body>
-      <div class="permit-container">
-        ${permitContent}
-      </div>
-    </body>
-  </html>
-`
-
-// Generate download content
-const generateDownloadContent = (permitData: PermitData): string => `
-PERMIT DOCUMENT
-===============
-
-Permit Number: ${permitData.permitNumber}
-Applicant Name: ${permitData.applicantName}
-Physical Address: ${permitData.physicalAddress}
-Postal Address: ${permitData.postalAddress || "N/A"}
-
-Property Details:
-- Land Size: ${permitData.landSize} hectares
-- Number of Boreholes: ${permitData.numberOfBoreholes}
-- Total Allocated Abstraction: ${permitData.totalAllocatedAbstraction.toLocaleString()} m³/annum
-
-Valid Until: ${permitData.validUntil}
-
-Generated on: ${new Date().toLocaleString()}
-`
-
 export function PermitPrinter({ application, user, disabled = false }: PermitPrinterProps) {
-  const [isPreviewOpen, setIsPreviewOpen] = useState<boolean>(false)
-  const [isPrinting, setIsPrinting] = useState<boolean>(false)
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false)
+  const [isPrinting, setIsPrinting] = useState(false)
   const { toast } = useToast()
 
-  // Memoize permit data to avoid recalculation on every render
-  const permitData: PermitData = useMemo(() => {
-    return preparePermitData(application)
-  }, [application])
+  // Memoize permitData for performance
+  const permitData = useMemo(() => preparePermitData(application), [application])
 
-  // Memoize permission status calculation
-  const permissionStatus: PermissionStatus = useMemo(() => {
+  // Permission logic
+  const getPermissionStatus = useCallback(() => {
     if (!user) {
       return { canPrint: false, reason: "User not authenticated" }
     }
@@ -234,58 +98,46 @@ export function PermitPrinter({ application, user, disabled = false }: PermitPri
     return { canPrint: true, reason: "Ready to print" }
   }, [user, application.status])
 
-  // Debug logging only in development
-  if (process.env.NODE_ENV === "development") {
-    console.log("PermitPrinter - User:", user)
-    console.log("PermitPrinter - User type:", user?.userType)
-    console.log("PermitPrinter - Application status:", application.status)
-    console.log("PermitPrinter - Can print permits:", user ? canPrintPermits(user) : false)
-  }
+  const permissionStatus = getPermissionStatus()
 
-  // Create a hidden permit template for printing without preview
-  const createHiddenPermitTemplate = useCallback((): HTMLElement => {
-    const hiddenDiv = document.createElement("div")
-    hiddenDiv.id = "hidden-permit-template"
-    hiddenDiv.style.position = "absolute"
-    hiddenDiv.style.left = "-9999px"
-    hiddenDiv.style.top = "-9999px"
-    hiddenDiv.style.visibility = "hidden"
-
-    // Create a temporary container to render the permit template
-    const tempContainer = document.createElement("div")
-    document.body.appendChild(tempContainer)
-
-    // This would need to be implemented with a proper React render
-    // For now, we'll create a basic HTML structure
-    hiddenDiv.innerHTML = `
-      <div class="permit-template">
-        <h1>PERMIT TO ABSTRACT WATER</h1>
-        <h2>UPPER MANYAME SUB-CATCHMENT COUNCIL</h2>
-        <div class="permit-details">
-          <p><strong>Permit Number:</strong> ${permitData.permitNumber}</p>
-          <p><strong>Applicant:</strong> ${permitData.applicantName}</p>
-          <p><strong>Physical Address:</strong> ${permitData.physicalAddress}</p>
-          <p><strong>Valid Until:</strong> ${permitData.validUntil}</p>
-        </div>
-      </div>
-    `
-
-    document.body.appendChild(hiddenDiv)
-    return hiddenDiv
-  }, [permitData])
-
-  // Handle print functionality with better error handling
-  const handlePrint = useCallback(async (): Promise<void> => {
+  // Print handler
+  const handlePrint = useCallback(async () => {
     setIsPrinting(true)
 
     try {
+      // Try to get the preview element, or render a hidden one if not present
       let permitElement = document.getElementById("permit-template-preview")
-      let shouldCleanupHidden = false
+      let tempDiv: HTMLDivElement | null = null
 
-      // If preview is not open, create a hidden template for printing
       if (!permitElement) {
-        permitElement = createHiddenPermitTemplate()
-        shouldCleanupHidden = true
+        // Create a temporary hidden div for printing
+        tempDiv = document.createElement("div")
+        tempDiv.style.position = "absolute"
+        tempDiv.style.left = "-9999px"
+        tempDiv.style.top = "-9999px"
+        tempDiv.style.visibility = "hidden"
+        tempDiv.id = "permit-template-preview-temp"
+
+        // Create basic permit content for printing
+        tempDiv.innerHTML = `
+          <div class="permit-template">
+            <h1>PERMIT TO ABSTRACT WATER</h1>
+            <h2>UPPER MANYAME SUB-CATCHMENT COUNCIL</h2>
+            <div class="permit-details">
+              <p><strong>Permit Number:</strong> ${permitData.permitNumber}</p>
+              <p><strong>Applicant:</strong> ${permitData.applicantName}</p>
+              <p><strong>Physical Address:</strong> ${permitData.physicalAddress}</p>
+              <p><strong>Valid Until:</strong> ${permitData.validUntil}</p>
+              <p><strong>Land Size:</strong> ${permitData.landSize} hectares</p>
+              <p><strong>Number of Boreholes:</strong> ${permitData.numberOfBoreholes}</p>
+              <p><strong>Total Allocated Abstraction:</strong> ${permitData.totalAllocatedAbstraction.toLocaleString()} m³/annum</p>
+              <p><strong>Intended Use:</strong> ${permitData.intendedUse}</p>
+            </div>
+          </div>
+        `
+
+        document.body.appendChild(tempDiv)
+        permitElement = tempDiv
       }
 
       if (!permitElement) {
@@ -308,25 +160,24 @@ export function PermitPrinter({ application, user, disabled = false }: PermitPri
         return
       }
 
-      const printContent = generatePrintHTML(permitElement.innerHTML, permitData.permitNumber)
+      const printContent = getPrintHtml(permitData, permitElement.innerHTML)
 
       printWindow.document.write(printContent)
       printWindow.document.close()
 
-      // Wait for content to load, then print
       setTimeout(() => {
         printWindow.focus()
         printWindow.print()
-
-        // Close window after printing
         setTimeout(() => {
           printWindow.close()
         }, 1000)
       }, 1000)
 
-      // Cleanup hidden element if created
-      if (shouldCleanupHidden && permitElement) {
-        document.body.removeChild(permitElement)
+      // Clean up tempDiv if used
+      if (tempDiv) {
+        setTimeout(() => {
+          tempDiv && document.body.removeChild(tempDiv)
+        }, 2000)
       }
 
       toast({
@@ -343,12 +194,29 @@ export function PermitPrinter({ application, user, disabled = false }: PermitPri
     } finally {
       setIsPrinting(false)
     }
-  }, [permitData.permitNumber, toast, createHiddenPermitTemplate])
+  }, [permitData, toast])
 
-  // Handle download functionality with better error handling
-  const handleDownload = useCallback((): void => {
+  // Download handler
+  const handleDownload = useCallback(() => {
     try {
-      const permitContent = generateDownloadContent(permitData)
+      const permitContent = `
+PERMIT DOCUMENT
+===============
+
+Permit Number: ${permitData.permitNumber}
+Applicant Name: ${permitData.applicantName}
+Physical Address: ${permitData.physicalAddress}
+Postal Address: ${permitData.postalAddress || "N/A"}
+
+Property Details:
+- Land Size: ${permitData.landSize} hectares
+- Number of Boreholes: ${permitData.numberOfBoreholes}
+- Total Allocated Abstraction: ${permitData.totalAllocatedAbstraction.toLocaleString()} m³/annum
+
+Valid Until: ${permitData.validUntil}
+
+Generated on: ${new Date().toLocaleString()}
+      `
 
       const blob = new Blob([permitContent], { type: "text/plain;charset=utf-8" })
       const url = URL.createObjectURL(blob)
@@ -374,11 +242,6 @@ export function PermitPrinter({ application, user, disabled = false }: PermitPri
       })
     }
   }, [permitData, toast])
-
-  // Handle preview dialog state
-  const handlePreviewOpen = useCallback((open: boolean): void => {
-    setIsPreviewOpen(open)
-  }, [])
 
   // Show permission error if user cannot print
   if (!permissionStatus.canPrint) {
@@ -408,7 +271,7 @@ export function PermitPrinter({ application, user, disabled = false }: PermitPri
 
   return (
     <div className="flex space-x-2">
-      <Dialog open={isPreviewOpen} onOpenChange={handlePreviewOpen}>
+      <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
         <DialogTrigger asChild>
           <Button variant="outline" size="sm" aria-label={`Preview permit ${permitData.permitNumber}`}>
             <Eye className="h-4 w-4 mr-2" />
