@@ -1,276 +1,359 @@
-import { describe, it, expect, beforeEach, vi } from "vitest"
-import { render, screen, fireEvent, waitFor } from "@testing-library/react"
-import { PermitPrintWorkflow } from "@/components/permit-print-workflow"
-import { EnhancedPermitPrinter } from "@/components/enhanced-permit-printer"
-import { preparePermitData } from "@/lib/permit-generator"
+import { describe, it, expect, vi, beforeEach, afterEach, fireEvent } from "vitest"
+import { render, screen, waitFor } from "@testing-library/react"
+import userEvent from "@testing-library/user-event"
+import { PermitPrinter } from "@/components/permit-printer"
+import { PermitTemplate } from "@/components/permit-template"
+import { preparePermitData } from "@/lib/enhanced-permit-generator"
 import type { PermitApplication, User } from "@/types"
 
-describe("Permit Printing Integration Tests", () => {
-  let approvedApplication: PermitApplication
-  let authorizedUsers: User[]
-  let unauthorizedUsers: User[]
+// Mock dependencies
+vi.mock("@/lib/enhanced-permit-generator")
+vi.mock("@/lib/auth", () => ({
+  canPrintPermits: () => true,
+}))
 
+const mockToast = vi.fn()
+vi.mock("@/hooks/use-toast", () => ({
+  useToast: () => ({ toast: mockToast }),
+}))
+
+// Mock PermitTemplate component
+vi.mock("@/components/permit-template", () => ({
+  PermitTemplate: vi.fn(({ permitData, id }) => (
+    <div id={id} data-testid="permit-template">
+      <h1>Permit {permitData.permitNumber}</h1>
+      <p>Applicant: {permitData.applicantName}</p>
+      <p>Valid Until: {permitData.validUntil}</p>
+    </div>
+  )),
+}))
+
+// Mock print functionality
+const mockPrintWindow = {
+  document: {
+    write: vi.fn(),
+    close: vi.fn(),
+  },
+  focus: vi.fn(),
+  print: vi.fn(),
+  close: vi.fn(),
+}
+
+Object.defineProperty(window, "open", {
+  writable: true,
+  value: vi.fn(() => mockPrintWindow),
+})
+
+const mockApplication: PermitApplication = {
+  id: "test-app-1",
+  applicationNumber: "APP-2024-001",
+  applicantName: "John Doe",
+  physicalAddress: "123 Main Street, Harare",
+  postalAddress: "P.O. Box 123, Harare",
+  landSize: 10.5,
+  numberOfBoreholes: 2,
+  waterAllocation: 50,
+  intendedUse: "irrigation",
+  gpsLatitude: -17.8252,
+  gpsLongitude: 31.0335,
+  status: "approved",
+  submittedAt: new Date("2024-01-15"),
+  approvedAt: new Date("2024-01-20"),
+  permitNumber: "UMSCC-2024-01-0001",
+}
+
+const mockUser: User = {
+  id: "user-1",
+  username: "officer1",
+  email: "officer@umscc.co.zw",
+  userType: "permitting_officer",
+  fullName: "Jane Smith",
+  isActive: true,
+}
+
+const mockPermitData = {
+  permitNumber: "UMSCC-2024-01-0001",
+  applicantName: "John Doe",
+  physicalAddress: "123 Main Street, Harare",
+  postalAddress: "P.O. Box 123, Harare",
+  landSize: 10.5,
+  numberOfBoreholes: 2,
+  totalAllocatedAbstraction: 50000,
+  intendedUse: "irrigation",
+  validUntil: "January 20, 2025",
+  issueDate: "January 20, 2024",
+  gpsCoordinates: { latitude: -17.8252, longitude: 31.0335 },
+  catchment: "MANYAME",
+  subCatchment: "UPPER MANYAME",
+  permitType: "temporary",
+  boreholeDetails: [
+    {
+      boreholeNumber: "BH-01",
+      allocatedAmount: 25000,
+      gpsX: "-17.825200",
+      gpsY: "31.033500",
+      intendedUse: "irrigation",
+      maxAbstractionRate: 27500,
+      waterSampleFrequency: "3 months",
+    },
+  ],
+}
+
+describe("Permit Printing Integration", () => {
   beforeEach(() => {
     vi.clearAllMocks()
-
-    approvedApplication = {
-      id: "approved-app-1",
-      applicationId: "APPROVED-2024-001",
-      applicantName: "Approved Applicant",
-      physicalAddress: "789 Approved St, Harare",
-      postalAddress: "P.O. Box 789, Harare",
-      numberOfBoreholes: 4,
-      landSize: 15.0,
-      waterAllocation: 5000,
-      intendedUse: "Industrial",
-      permitType: "bulk_water",
-      validityPeriod: 10,
-      gpsLatitude: -17.8252,
-      gpsLongitude: 31.0335,
-      status: "approved",
-      currentStage: 1,
-      approvedAt: new Date(),
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      documents: [],
-    }
-
-    authorizedUsers = [
-      {
-        id: "auth-1",
-        username: "permitting_officer_1",
-        userType: "permitting_officer",
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
-      {
-        id: "auth-2",
-        username: "permit_supervisor_1",
-        userType: "permit_supervisor",
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
-      {
-        id: "auth-3",
-        username: "ict_admin_1",
-        userType: "ict",
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
-    ]
-
-    unauthorizedUsers = [
-      {
-        id: "unauth-1",
-        username: "chairperson_1",
-        userType: "chairperson",
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
-      {
-        id: "unauth-2",
-        username: "catchment_manager_1",
-        userType: "catchment_manager",
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
-      {
-        id: "unauth-3",
-        username: "applicant_1",
-        userType: "applicant",
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
-    ]
+    vi.mocked(preparePermitData).mockReturnValue(mockPermitData)
   })
 
-  describe("Workflow Status Integration", () => {
-    it("should show complete workflow progression for approved application", () => {
-      render(<PermitPrintWorkflow user={authorizedUsers[0]} application={approvedApplication} />)
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
 
-      // Check all workflow stages are completed
-      const workflowStages = [
-        "Application Created",
-        "Submitted for Review",
-        "Chairperson Review",
-        "Catchment Manager Review",
-        "Final Approval",
-        "Permit Ready",
-      ]
+  describe("Full Print Workflow", () => {
+    it("should complete full print workflow from preview", async () => {
+      const user = userEvent.setup()
 
-      workflowStages.forEach((stage) => {
-        expect(screen.getByText(stage)).toBeInTheDocument()
+      render(<PermitPrinter application={mockApplication} user={mockUser} />)
+
+      // Step 1: Open preview
+      await user.click(screen.getByText("Preview Permit"))
+
+      // Step 2: Verify preview dialog opens
+      await waitFor(() => {
+        expect(screen.getByText("Permit Preview - UMSCC-2024-01-0001")).toBeInTheDocument()
       })
 
-      // Check approval status
-      expect(screen.getByText(/Permit Approved - Ready to Print!/)).toBeInTheDocument()
-    })
+      // Step 3: Verify PermitTemplate is rendered with correct data
+      expect(PermitTemplate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          permitData: mockPermitData,
+          id: "permit-template-preview",
+        }),
+        expect.any(Object),
+      )
 
-    it("should show correct user permissions in workflow", () => {
-      // Test authorized user
-      const { rerender } = render(<PermitPrintWorkflow user={authorizedUsers[0]} application={approvedApplication} />)
+      // Step 4: Click print button in dialog
+      const printButtons = screen.getAllByText("Print")
+      await user.click(printButtons[0])
 
-      expect(screen.getByText(/✅ You have permission to print approved permits/)).toBeInTheDocument()
+      // Step 5: Verify print process
+      await waitFor(() => {
+        expect(window.open).toHaveBeenCalledWith("", "_blank", "width=800,height=600")
+        expect(mockPrintWindow.document.write).toHaveBeenCalled()
+        expect(mockPrintWindow.document.close).toHaveBeenCalled()
+      })
 
-      // Test unauthorized user
-      rerender(<PermitPrintWorkflow user={unauthorizedUsers[0]} application={approvedApplication} />)
-
-      expect(screen.getByText(/❌ You do not have permission to print permits/)).toBeInTheDocument()
-    })
-  })
-
-  describe("Print Button Integration", () => {
-    it("should integrate print buttons correctly for authorized users", () => {
-      authorizedUsers.forEach((user) => {
-        const { unmount } = render(<EnhancedPermitPrinter application={approvedApplication} user={user} />)
-
-        // Should show preview and print buttons
-        expect(screen.getByRole("button", { name: /Preview/ })).toBeInTheDocument()
-        expect(screen.getByRole("button", { name: /Print/ })).toBeInTheDocument()
-        expect(screen.getByText(/Ready to Print/)).toBeInTheDocument()
-
-        unmount()
+      // Step 6: Verify success toast
+      expect(mockToast).toHaveBeenCalledWith({
+        title: "Print Initiated",
+        description: "Permit has been sent to printer.",
       })
     })
 
-    it("should disable print buttons for unauthorized users", () => {
-      unauthorizedUsers.forEach((user) => {
-        const { unmount } = render(<EnhancedPermitPrinter application={approvedApplication} user={user} />)
+    it("should handle direct print without preview", async () => {
+      const user = userEvent.setup()
 
-        const printButton = screen.getByRole("button", { name: /Print Permit/ })
-        expect(printButton).toBeDisabled()
-        expect(screen.getByText(/Insufficient permissions/)).toBeInTheDocument()
+      render(<PermitPrinter application={mockApplication} user={mockUser} />)
 
-        unmount()
+      // Click direct print button
+      await user.click(screen.getByText("Print Permit"))
+
+      // Should create hidden template and print
+      await waitFor(() => {
+        expect(window.open).toHaveBeenCalledWith("", "_blank", "width=800,height=600")
+        expect(mockPrintWindow.document.write).toHaveBeenCalled()
+      })
+
+      expect(mockToast).toHaveBeenCalledWith({
+        title: "Print Initiated",
+        description: "Permit has been sent to printer.",
       })
     })
   })
 
-  describe("Permit Data Integration", () => {
-    it("should generate correct permit data for bulk water permits", () => {
-      const permitData = preparePermitData(approvedApplication)
+  describe("Print Content Validation", () => {
+    it("should generate correct print HTML content", async () => {
+      const user = userEvent.setup()
 
-      expect(permitData).toMatchObject({
-        applicantName: "Approved Applicant",
-        physicalAddress: "789 Approved St, Harare",
-        postalAddress: "P.O. Box 789, Harare",
-        numberOfBoreholes: 4,
-        landSize: 15.0,
-        totalAllocatedAbstraction: 5000,
-        intendedUse: "Industrial",
-      })
+      render(<PermitPrinter application={mockApplication} user={mockUser} />)
 
-      // Check bulk water specific calculations
-      expect(permitData.boreholeDetails).toHaveLength(4)
-      expect(permitData.boreholeDetails[0].allocatedAmount).toBe(1250) // 5000/4
-
-      // Check custom validity period (10 years for bulk water)
-      const issueDate = new Date(permitData.issueDate.split("/").reverse().join("-"))
-      const validUntil = new Date(permitData.validUntil.split("/").reverse().join("-"))
-      const yearsDiff = validUntil.getFullYear() - issueDate.getFullYear()
-      expect(yearsDiff).toBe(10)
-    })
-
-    it("should handle different permit types correctly", () => {
-      const urbanApp = { ...approvedApplication, permitType: "urban", validityPeriod: undefined }
-      const urbanPermitData = preparePermitData(urbanApp)
-
-      // Urban permits should have 5-year validity
-      const issueDate = new Date(urbanPermitData.issueDate.split("/").reverse().join("-"))
-      const validUntil = new Date(urbanPermitData.validUntil.split("/").reverse().join("-"))
-      const yearsDiff = validUntil.getFullYear() - issueDate.getFullYear()
-      expect(yearsDiff).toBe(5)
-    })
-  })
-
-  describe("Print Preview Integration", () => {
-    it("should show permit preview with correct data", async () => {
-      render(<EnhancedPermitPrinter application={approvedApplication} user={authorizedUsers[0]} />)
-
-      const previewButton = screen.getByRole("button", { name: /Preview/ })
-      fireEvent.click(previewButton)
+      await user.click(screen.getByText("Preview Permit"))
 
       await waitFor(() => {
-        expect(screen.getByText(/Water Permit Preview/)).toBeInTheDocument()
+        expect(screen.getByTestId("permit-template")).toBeInTheDocument()
       })
 
-      // Check permit summary data
-      expect(screen.getByText(/5000 ML/)).toBeInTheDocument() // Water allocation
-      expect(screen.getByText(/Industrial/)).toBeInTheDocument() // Intended use
-    })
-
-    it("should show download and print options in preview", async () => {
-      render(<EnhancedPermitPrinter application={approvedApplication} user={authorizedUsers[0]} />)
-
-      const previewButton = screen.getByRole("button", { name: /Preview/ })
-      fireEvent.click(previewButton)
+      await user.click(screen.getAllByText("Print")[0])
 
       await waitFor(() => {
-        expect(screen.getByRole("button", { name: /Download/ })).toBeInTheDocument()
-        expect(screen.getByRole("button", { name: /Print Permit/ })).toBeInTheDocument()
+        const writeCall = mockPrintWindow.document.write.mock.calls[0][0]
+
+        // Verify HTML structure
+        expect(writeCall).toContain("<!DOCTYPE html>")
+        expect(writeCall).toContain("<title>Permit UMSCC-2024-01-0001</title>")
+        expect(writeCall).toContain("Permit UMSCC-2024-01-0001")
+        expect(writeCall).toContain("Applicant: John Doe")
+        expect(writeCall).toContain("Valid Until: January 20, 2025")
+
+        // Verify CSS styles are included
+        expect(writeCall).toContain("@page")
+        expect(writeCall).toContain("font-family: 'Times New Roman'")
+        expect(writeCall).toContain("@media print")
+      })
+    })
+
+    it("should include all required permit data in print content", async () => {
+      const user = userEvent.setup()
+
+      render(<PermitPrinter application={mockApplication} user={mockUser} />)
+
+      await user.click(screen.getByText("Print Permit"))
+
+      await waitFor(() => {
+        expect(preparePermitData).toHaveBeenCalledWith(mockApplication)
+        expect(mockPrintWindow.document.write).toHaveBeenCalled()
       })
     })
   })
 
-  describe("Error Handling Integration", () => {
-    it("should handle non-approved applications correctly", () => {
-      const pendingApp = { ...approvedApplication, status: "submitted" as const }
+  describe("Error Recovery", () => {
+    it("should recover from print window creation failure", async () => {
+      const user = userEvent.setup()
+      vi.mocked(window.open).mockReturnValueOnce(null)
 
-      render(<PermitPrintWorkflow user={authorizedUsers[0]} application={pendingApp} />)
+      render(<PermitPrinter application={mockApplication} user={mockUser} />)
 
-      expect(screen.getByText(/Permit will be available for printing once approved/)).toBeInTheDocument()
-      expect(screen.queryByText(/Print Permit/)).not.toBeInTheDocument()
+      await user.click(screen.getByText("Print Permit"))
+
+      await waitFor(() => {
+        expect(mockToast).toHaveBeenCalledWith({
+          title: "Print Error",
+          description: "Unable to open print window. Please check your browser's popup settings.",
+          variant: "destructive",
+        })
+      })
+
+      // Should be able to try again
+      vi.mocked(window.open).mockReturnValue(mockPrintWindow)
+      await user.click(screen.getByText("Print Permit"))
+
+      await waitFor(() => {
+        expect(mockPrintWindow.document.write).toHaveBeenCalled()
+      })
     })
 
-    it("should handle rejected applications correctly", () => {
-      const rejectedApp = {
-        ...approvedApplication,
-        status: "rejected" as const,
-        rejectedAt: new Date(),
-      }
+    it("should handle permit data preparation errors", async () => {
+      const user = userEvent.setup()
+      vi.mocked(preparePermitData).mockImplementation(() => {
+        throw new Error("Data preparation failed")
+      })
 
-      render(<PermitPrintWorkflow user={authorizedUsers[0]} application={rejectedApp} />)
+      render(<PermitPrinter application={mockApplication} user={mockUser} />)
 
-      expect(screen.getByText(/Application Rejected - Cannot Print Permit/)).toBeInTheDocument()
-      expect(screen.queryByText(/Print Permit/)).not.toBeInTheDocument()
+      await user.click(screen.getByText("Print Permit"))
+
+      await waitFor(() => {
+        expect(mockToast).toHaveBeenCalledWith({
+          title: "Print Error",
+          description: "An error occurred while printing. Please try again.",
+          variant: "destructive",
+        })
+      })
     })
   })
 
-  describe("Performance Integration", () => {
-    it("should handle multiple print operations efficiently", async () => {
-      const mockWindowOpen = vi.fn().mockReturnValue({
-        document: { write: vi.fn(), close: vi.fn() },
-        print: vi.fn(),
+  describe("State Management", () => {
+    it("should manage loading states correctly", async () => {
+      const user = userEvent.setup()
+
+      render(<PermitPrinter application={mockApplication} user={mockUser} />)
+
+      const printButton = screen.getByText("Print Permit")
+
+      // Initial state
+      expect(printButton).not.toBeDisabled()
+      expect(printButton).toHaveTextContent("Print Permit")
+
+      // Click print
+      await user.click(printButton)
+
+      // Should show loading state briefly
+      expect(screen.getByText("Printing...")).toBeInTheDocument()
+
+      // Should return to normal state
+      await waitFor(() => {
+        expect(screen.getByText("Print Permit")).toBeInTheDocument()
       })
-      Object.defineProperty(window, "open", { value: mockWindowOpen })
-
-      render(<EnhancedPermitPrinter application={approvedApplication} user={authorizedUsers[0]} />)
-
-      const printButton = screen.getByRole("button", { name: /Print/ })
-
-      // Simulate multiple rapid clicks
-      const startTime = performance.now()
-      for (let i = 0; i < 5; i++) {
-        fireEvent.click(printButton)
-      }
-      const endTime = performance.now()
-
-      expect(endTime - startTime).toBeLessThan(1000) // Should handle multiple clicks quickly
-      expect(mockWindowOpen).toHaveBeenCalledTimes(5)
     })
 
-    it("should handle large permit data without performance issues", () => {
-      const largeApp = {
-        ...approvedApplication,
-        numberOfBoreholes: 100,
-        waterAllocation: 1000000,
-      }
+    it("should handle preview dialog state correctly", async () => {
+      const user = userEvent.setup()
 
-      const startTime = performance.now()
-      render(<EnhancedPermitPrinter application={largeApp} user={authorizedUsers[0]} />)
-      const endTime = performance.now()
+      render(<PermitPrinter application={mockApplication} user={mockUser} />)
 
-      expect(endTime - startTime).toBeLessThan(500) // Should render quickly even with large data
+      // Initially closed
+      expect(screen.queryByText("Permit Preview")).not.toBeInTheDocument()
+
+      // Open preview
+      await user.click(screen.getByText("Preview Permit"))
+
+      await waitFor(() => {
+        expect(screen.getByText("Permit Preview - UMSCC-2024-01-0001")).toBeInTheDocument()
+      })
+
+      // Close preview (simulate ESC key or clicking outside)
+      fireEvent.keyDown(document, { key: "Escape" })
+
+      await waitFor(() => {
+        expect(screen.queryByText("Permit Preview - UMSCC-2024-01-0001")).not.toBeInTheDocument()
+      })
+    })
+  })
+
+  describe("Component Integration", () => {
+    it("should properly integrate with PermitTemplate component", async () => {
+      const user = userEvent.setup()
+
+      render(<PermitPrinter application={mockApplication} user={mockUser} />)
+
+      await user.click(screen.getByText("Preview Permit"))
+
+      await waitFor(() => {
+        expect(PermitTemplate).toHaveBeenCalledWith(
+          {
+            permitData: mockPermitData,
+            id: "permit-template-preview",
+          },
+          expect.any(Object),
+        )
+      })
+
+      // Verify template is rendered in preview
+      expect(screen.getByTestId("permit-template")).toBeInTheDocument()
+      expect(screen.getByText("Permit UMSCC-2024-01-0001")).toBeInTheDocument()
+    })
+
+    it("should pass correct props to PermitTemplate", async () => {
+      const user = userEvent.setup()
+
+      render(<PermitPrinter application={mockApplication} user={mockUser} />)
+
+      await user.click(screen.getByText("Preview Permit"))
+
+      await waitFor(() => {
+        expect(PermitTemplate).toHaveBeenCalledWith(
+          expect.objectContaining({
+            permitData: expect.objectContaining({
+              permitNumber: "UMSCC-2024-01-0001",
+              applicantName: "John Doe",
+              physicalAddress: "123 Main Street, Harare",
+              validUntil: "January 20, 2025",
+            }),
+            id: "permit-template-preview",
+          }),
+          expect.any(Object),
+        )
+      })
     })
   })
 })

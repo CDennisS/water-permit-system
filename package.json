@@ -70,6 +70,7 @@
     "next-themes": "latest",
     "nodemailer": "latest",
     "path": "latest",
+    "playwright": "latest",
     "react": "^18",
     "react-day-picker": "latest",
     "react-dom": "^18",

@@ -1,309 +1,285 @@
-import { describe, it, expect, beforeEach, vi } from "vitest"
-import { render, screen, waitFor } from "@testing-library/react"
-import userEvent from "@testing-library/user-event"
-import { WorkflowManager } from "@/components/workflow-manager"
-import { db } from "@/lib/database"
-import type { PermitApplication, User } from "@/types"
+import { describe, it, expect, beforeEach, afterEach } from "vitest"
+import { chromium, type Browser, type Page } from "playwright"
 
-// Mock the database
-vi.mock("@/lib/database", () => ({
-  db: {
-    updateApplication: vi.fn(),
-    addComment: vi.fn(),
-    addLog: vi.fn(),
-    getCommentsByApplication: vi.fn(),
-  },
-}))
+describe("Permit Printing E2E Tests", () => {
+  let browser: Browser
+  let page: Page
 
-describe("End-to-End Permit Printing Workflow", () => {
-  let testApplication: PermitApplication
-  let users: Record<string, User>
+  beforeEach(async () => {
+    browser = await chromium.launch()
+    page = await browser.newPage()
 
-  beforeEach(() => {
-    vi.clearAllMocks()
+    // Mock the print functionality
+    await page.addInitScript(() => {
+      window.print = () => {
+        console.log("Print function called")
+        // Dispatch a custom event to signal print was called
+        window.dispatchEvent(new CustomEvent("print-called"))
+      }
+    })
+  })
 
-    testApplication = {
-      id: "e2e-app-1",
-      applicationId: "E2E-2024-001",
-      applicantName: "Test Applicant",
-      physicalAddress: "456 Test St, Harare",
-      postalAddress: "P.O. Box 456, Harare",
-      numberOfBoreholes: 3,
-      landSize: 10.0,
-      waterAllocation: 2500,
-      intendedUse: "Commercial",
-      permitType: "urban",
-      gpsLatitude: -17.8252,
-      gpsLongitude: 31.0335,
-      status: "submitted",
-      currentStage: 1,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      documents: [],
+  afterEach(async () => {
+    await browser.close()
+  })
+
+  it("should complete full print workflow in browser", async () => {
+    // Navigate to the permit management system
+    await page.goto("http://localhost:3000")
+
+    // Login as permitting officer
+    await page.fill('[data-testid="username"]', "officer1")
+    await page.fill('[data-testid="password"]', "password123")
+    await page.click('[data-testid="login-button"]')
+
+    // Wait for dashboard to load
+    await page.waitForSelector('[data-testid="dashboard"]')
+
+    // Navigate to applications
+    await page.click('[data-testid="applications-tab"]')
+
+    // Find an approved application
+    await page.waitForSelector('[data-testid="applications-table"]')
+    const approvedRow = page.locator('[data-status="approved"]').first()
+
+    // Click on the application to view details
+    await approvedRow.click()
+
+    // Wait for application details to load
+    await page.waitForSelector('[data-testid="application-details"]')
+
+    // Find and click the print permit button
+    const printButton = page.locator('[data-testid="print-permit-button"]')
+    await expect(printButton).toBeVisible()
+
+    // Click preview first
+    await page.click('[data-testid="preview-permit-button"]')
+
+    // Wait for preview dialog
+    await page.waitForSelector('[data-testid="permit-preview-dialog"]')
+
+    // Verify permit content is displayed
+    await expect(page.locator('[data-testid="permit-template"]')).toBeVisible()
+    await expect(page.locator("text=UMSCC-")).toBeVisible()
+
+    // Set up print event listener
+    const printPromise = page.waitForEvent("console", (msg) => msg.text().includes("Print function called"))
+
+    // Click print button in dialog
+    await page.click('[data-testid="print-button-dialog"]')
+
+    // Wait for print to be called
+    await printPromise
+
+    // Verify success message
+    await expect(page.locator("text=Print Initiated")).toBeVisible()
+  })
+
+  it("should handle print errors gracefully", async () => {
+    await page.goto("http://localhost:3000")
+
+    // Mock window.open to return null (blocked popup)
+    await page.addInitScript(() => {
+      const originalOpen = window.open
+      window.open = () => null
+    })
+
+    // Login and navigate to application
+    await page.fill('[data-testid="username"]', "officer1")
+    await page.fill('[data-testid="password"]', "password123")
+    await page.click('[data-testid="login-button"]')
+
+    await page.waitForSelector('[data-testid="dashboard"]')
+    await page.click('[data-testid="applications-tab"]')
+
+    const approvedRow = page.locator('[data-status="approved"]').first()
+    await approvedRow.click()
+
+    await page.waitForSelector('[data-testid="application-details"]')
+
+    // Try to print
+    await page.click('[data-testid="print-permit-button"]')
+
+    // Should show error message
+    await expect(page.locator("text=Print Error")).toBeVisible()
+    await expect(page.locator("text=popup settings")).toBeVisible()
+  })
+
+  it("should show permission errors for unauthorized users", async () => {
+    await page.goto("http://localhost:3000")
+
+    // Login as applicant (no print permissions)
+    await page.fill('[data-testid="username"]', "applicant1")
+    await page.fill('[data-testid="password"]', "password123")
+    await page.click('[data-testid="login-button"]')
+
+    await page.waitForSelector('[data-testid="dashboard"]')
+    await page.click('[data-testid="my-applications-tab"]')
+
+    // Find an approved application
+    const approvedRow = page.locator('[data-status="approved"]').first()
+    await approvedRow.click()
+
+    await page.waitForSelector('[data-testid="application-details"]')
+
+    // Should show permission error instead of print button
+    await expect(page.locator("text=Cannot Print Permit")).toBeVisible()
+    await expect(page.locator("text=cannot print permits")).toBeVisible()
+
+    // Print button should not be visible
+    await expect(page.locator('[data-testid="print-permit-button"]')).not.toBeVisible()
+  })
+
+  it("should handle download functionality", async () => {
+    await page.goto("http://localhost:3000")
+
+    // Set up download handling
+    const downloadPromise = page.waitForEvent("download")
+
+    // Login as permitting officer
+    await page.fill('[data-testid="username"]', "officer1")
+    await page.fill('[data-testid="password"]', "password123")
+    await page.click('[data-testid="login-button"]')
+
+    await page.waitForSelector('[data-testid="dashboard"]')
+    await page.click('[data-testid="applications-tab"]')
+
+    const approvedRow = page.locator('[data-status="approved"]').first()
+    await approvedRow.click()
+
+    await page.waitForSelector('[data-testid="application-details"]')
+
+    // Open preview
+    await page.click('[data-testid="preview-permit-button"]')
+    await page.waitForSelector('[data-testid="permit-preview-dialog"]')
+
+    // Click download button
+    await page.click('[data-testid="download-button"]')
+
+    // Wait for download
+    const download = await downloadPromise
+
+    // Verify download properties
+    expect(download.suggestedFilename()).toMatch(/^Permit_UMSCC-\d{4}-\d{2}-\d{4}_\d{4}-\d{2}-\d{2}\.txt$/)
+
+    // Verify success message
+    await expect(page.locator("text=Download Complete")).toBeVisible()
+  })
+
+  it("should be responsive on mobile devices", async () => {
+    // Set mobile viewport
+    await page.setViewportSize({ width: 375, height: 667 })
+
+    await page.goto("http://localhost:3000")
+
+    // Login
+    await page.fill('[data-testid="username"]', "officer1")
+    await page.fill('[data-testid="password"]', "password123")
+    await page.click('[data-testid="login-button"]')
+
+    await page.waitForSelector('[data-testid="dashboard"]')
+
+    // Navigate to applications (might be in mobile menu)
+    const mobileMenu = page.locator('[data-testid="mobile-menu-button"]')
+    if (await mobileMenu.isVisible()) {
+      await mobileMenu.click()
     }
 
-    users = {
-      permittingOfficer: {
-        id: "po-1",
-        username: "officer_test",
-        userType: "permitting_officer",
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
-      chairperson: {
-        id: "chair-1",
-        username: "chair_test",
-        userType: "chairperson",
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
-      catchmentManager: {
-        id: "cm-1",
-        username: "manager_test",
-        userType: "catchment_manager",
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
-      catchmentChairperson: {
-        id: "cc-1",
-        username: "catchchair_test",
-        userType: "catchment_chairperson",
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
+    await page.click('[data-testid="applications-tab"]')
+
+    const approvedRow = page.locator('[data-status="approved"]').first()
+    await approvedRow.click()
+
+    await page.waitForSelector('[data-testid="application-details"]')
+
+    // Print button should be visible and properly sized on mobile
+    const printButton = page.locator('[data-testid="print-permit-button"]')
+    await expect(printButton).toBeVisible()
+
+    // Button should not be too small for mobile interaction
+    const buttonBox = await printButton.boundingBox()
+    expect(buttonBox?.height).toBeGreaterThan(40) // Minimum touch target size
+
+    // Preview dialog should be responsive
+    await page.click('[data-testid="preview-permit-button"]')
+    await page.waitForSelector('[data-testid="permit-preview-dialog"]')
+
+    // Dialog should fit within viewport
+    const dialogBox = await page.locator('[data-testid="permit-preview-dialog"]').boundingBox()
+    expect(dialogBox?.width).toBeLessThanOrEqual(375)
+  })
+
+  it("should handle keyboard navigation", async () => {
+    await page.goto("http://localhost:3000")
+
+    // Login
+    await page.fill('[data-testid="username"]', "officer1")
+    await page.fill('[data-testid="password"]', "password123")
+    await page.click('[data-testid="login-button"]')
+
+    await page.waitForSelector('[data-testid="dashboard"]')
+    await page.click('[data-testid="applications-tab"]')
+
+    const approvedRow = page.locator('[data-status="approved"]').first()
+    await approvedRow.click()
+
+    await page.waitForSelector('[data-testid="application-details"]')
+
+    // Use Tab to navigate to print button
+    await page.keyboard.press("Tab")
+    await page.keyboard.press("Tab")
+
+    // Should be able to activate print with Enter or Space
+    const printButton = page.locator('[data-testid="print-permit-button"]')
+    await expect(printButton).toBeFocused()
+
+    await page.keyboard.press("Enter")
+
+    // Should trigger print functionality
+    await expect(page.locator("text=Print Initiated")).toBeVisible()
+  })
+
+  it("should maintain print quality across different browsers", async () => {
+    // This test would ideally run across multiple browser engines
+    // For now, we'll test Chrome-specific print features
+
+    await page.goto("http://localhost:3000")
+
+    // Login and navigate
+    await page.fill('[data-testid="username"]', "officer1")
+    await page.fill('[data-testid="password"]', "password123")
+    await page.click('[data-testid="login-button"]')
+
+    await page.waitForSelector('[data-testid="dashboard"]')
+    await page.click('[data-testid="applications-tab"]')
+
+    const approvedRow = page.locator('[data-status="approved"]').first()
+    await approvedRow.click()
+
+    await page.waitForSelector('[data-testid="application-details"]')
+
+    // Open preview
+    await page.click('[data-testid="preview-permit-button"]')
+    await page.waitForSelector('[data-testid="permit-preview-dialog"]')
+
+    // Check that print styles are properly applied
+    const permitTemplate = page.locator('[data-testid="permit-template"]')
+
+    // Verify A4 dimensions are set
+    const styles = await permitTemplate.evaluate((el) => {
+      return window.getComputedStyle(el)
+    })
+
+    // Should have proper print styling
+    expect(styles.fontFamily).toContain("Times New Roman")
+
+    // Test print media query
+    await page.emulateMedia({ media: "print" })
+
+    // Elements with .no-print class should be hidden
+    const noPrintElements = page.locator(".no-print")
+    if ((await noPrintElements.count()) > 0) {
+      await expect(noPrintElements.first()).toHaveCSS("display", "none")
     }
-
-    vi.mocked(db.getCommentsByApplication).mockResolvedValue([])
-    vi.mocked(db.addLog).mockResolvedValue(undefined)
-  })
-
-  it("should complete full workflow from submission to permit printing", async () => {
-    const user = userEvent.setup()
-    let currentApp = { ...testApplication }
-
-    // STAGE 1: Application submitted, moves to Stage 2
-    vi.mocked(db.updateApplication).mockResolvedValueOnce({
-      ...currentApp,
-      currentStage: 2,
-      status: "under_review",
-    })
-
-    const mockOnUpdate = vi.fn((updatedApp) => {
-      currentApp = updatedApp
-    })
-
-    // Start with Stage 1 (already submitted)
-    const { rerender } = render(
-      <WorkflowManager user={users.permittingOfficer} application={currentApp} onUpdate={mockOnUpdate} />,
-    )
-
-    // Verify no print options at Stage 1
-    expect(screen.queryByText(/Print Permit/)).not.toBeInTheDocument()
-
-    // STAGE 2: Chairperson Review
-    currentApp = { ...currentApp, currentStage: 2, status: "under_review" }
-    vi.mocked(db.updateApplication).mockResolvedValueOnce({
-      ...currentApp,
-      currentStage: 3,
-      status: "under_review",
-    })
-
-    rerender(<WorkflowManager user={users.chairperson} application={currentApp} onUpdate={mockOnUpdate} />)
-
-    // Chairperson reviews and submits
-    const reviewCheckbox = screen.getByLabelText(/I have reviewed this application/)
-    await user.click(reviewCheckbox)
-
-    const submitButton = screen.getByRole("button", { name: /Submit/ })
-    expect(submitButton).toBeEnabled()
-    await user.click(submitButton)
-
-    await waitFor(() => {
-      expect(db.updateApplication).toHaveBeenCalledWith(currentApp.id, {
-        currentStage: 3,
-        status: "under_review",
-      })
-    })
-
-    // STAGE 3: Catchment Manager Review (requires comment)
-    currentApp = { ...currentApp, currentStage: 3, status: "under_review" }
-    vi.mocked(db.addComment).mockResolvedValueOnce({
-      id: "comment-1",
-      applicationId: currentApp.id,
-      userId: users.catchmentManager.id,
-      userType: "catchment_manager",
-      comment: "Technical review completed. Water allocation approved.",
-      stage: 3,
-      isRejectionReason: false,
-      createdAt: new Date(),
-    })
-    vi.mocked(db.updateApplication).mockResolvedValueOnce({
-      ...currentApp,
-      currentStage: 4,
-      status: "under_review",
-    })
-
-    rerender(<WorkflowManager user={users.catchmentManager} application={currentApp} onUpdate={mockOnUpdate} />)
-
-    // Manager must add comment
-    const commentTextarea = screen.getByPlaceholderText(/Enter your comments/)
-    await user.type(commentTextarea, "Technical review completed. Water allocation approved.")
-
-    const managerReviewCheckbox = screen.getByLabelText(/I have reviewed this application/)
-    await user.click(managerReviewCheckbox)
-
-    const managerSubmitButton = screen.getByRole("button", { name: /Submit/ })
-    await user.click(managerSubmitButton)
-
-    await waitFor(() => {
-      expect(db.addComment).toHaveBeenCalled()
-      expect(db.updateApplication).toHaveBeenCalledWith(currentApp.id, {
-        currentStage: 4,
-        status: "under_review",
-      })
-    })
-
-    // STAGE 4: Final Approval by Catchment Chairperson
-    currentApp = { ...currentApp, currentStage: 4, status: "under_review" }
-    vi.mocked(db.updateApplication).mockResolvedValueOnce({
-      ...currentApp,
-      currentStage: 1,
-      status: "approved",
-      approvedAt: new Date(),
-    })
-
-    rerender(<WorkflowManager user={users.catchmentChairperson} application={currentApp} onUpdate={mockOnUpdate} />)
-
-    // Final approval
-    const finalReviewCheckbox = screen.getByLabelText(/I have reviewed this application/)
-    await user.click(finalReviewCheckbox)
-
-    const approveButton = screen.getByRole("button", { name: /Approve/ })
-    await user.click(approveButton)
-
-    const finalSubmitButton = screen.getByRole("button", { name: /Submit/ })
-    await user.click(finalSubmitButton)
-
-    await waitFor(() => {
-      expect(db.updateApplication).toHaveBeenCalledWith(currentApp.id, {
-        currentStage: 1,
-        status: "approved",
-        approvedAt: expect.any(Date),
-      })
-    })
-
-    // Verify workflow completion
-    expect(mockOnUpdate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        status: "approved",
-        currentStage: 1,
-        approvedAt: expect.any(Date),
-      }),
-    )
-  })
-
-  it("should handle rejection workflow correctly", async () => {
-    const user = userEvent.setup()
-    const currentApp = { ...testApplication, currentStage: 4, status: "under_review" }
-
-    vi.mocked(db.addComment).mockResolvedValueOnce({
-      id: "rejection-comment",
-      applicationId: currentApp.id,
-      userId: users.catchmentChairperson.id,
-      userType: "catchment_chairperson",
-      comment: "Insufficient water allocation justification.",
-      stage: 4,
-      isRejectionReason: true,
-      createdAt: new Date(),
-    })
-
-    vi.mocked(db.updateApplication).mockResolvedValueOnce({
-      ...currentApp,
-      currentStage: 1,
-      status: "rejected",
-      rejectedAt: new Date(),
-    })
-
-    const mockOnUpdate = vi.fn()
-
-    render(<WorkflowManager user={users.catchmentChairperson} application={currentApp} onUpdate={mockOnUpdate} />)
-
-    // Review and reject
-    const reviewCheckbox = screen.getByLabelText(/I have reviewed this application/)
-    await user.click(reviewCheckbox)
-
-    const rejectButton = screen.getByRole("button", { name: /Reject/ })
-    await user.click(rejectButton)
-
-    const rejectionTextarea = screen.getByPlaceholderText(/Please provide detailed reasons/)
-    await user.type(rejectionTextarea, "Insufficient water allocation justification.")
-
-    const submitButton = screen.getByRole("button", { name: /Submit/ })
-    await user.click(submitButton)
-
-    await waitFor(() => {
-      expect(db.addComment).toHaveBeenCalledWith({
-        applicationId: currentApp.id,
-        userId: users.catchmentChairperson.id,
-        userType: "catchment_chairperson",
-        comment: "Insufficient water allocation justification.",
-        stage: 4,
-        isRejectionReason: true,
-      })
-    })
-
-    await waitFor(() => {
-      expect(db.updateApplication).toHaveBeenCalledWith(currentApp.id, {
-        currentStage: 1,
-        status: "rejected",
-        rejectedAt: expect.any(Date),
-      })
-    })
-  })
-
-  it("should validate required fields at each stage", async () => {
-    const user = userEvent.setup()
-
-    // Test Catchment Manager stage (requires comment)
-    const managerApp = { ...testApplication, currentStage: 3, status: "under_review" }
-
-    render(<WorkflowManager user={users.catchmentManager} application={managerApp} onUpdate={vi.fn()} />)
-
-    const reviewCheckbox = screen.getByLabelText(/I have reviewed this application/)
-    await user.click(reviewCheckbox)
-
-    // Try to submit without comment
-    const submitButton = screen.getByRole("button", { name: /Submit/ })
-    expect(submitButton).toBeDisabled() // Should be disabled without comment
-
-    // Add comment
-    const commentTextarea = screen.getByPlaceholderText(/Enter your comments/)
-    await user.type(commentTextarea, "Required comment added.")
-
-    expect(submitButton).toBeEnabled() // Should be enabled with comment
-  })
-
-  it("should show appropriate error messages for validation failures", async () => {
-    const user = userEvent.setup()
-
-    // Test final stage rejection without reason
-    const finalApp = { ...testApplication, currentStage: 4, status: "under_review" }
-
-    // Mock alert
-    const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {})
-
-    render(<WorkflowManager user={users.catchmentChairperson} application={finalApp} onUpdate={vi.fn()} />)
-
-    const reviewCheckbox = screen.getByLabelText(/I have reviewed this application/)
-    await user.click(reviewCheckbox)
-
-    const rejectButton = screen.getByRole("button", { name: /Reject/ })
-    await user.click(rejectButton)
-
-    // Try to submit without rejection reason
-    const submitButton = screen.getByRole("button", { name: /Submit/ })
-    expect(submitButton).toBeDisabled() // Should be disabled without rejection reason
-
-    alertSpy.mockRestore()
   })
 })
