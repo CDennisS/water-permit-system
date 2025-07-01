@@ -1,110 +1,89 @@
-export interface User {
+export interface Application {
   id: string
-  name: string
-  email: string
-  userType:
-    | "applicant"
-    | "permitting_officer"
-    | "permit_supervisor"
-    | "catchment_manager"
-    | "catchment_chairperson"
-    | "ict"
-  createdAt: Date
-  updatedAt: Date
-}
-
-export interface PermitApplication {
-  id: string
+  applicationId: string
   applicantName: string
-  applicantEmail: string
   physicalAddress: string
   postalAddress?: string
+  customerAccountNumber: string
+  cellularNumber: string
+  permitType: "urban" | "irrigation" | "industrial"
+  waterSource: "ground_water" | "surface_water"
+  waterAllocation: number
   landSize: number
-  numberOfBoreholes: number
-  waterAllocation: number // in ML
-  intendedUse: string
   gpsLatitude: number
   gpsLongitude: number
-  status: "draft" | "submitted" | "under_review" | "approved" | "rejected" | "permit_issued"
-  permitNumber?: string
-  submittedAt?: Date
-  approvedAt?: Date
-  rejectedAt?: Date
+  status: "draft" | "submitted" | "approved" | "rejected"
+  currentStage: number
   createdAt: Date
   updatedAt: Date
+  submittedAt?: Date | null
+  approvedAt?: Date | null
   documents: Document[]
   comments: Comment[]
+  intendedUse: string
+  boreholes?: Borehole[]
+}
+
+export interface Borehole {
+  id: string
+  name: string
+  depth: number
+  diameter: number
+  yieldRate: number
+  staticWaterLevel: number
+  pumpingWaterLevel: number
+  coordinates: {
+    latitude: number
+    longitude: number
+  }
 }
 
 export interface Document {
   id: string
-  applicationId: string
-  fileName: string
-  fileType: string
-  fileSize: number
+  name: string
+  type: string
+  size: number
+  url: string
   uploadedAt: Date
-  uploadedBy: string
 }
 
 export interface Comment {
   id: string
-  applicationId: string
-  userId: string
-  userName: string
   content: string
+  author: string
+  role: string
+  stage: number
   createdAt: Date
+}
+
+export interface User {
+  id: string
+  name: string
+  email: string
+  role:
+    | "permitting_officer"
+    | "chairperson"
+    | "catchment_manager"
+    | "catchment_chairperson"
+    | "permit_supervisor"
+    | "ict"
+  department?: string
 }
 
 export interface PermitData {
   permitNumber: string
+  applicationId: string
   applicantName: string
   physicalAddress: string
   postalAddress?: string
-  landSize: number
-  numberOfBoreholes: number
-  totalAllocatedAbstraction: number
-  intendedUse: string
-  validUntil: string
-  issueDate: string
-  gpsCoordinates: {
-    latitude: number
-    longitude: number
-  }
-  catchment: string
-  subCatchment: string
+  cellularNumber: string
   permitType: string
-  boreholeDetails: BoreholeDetail[]
-}
-
-export interface BoreholeDetail {
-  boreholeNumber: string
-  allocatedAmount: number
-  gpsX: string
-  gpsY: string
+  waterAllocation: number
+  landSize: number
+  gpsLatitude: number
+  gpsLongitude: number
   intendedUse: string
-  maxAbstractionRate: number
-  waterSampleFrequency: string
-}
-
-export interface Message {
-  id: string
-  senderId: string
-  senderName: string
-  recipientId: string
-  recipientName: string
-  subject: string
-  content: string
-  isRead: boolean
-  createdAt: Date
-  applicationId?: string
-}
-
-export interface ActivityLog {
-  id: string
-  userId: string
-  userName: string
-  action: string
-  details: string
-  applicationId?: string
-  createdAt: Date
+  issueDate: string
+  expiryDate: string
+  boreholes?: Borehole[]
 }
