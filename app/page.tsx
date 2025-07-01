@@ -1,358 +1,223 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
+import { LoginForm } from "@/components/login-form"
+import { DashboardHeader } from "@/components/dashboard-header"
+import { ApplicationForm } from "@/components/application-form"
+import { WorkflowManager } from "@/components/workflow-manager"
+import { MessagingSystem } from "@/components/messaging-system"
+import { EnhancedReportsAnalytics } from "@/components/enhanced-reports-analytics"
+import { ActivityLogs } from "@/components/activity-logs"
+import { DashboardApplications } from "@/components/dashboard-applications"
+import { RecordsSection } from "@/components/records-section"
+import { ChairpersonDashboard } from "@/components/chairperson-dashboard"
+import { PermitSupervisorDashboard } from "@/components/permit-supervisor-dashboard"
+import { ICTDashboard } from "@/components/ict-dashboard"
+import { CatchmentManagerDashboard } from "@/components/catchment-manager-dashboard"
+import { CatchmentChairpersonDashboard } from "@/components/catchment-chairperson-dashboard"
+import { ComprehensiveApplicationDetails } from "@/components/comprehensive-application-details"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Eye, FileText, CheckCircle, Clock, XCircle, AlertCircle } from "lucide-react"
-import { PermitPreviewDialog } from "@/components/permit-preview-dialog"
-import type { Application } from "@/types"
+import type { User, PermitApplication } from "@/types"
+import { db } from "@/lib/database"
 
-// Mock data for testing
-const mockApplications: Application[] = [
-  {
-    id: "1",
-    applicationId: "APP-2024-001",
-    applicantName: "John Doe",
-    physicalAddress: "123 Main Street, Harare",
-    customerAccountNumber: "ACC-001",
-    cellularNumber: "+263771234567",
-    permitType: "urban",
-    waterSource: "ground_water",
-    waterAllocation: 100,
-    landSize: 50,
-    gpsLatitude: -17.8216,
-    gpsLongitude: 31.0492,
-    status: "approved",
-    currentStage: 4,
-    createdAt: new Date("2024-01-15"),
-    updatedAt: new Date("2024-01-20"),
-    submittedAt: new Date("2024-01-15"),
-    approvedAt: new Date("2024-01-20"),
-    documents: [],
-    comments: [],
-    intendedUse: "Domestic water supply for residential use",
-  },
-  {
-    id: "2",
-    applicationId: "APP-2024-002",
-    applicantName: "Sarah Johnson",
-    physicalAddress: "456 Oak Avenue, Chitungwiza",
-    customerAccountNumber: "ACC-002",
-    cellularNumber: "+263771234568",
-    permitType: "irrigation",
-    waterSource: "surface_water",
-    waterAllocation: 200,
-    landSize: 100,
-    gpsLatitude: -18.0178,
-    gpsLongitude: 31.0747,
-    status: "approved",
-    currentStage: 4,
-    createdAt: new Date("2024-02-01"),
-    updatedAt: new Date("2024-02-05"),
-    submittedAt: new Date("2024-02-01"),
-    approvedAt: new Date("2024-02-05"),
-    documents: [],
-    comments: [],
-    intendedUse: "Agricultural irrigation for crop production",
-  },
-  {
-    id: "3",
-    applicationId: "APP-2024-003",
-    applicantName: "Michael Smith",
-    physicalAddress: "789 Pine Street, Epworth",
-    customerAccountNumber: "ACC-003",
-    cellularNumber: "+263771234569",
-    permitType: "industrial",
-    waterSource: "ground_water",
-    waterAllocation: 500,
-    landSize: 200,
-    gpsLatitude: -17.89,
-    gpsLongitude: 31.1473,
-    status: "approved",
-    currentStage: 4,
-    createdAt: new Date("2024-01-10"),
-    updatedAt: new Date("2024-01-25"),
-    submittedAt: new Date("2024-01-10"),
-    approvedAt: new Date("2024-01-25"),
-    documents: [],
-    comments: [],
-    intendedUse: "Industrial manufacturing process water",
-  },
-  {
-    id: "4",
-    applicationId: "APP-2024-004",
-    applicantName: "Emily Davis",
-    physicalAddress: "321 Cedar Road, Mbare",
-    customerAccountNumber: "ACC-004",
-    cellularNumber: "+263771234570",
-    permitType: "urban",
-    waterSource: "surface_water",
-    waterAllocation: 75,
-    landSize: 30,
-    gpsLatitude: -17.8634,
-    gpsLongitude: 31.0297,
-    status: "submitted",
-    currentStage: 2,
-    createdAt: new Date("2024-02-10"),
-    updatedAt: new Date("2024-02-10"),
-    submittedAt: new Date("2024-02-10"),
-    approvedAt: null,
-    documents: [],
-    comments: [],
-    intendedUse: "Domestic water supply",
-  },
-]
+export default function Home() {
+  /* ------------------------------ state ------------------------------ */
+  const [user, setUser] = useState<User | null>(null)
+  const [currentView, setCurrentView] = useState("dashboard")
+  const [selectedApplication, setSelectedApplication] = useState<PermitApplication | null>(null)
+  const [isEditing, setIsEditing] = useState(false)
+  const [unreadMessageCount, setUnreadMessageCount] = useState(0)
 
-const getStatusIcon = (status: string) => {
-  switch (status) {
-    case "approved":
-      return <CheckCircle className="h-4 w-4 text-green-600" />
-    case "submitted":
-      return <Clock className="h-4 w-4 text-yellow-600" />
-    case "rejected":
-      return <XCircle className="h-4 w-4 text-red-600" />
-    default:
-      return <AlertCircle className="h-4 w-4 text-gray-600" />
-  }
-}
-
-const getStatusBadge = (status: string) => {
-  switch (status) {
-    case "approved":
-      return <Badge className="bg-green-100 text-green-800 hover:bg-green-100">Approved</Badge>
-    case "submitted":
-      return <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100">Submitted</Badge>
-    case "rejected":
-      return <Badge className="bg-red-100 text-red-800 hover:bg-red-100">Rejected</Badge>
-    default:
-      return <Badge variant="secondary">Draft</Badge>
-  }
-}
-
-export default function HomePage() {
-  const [applications, setApplications] = useState<Application[]>([])
-  const [selectedApplication, setSelectedApplication] = useState<Application | null>(null)
-  const [showPreview, setShowPreview] = useState(false)
-  const [loading, setLoading] = useState(true)
-
+  /* ------------------------- message polling ------------------------- */
   useEffect(() => {
-    // Simulate loading data
-    const timer = setTimeout(() => {
-      setApplications(mockApplications)
-      setLoading(false)
-    }, 1000)
+    if (!user) return
 
-    return () => clearTimeout(timer)
-  }, [])
+    const loadUnread = async () => {
+      const publicMsgs = await db.getMessages(user.id, /* public */ true)
+      const privateMsgs = await db.getMessages(user.id, /* public */ false)
 
-  const handlePreviewPermit = (application: Application) => {
-    setSelectedApplication(application)
-    setShowPreview(true)
+      const unreadPublic = publicMsgs.filter((m) => m.senderId !== user.id && !m.readAt).length
+      const unreadPrivate = privateMsgs.filter((m) => m.senderId !== user.id && !m.readAt).length
+
+      setUnreadMessageCount(unreadPublic + unreadPrivate)
+    }
+
+    loadUnread()
+    const id = setInterval(loadUnread, 30_000) // refresh every 30 s
+    return () => clearInterval(id)
+  }, [user])
+
+  /* --------------------------- callbacks ----------------------------- */
+  const handleLogin = (u: User) => setUser(u)
+  const handleLogout = () => {
+    setUser(null)
+    setCurrentView("dashboard")
+  }
+  const handleNewApp = () => {
+    setIsEditing(true)
+    setSelectedApplication(null)
+    setCurrentView("application-form")
+  }
+  const handleEditApp = (a: PermitApplication) => {
+    setIsEditing(true)
+    setSelectedApplication(a)
+    setCurrentView("application-form")
+  }
+  const handleViewApp = (a: PermitApplication) => {
+    setIsEditing(false)
+    setSelectedApplication(a)
+    setCurrentView("comprehensive-view")
+  }
+  const handleSaveApp = () => {
+    setIsEditing(false)
+    setSelectedApplication(null)
+    setCurrentView("dashboard")
+  }
+  const handleCancelEdit = () => {
+    setIsEditing(false)
+    setSelectedApplication(null)
+    setCurrentView("dashboard")
+  }
+  const handleUpdateApp = (a: PermitApplication) => setSelectedApplication(a)
+  const handleTabChange = (v: string) => {
+    setCurrentView(v)
+    if (v === "messages") setUnreadMessageCount(0)
+  }
+  const handleMessagesClick = () => {
+    setCurrentView("messages")
+    setUnreadMessageCount(0)
+  }
+  const handleBackToApplications = () => {
+    setSelectedApplication(null)
+    setCurrentView("dashboard")
   }
 
-  const approvedCount = applications.filter((app) => app.status === "approved").length
-  const submittedCount = applications.filter((app) => app.status === "submitted").length
-  const totalCount = applications.length
+  /* ------------------------ tab configuration ------------------------ */
+  const baseTabs = [
+    { value: "dashboard", label: "Dashboard & Applications" },
+    { value: "records", label: "Records" },
+    { value: "messages", label: "Messages" },
+    { value: "reports", label: "Reports & Analytics" },
+    { value: "logs", label: "Activity Logs" },
+  ]
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading UMSCC Permit Management System...</p>
-        </div>
-      </div>
+  const getUserTabs = () => {
+    if (!user) return baseTabs
+    return baseTabs.filter(
+      (t) => t.value !== "reports" || ["permitting_officer", "permit_supervisor", "ict"].includes(user.userType),
     )
   }
 
+  /* ------------------------------ UI -------------------------------- */
+  if (!user) return <LoginForm onLogin={handleLogin} />
+
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-6">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">UMSCC Permit Management System</h1>
-              <p className="mt-1 text-sm text-gray-500">
-                Upper Manyame Sub Catchment Council - Water Permit Applications
-              </p>
+      <DashboardHeader user={user} onLogout={handleLogout} onMessagesClick={handleMessagesClick} />
+
+      <main className="p-6">
+        <div className="mx-auto max-w-7xl">
+          {currentView === "application-form" ? (
+            <ApplicationForm
+              user={user}
+              application={selectedApplication}
+              onSave={handleSaveApp}
+              onCancel={handleCancelEdit}
+            />
+          ) : currentView === "comprehensive-view" && selectedApplication ? (
+            <ComprehensiveApplicationDetails
+              application={selectedApplication}
+              user={user}
+              onBack={handleBackToApplications}
+            />
+          ) : currentView === "workflow" && selectedApplication ? (
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <h2 className="text-2xl font-bold">Application Details – {selectedApplication.applicationId}</h2>
+                <button onClick={() => setCurrentView("dashboard")} className="text-blue-600 hover:text-blue-800">
+                  ← Back to Dashboard
+                </button>
+              </div>
+              <WorkflowManager user={user} application={selectedApplication} onUpdate={handleUpdateApp} />
             </div>
-            <div className="flex items-center space-x-4">
-              <Badge variant="outline" className="text-sm">
-                System Status: Online
-              </Badge>
-              <Badge variant="outline" className="text-sm">
-                Version 2.1.0
-              </Badge>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Statistics Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Applications</CardTitle>
-              <FileText className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{totalCount}</div>
-              <p className="text-xs text-muted-foreground">All permit applications in system</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Approved Permits</CardTitle>
-              <CheckCircle className="h-4 w-4 text-green-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-green-600">{approvedCount}</div>
-              <p className="text-xs text-muted-foreground">Ready for permit printing</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Pending Review</CardTitle>
-              <Clock className="h-4 w-4 text-yellow-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-yellow-600">{submittedCount}</div>
-              <p className="text-xs text-muted-foreground">Awaiting approval workflow</p>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Applications Table */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Recent Applications</CardTitle>
-            <CardDescription>Overview of water permit applications and their current status</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Application ID</TableHead>
-                  <TableHead>Applicant Name</TableHead>
-                  <TableHead>Permit Type</TableHead>
-                  <TableHead>Water Allocation</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {applications.map((application) => (
-                  <TableRow key={application.id}>
-                    <TableCell className="font-medium">{application.applicationId}</TableCell>
-                    <TableCell>{application.applicantName}</TableCell>
-                    <TableCell className="capitalize">{application.permitType.replace("_", " ")}</TableCell>
-                    <TableCell>{application.waterAllocation} m³/month</TableCell>
-                    <TableCell>
-                      <div className="flex items-center space-x-2">
-                        {getStatusIcon(application.status)}
-                        {getStatusBadge(application.status)}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center space-x-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            console.log("Viewing application:", application.applicationId)
-                          }}
-                        >
-                          <Eye className="h-4 w-4 mr-1" />
-                          View
-                        </Button>
-                        {application.status === "approved" && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handlePreviewPermit(application)}
-                            className="text-green-600 border-green-200 hover:bg-green-50"
+          ) : (
+            <>
+              {/* Specialized Dashboards */}
+              {user.userType === "chairperson" ? (
+                <ChairpersonDashboard user={user} />
+              ) : user.userType === "catchment_manager" ? (
+                <CatchmentManagerDashboard user={user} />
+              ) : user.userType === "catchment_chairperson" ? (
+                <CatchmentChairpersonDashboard user={user} />
+              ) : user.userType === "permit_supervisor" ? (
+                <PermitSupervisorDashboard
+                  user={user}
+                  onNewApplication={handleNewApp}
+                  onEditApplication={handleEditApp}
+                  onViewApplication={handleViewApp}
+                />
+              ) : user.userType === "ict" ? (
+                <ICTDashboard
+                  user={user}
+                  onNewApplication={handleNewApp}
+                  onEditApplication={handleEditApp}
+                  onViewApplication={handleViewApp}
+                />
+              ) : (
+                /* Standard Dashboard for other users including permitting_officer */
+                <Tabs value={currentView} onValueChange={handleTabChange} className="w-full">
+                  <TabsList className="grid w-full grid-cols-5">
+                    {getUserTabs().map((tab) => (
+                      <TabsTrigger key={tab.value} value={tab.value} className="relative">
+                        {tab.label}
+                        {tab.value === "messages" && unreadMessageCount > 0 && (
+                          <Badge
+                            variant="destructive"
+                            className="ml-2 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs"
                           >
-                            <FileText className="h-4 w-4 mr-1" />
-                            Preview Permit
-                          </Button>
+                            {unreadMessageCount > 99 ? "99+" : unreadMessageCount}
+                          </Badge>
                         )}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
+                      </TabsTrigger>
+                    ))}
+                  </TabsList>
 
-        {/* System Information */}
-        <Card className="mt-8">
-          <CardHeader>
-            <CardTitle>System Information</CardTitle>
-            <CardDescription>Current system status and deployment information</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <h4 className="font-semibold mb-2">Deployment Status</h4>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span>Environment:</span>
-                    <Badge variant="outline">Production Ready</Badge>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Version:</span>
-                    <span>2.1.0</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Last Updated:</span>
-                    <span>{new Date().toLocaleDateString()}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Database:</span>
-                    <Badge className="bg-green-100 text-green-800">Connected</Badge>
-                  </div>
-                </div>
-              </div>
-              <div>
-                <h4 className="font-semibold mb-2">Features Available</h4>
-                <div className="space-y-2 text-sm">
-                  <div className="flex items-center space-x-2">
-                    <CheckCircle className="h-4 w-4 text-green-600" />
-                    <span>Application Management</span>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <CheckCircle className="h-4 w-4 text-green-600" />
-                    <span>Document Upload & Viewing</span>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <CheckCircle className="h-4 w-4 text-green-600" />
-                    <span>Workflow Management</span>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <CheckCircle className="h-4 w-4 text-green-600" />
-                    <span>Permit Printing</span>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <CheckCircle className="h-4 w-4 text-green-600" />
-                    <span>Reports & Analytics</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+                  <TabsContent value="dashboard" className="space-y-6">
+                    <div className="mb-6">
+                      <h2 className="mb-2 text-2xl font-bold text-gray-900">Welcome back, {user.username}</h2>
+                      <p className="text-gray-600">Manage your permit applications and track progress</p>
+                    </div>
 
-      {/* Permit Preview Dialog */}
-      {selectedApplication && (
-        <PermitPreviewDialog application={selectedApplication} open={showPreview} onOpenChange={setShowPreview} />
-      )}
+                    <DashboardApplications
+                      user={user}
+                      onNewApplication={handleNewApp}
+                      onEditApplication={handleEditApp}
+                      onViewApplication={handleViewApp}
+                    />
+                  </TabsContent>
+
+                  <TabsContent value="records">
+                    <RecordsSection user={user} onEditApplication={handleEditApp} onViewApplication={handleViewApp} />
+                  </TabsContent>
+
+                  <TabsContent value="messages">
+                    <MessagingSystem user={user} />
+                  </TabsContent>
+
+                  <TabsContent value="reports">
+                    <EnhancedReportsAnalytics />
+                  </TabsContent>
+
+                  <TabsContent value="logs">
+                    <ActivityLogs user={user} />
+                  </TabsContent>
+                </Tabs>
+              )}
+            </>
+          )}
+        </div>
+      </main>
     </div>
   )
 }

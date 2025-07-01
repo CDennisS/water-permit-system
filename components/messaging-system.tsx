@@ -1,269 +1,229 @@
 "use client"
 
+import type React from "react"
+
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Send, MessageSquare, Users, User } from "lucide-react"
-import type { Message, User as UserType } from "@/types"
-import { db } from "@/lib/database"
-import { getUserTypeLabel } from "@/lib/auth"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Send, Mail, MailOpen } from "lucide-react"
+import type { User, Message } from "@/types"
 
 interface MessagingSystemProps {
-  user: UserType
+  user: User
 }
 
+// Mock messages data
+const mockMessages: Message[] = [
+  {
+    id: "1",
+    senderId: "system",
+    receiverId: "1",
+    subject: "Application APP-2024-001 Approved",
+    content: "Your water permit application has been approved. Please proceed to collect your permit.",
+    sentAt: new Date("2024-01-20T10:00:00"),
+    readAt: null,
+    applicationId: "1",
+    messageType: "approval_notification",
+  },
+  {
+    id: "2",
+    senderId: "2",
+    receiverId: "1",
+    subject: "Document Clarification Required",
+    content: "Please provide additional documentation for your application APP-2024-002.",
+    sentAt: new Date("2024-02-01T14:30:00"),
+    readAt: new Date("2024-02-01T15:00:00"),
+    applicationId: "2",
+    messageType: "clarification_request",
+  },
+]
+
 export function MessagingSystem({ user }: MessagingSystemProps) {
-  const [publicMessages, setPublicMessages] = useState<Message[]>([])
-  const [privateMessages, setPrivateMessages] = useState<Message[]>([])
-  const [users, setUsers] = useState<UserType[]>([])
-  const [newPublicMessage, setNewPublicMessage] = useState("")
-  const [newPrivateMessage, setNewPrivateMessage] = useState("")
-  const [selectedRecipient, setSelectedRecipient] = useState("")
+  const [messages, setMessages] = useState<Message[]>([])
+  const [selectedMessage, setSelectedMessage] = useState<Message | null>(null)
+  const [newMessage, setNewMessage] = useState({ subject: "", content: "" })
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    loadMessages()
-    loadUsers()
-  }, [user])
+    // Simulate loading messages
+    const timer = setTimeout(() => {
+      setMessages(mockMessages)
+      setLoading(false)
+    }, 1000)
 
-  const loadMessages = async () => {
-    const publicMsgs = await db.getMessages(user.id, true)
-    // Filter private messages to only show conversations involving current user
-    const privateMsgs = await db.getMessages(user.id, false)
-    const filteredPrivateMsgs = privateMsgs.filter((msg) => msg.senderId === user.id || msg.receiverId === user.id)
-    setPublicMessages(publicMsgs)
-    setPrivateMessages(filteredPrivateMsgs)
+    return () => clearTimeout(timer)
+  }, [])
+
+  const handleSendMessage = async (e: React.FormEvent) => {
+    e.preventDefault()
+    // Simulate sending message
+    console.log("Sending message:", newMessage)
+    setNewMessage({ subject: "", content: "" })
   }
 
-  const loadUsers = async () => {
-    const allUsers = await db.getUsers()
-    setUsers(allUsers.filter((u) => u.id !== user.id))
+  const markAsRead = (messageId: string) => {
+    setMessages((prev) => prev.map((msg) => (msg.id === messageId ? { ...msg, readAt: new Date() } : msg)))
   }
 
-  const getUnreadCount = () => {
-    const unreadPublic = publicMessages.filter((msg) => msg.senderId !== user.id && !msg.readAt).length
+  const unreadMessages = messages.filter((msg) => !msg.readAt && msg.receiverId === user.id)
+  const readMessages = messages.filter((msg) => msg.readAt && msg.receiverId === user.id)
 
-    const unreadPrivate = privateMessages.filter((msg) => msg.senderId !== user.id && !msg.readAt).length
-
-    return unreadPublic + unreadPrivate
-  }
-
-  const markMessagesAsRead = async (isPublic: boolean) => {
-    const messages = isPublic ? publicMessages : privateMessages
-    const unreadMessages = messages.filter((msg) => msg.senderId !== user.id && !msg.readAt)
-
-    for (const message of unreadMessages) {
-      await db.markMessageAsRead(message.id)
-    }
-
-    loadMessages()
-  }
-
-  const sendPublicMessage = async () => {
-    if (!newPublicMessage.trim()) return
-
-    await db.sendMessage({
-      senderId: user.id,
-      content: newPublicMessage,
-      isPublic: true,
-    })
-
-    await db.addLog({
-      userId: user.id,
-      userType: user.userType,
-      action: "Sent Public Message",
-      details: "Posted a public message",
-    })
-
-    setNewPublicMessage("")
-    loadMessages()
-  }
-
-  const sendPrivateMessage = async () => {
-    if (!newPrivateMessage.trim() || !selectedRecipient) return
-
-    await db.sendMessage({
-      senderId: user.id,
-      receiverId: selectedRecipient,
-      content: newPrivateMessage,
-      isPublic: false,
-    })
-
-    await db.addLog({
-      userId: user.id,
-      userType: user.userType,
-      action: "Sent Private Message",
-      details: `Sent private message to user`,
-    })
-
-    setNewPrivateMessage("")
-    setSelectedRecipient("")
-    loadMessages()
-  }
-
-  const formatMessageTime = (date: Date) => {
-    const now = new Date()
-    const diff = now.getTime() - date.getTime()
-    const hours = Math.floor(diff / (1000 * 60 * 60))
-
-    if (hours < 1) {
-      const minutes = Math.floor(diff / (1000 * 60))
-      return `${minutes}m ago`
-    } else if (hours < 24) {
-      return `${hours}h ago`
-    } else {
-      return date.toLocaleDateString()
-    }
+  if (loading) {
+    return (
+      <Card>
+        <CardContent className="p-6">
+          <div className="flex items-center justify-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            <span className="ml-2">Loading messages...</span>
+          </div>
+        </CardContent>
+      </Card>
+    )
   }
 
   return (
-    <div className="max-w-4xl mx-auto p-6">
+    <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center">
-            <MessageSquare className="h-5 w-5 mr-2" />
-            Messaging System
-          </CardTitle>
+          <CardTitle>Messages</CardTitle>
+          <CardDescription>Communication and notifications</CardDescription>
         </CardHeader>
         <CardContent>
-          <Tabs defaultValue="public" className="w-full">
+          <Tabs defaultValue="inbox" className="w-full">
             <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger
-                value="public"
-                className="flex items-center relative"
-                onClick={() => markMessagesAsRead(true)}
-              >
-                <Users className="h-4 w-4 mr-2" />
-                Public Messages
-                {publicMessages.filter((msg) => msg.senderId !== user.id && !msg.readAt).length > 0 && (
-                  <Badge
-                    variant="destructive"
-                    className="ml-2 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs"
-                  >
-                    {publicMessages.filter((msg) => msg.senderId !== user.id && !msg.readAt).length}
+              <TabsTrigger value="inbox">
+                Inbox
+                {unreadMessages.length > 0 && (
+                  <Badge variant="destructive" className="ml-2">
+                    {unreadMessages.length}
                   </Badge>
                 )}
               </TabsTrigger>
-              <TabsTrigger
-                value="private"
-                className="flex items-center relative"
-                onClick={() => markMessagesAsRead(false)}
-              >
-                <User className="h-4 w-4 mr-2" />
-                Private Messages
-                {privateMessages.filter((msg) => msg.senderId !== user.id && !msg.readAt).length > 0 && (
-                  <Badge
-                    variant="destructive"
-                    className="ml-2 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs"
-                  >
-                    {privateMessages.filter((msg) => msg.senderId !== user.id && !msg.readAt).length}
-                  </Badge>
-                )}
-              </TabsTrigger>
+              <TabsTrigger value="compose">Compose</TabsTrigger>
             </TabsList>
 
-            {/* Public Messages */}
-            <TabsContent value="public" className="space-y-4">
-              <div className="border rounded-lg p-4 h-96 overflow-y-auto space-y-3">
-                {publicMessages.map((message) => (
-                  <div key={message.id} className="bg-gray-50 p-3 rounded-lg">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center space-x-2">
-                        <Badge variant="outline" className="text-xs">
-                          {getUserTypeLabel(
-                            users.find((u) => u.id === message.senderId)?.userType || "permitting_officer",
-                          )}
-                        </Badge>
-                      </div>
-                      <span className="text-xs text-gray-500">{formatMessageTime(message.createdAt)}</span>
-                    </div>
-                    <p className="text-sm">{message.content}</p>
+            <TabsContent value="inbox" className="space-y-4">
+              {/* Unread Messages */}
+              {unreadMessages.length > 0 && (
+                <div>
+                  <h3 className="text-lg font-semibold mb-3">Unread Messages</h3>
+                  <div className="space-y-2">
+                    {unreadMessages.map((message) => (
+                      <Card
+                        key={message.id}
+                        className="cursor-pointer hover:bg-gray-50 border-l-4 border-l-blue-500"
+                        onClick={() => {
+                          setSelectedMessage(message)
+                          markAsRead(message.id)
+                        }}
+                      >
+                        <CardContent className="p-4">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-2">
+                              <Mail className="h-4 w-4 text-blue-600" />
+                              <span className="font-semibold">{message.subject}</span>
+                            </div>
+                            <span className="text-sm text-gray-500">{message.sentAt.toLocaleDateString()}</span>
+                          </div>
+                          <p className="text-sm text-gray-600 mt-1 truncate">{message.content}</p>
+                        </CardContent>
+                      </Card>
+                    ))}
                   </div>
-                ))}
-                {publicMessages.length === 0 && (
-                  <div className="text-center text-gray-500 py-8">No public messages yet. Start the conversation!</div>
-                )}
-              </div>
+                </div>
+              )}
 
-              <div className="flex space-x-2">
-                <Textarea
-                  value={newPublicMessage}
-                  onChange={(e) => setNewPublicMessage(e.target.value)}
-                  placeholder="Type your public message..."
-                  rows={2}
-                  className="flex-1"
-                />
-                <Button onClick={sendPublicMessage} disabled={!newPublicMessage.trim()}>
-                  <Send className="h-4 w-4" />
-                </Button>
-              </div>
+              {/* Read Messages */}
+              {readMessages.length > 0 && (
+                <div>
+                  <h3 className="text-lg font-semibold mb-3">Read Messages</h3>
+                  <div className="space-y-2">
+                    {readMessages.map((message) => (
+                      <Card
+                        key={message.id}
+                        className="cursor-pointer hover:bg-gray-50"
+                        onClick={() => setSelectedMessage(message)}
+                      >
+                        <CardContent className="p-4">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-2">
+                              <MailOpen className="h-4 w-4 text-gray-400" />
+                              <span>{message.subject}</span>
+                            </div>
+                            <span className="text-sm text-gray-500">{message.sentAt.toLocaleDateString()}</span>
+                          </div>
+                          <p className="text-sm text-gray-600 mt-1 truncate">{message.content}</p>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {messages.length === 0 && (
+                <div className="text-center py-8">
+                  <Mail className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <p className="text-gray-500">No messages yet</p>
+                </div>
+              )}
             </TabsContent>
 
-            {/* Private Messages */}
-            <TabsContent value="private" className="space-y-4">
-              <div className="border rounded-lg p-4 h-96 overflow-y-auto space-y-3">
-                {privateMessages.map((message) => (
-                  <div
-                    key={message.id}
-                    className={`p-3 rounded-lg max-w-xs ${
-                      message.senderId === user.id ? "bg-blue-100 ml-auto text-right" : "bg-gray-100 mr-auto text-left"
-                    }`}
-                  >
-                    <div className="flex items-center justify-between mb-1">
-                      <Badge variant="outline" className="text-xs">
-                        {message.senderId === user.id
-                          ? "You"
-                          : `To: ${users.find((u) => u.id === message.receiverId)?.username || "Unknown"}`}
-                      </Badge>
-                      <span className="text-xs text-gray-500">{formatMessageTime(message.createdAt)}</span>
-                    </div>
-                    <p className="text-sm">{message.content}</p>
-                    {message.senderId !== user.id && (
-                      <div className="text-xs text-gray-400 mt-1">
-                        From: {users.find((u) => u.id === message.senderId)?.username || "Unknown"}
-                      </div>
-                    )}
-                  </div>
-                ))}
-                {privateMessages.length === 0 && (
-                  <div className="text-center text-gray-500 py-8">No private messages yet.</div>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <Select value={selectedRecipient} onValueChange={setSelectedRecipient}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select recipient" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {users.map((recipient) => (
-                      <SelectItem key={recipient.id} value={recipient.id}>
-                        {getUserTypeLabel(recipient.userType)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-
-                <div className="flex space-x-2">
-                  <Textarea
-                    value={newPrivateMessage}
-                    onChange={(e) => setNewPrivateMessage(e.target.value)}
-                    placeholder="Type your private message..."
-                    rows={2}
-                    className="flex-1"
+            <TabsContent value="compose">
+              <form onSubmit={handleSendMessage} className="space-y-4">
+                <div>
+                  <label htmlFor="subject" className="block text-sm font-medium mb-1">
+                    Subject
+                  </label>
+                  <Input
+                    id="subject"
+                    value={newMessage.subject}
+                    onChange={(e) => setNewMessage((prev) => ({ ...prev, subject: e.target.value }))}
+                    required
                   />
-                  <Button onClick={sendPrivateMessage} disabled={!newPrivateMessage.trim() || !selectedRecipient}>
-                    <Send className="h-4 w-4" />
-                  </Button>
                 </div>
-              </div>
+                <div>
+                  <label htmlFor="content" className="block text-sm font-medium mb-1">
+                    Message
+                  </label>
+                  <Textarea
+                    id="content"
+                    rows={6}
+                    value={newMessage.content}
+                    onChange={(e) => setNewMessage((prev) => ({ ...prev, content: e.target.value }))}
+                    required
+                  />
+                </div>
+                <Button type="submit">
+                  <Send className="mr-2 h-4 w-4" />
+                  Send Message
+                </Button>
+              </form>
             </TabsContent>
           </Tabs>
         </CardContent>
       </Card>
+
+      {/* Message Detail Modal */}
+      {selectedMessage && (
+        <Card>
+          <CardHeader>
+            <CardTitle>{selectedMessage.subject}</CardTitle>
+            <CardDescription>From: System • {selectedMessage.sentAt.toLocaleString()}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="whitespace-pre-wrap">{selectedMessage.content}</p>
+            <div className="mt-4">
+              <Button variant="outline" onClick={() => setSelectedMessage(null)}>
+                Close
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }

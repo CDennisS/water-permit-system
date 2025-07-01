@@ -1,103 +1,225 @@
 "use client"
 
 import { useState } from "react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
-import { Download, Printer } from "lucide-react"
-import { PermitTemplate } from "@/components/permit-template"
-import type { Application } from "@/types"
+import { Badge } from "@/components/ui/badge"
+import { Separator } from "@/components/ui/separator"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { PermitTemplate } from "./permit-template"
+import { preparePermitData } from "@/lib/enhanced-permit-generator"
+import { Eye, Download, Printer, FileText } from "lucide-react"
+import type { PermitApplication, User } from "@/types"
 
 interface PermitPreviewDialogProps {
-  application: Application
-  open: boolean
-  onOpenChange: (open: boolean) => void
+  application: PermitApplication
+  currentUser: User
+  onPrint?: () => void
+  onDownload?: () => void
 }
 
-export function PermitPreviewDialog({ application, open, onOpenChange }: PermitPreviewDialogProps) {
-  const [isDownloading, setIsDownloading] = useState(false)
-  const [isPrinting, setIsPrinting] = useState(false)
+export function PermitPreviewDialog({ application, currentUser, onPrint, onDownload }: PermitPreviewDialogProps) {
+  const [isOpen, setIsOpen] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
 
-  const handlePrint = () => {
-    setIsPrinting(true)
+  // Check if user can preview permits
+  const canPreview = [
+    "permitting_officer",
+    "permit_supervisor",
+    "catchment_manager",
+    "catchment_chairperson",
+    "ict",
+  ].includes(currentUser.userType)
+
+  // Only show for approved applications
+  const canShowPreview = application.status === "approved" || application.status === "permit_issued"
+
+  if (!canPreview || !canShowPreview) {
+    return null
+  }
+
+  const permitData = preparePermitData(application)
+
+  const handlePrint = async () => {
+    setIsLoading(true)
     try {
-      window.print()
+      // Wait for content to render
+      await new Promise((resolve) => setTimeout(resolve, 500))
+
+      const printContent = document.getElementById("permit-preview-content")
+      if (printContent) {
+        const printWindow = window.open("", "_blank")
+        if (printWindow) {
+          printWindow.document.write(`
+            <!DOCTYPE html>
+            <html>
+              <head>
+                <title>Permit ${permitData.permitNumber}</title>
+                <style>
+                  @page {
+                    size: A4;
+                    margin: 20mm;
+                  }
+                  body {
+                    font-family: 'Times New Roman', serif;
+                    font-size: 12pt;
+                    line-height: 1.4;
+                    margin: 0;
+                    padding: 0;
+                    color: black;
+                    background: white;
+                  }
+                  .no-print {
+                    display: none !important;
+                  }
+                  table {
+                    border-collapse: collapse;
+                    width: 100%;
+                  }
+                  th, td {
+                    border: 1px solid black;
+                    padding: 8px;
+                    text-align: left;
+                  }
+                  th {
+                    background-color: #f5f5f5;
+                    font-weight: bold;
+                  }
+                  .text-center {
+                    text-align: center;
+                  }
+                  .font-bold {
+                    font-weight: bold;
+                  }
+                  .mb-2 { margin-bottom: 8px; }
+                  .mb-4 { margin-bottom: 16px; }
+                  .mb-6 { margin-bottom: 24px; }
+                  .mb-8 { margin-bottom: 32px; }
+                  .mt-4 { margin-top: 16px; }
+                  .mt-12 { margin-top: 48px; }
+                  .grid { display: grid; }
+                  .grid-cols-2 { grid-template-columns: repeat(2, 1fr); }
+                  .grid-cols-3 { grid-template-columns: repeat(3, 1fr); }
+                  .gap-4 { gap: 16px; }
+                  .gap-8 { gap: 32px; }
+                  .space-y-2 > * + * { margin-top: 8px; }
+                  .space-y-4 > * + * { margin-top: 16px; }
+                  .list-decimal { list-style-type: decimal; }
+                  .list-inside { list-style-position: inside; }
+                  .border-b { border-bottom: 1px solid black; }
+                  .h-12 { height: 48px; }
+                </style>
+              </head>
+              <body>
+                ${printContent.innerHTML}
+              </body>
+            </html>
+          `)
+          printWindow.document.close()
+          printWindow.focus()
+          printWindow.print()
+          printWindow.close()
+        }
+      }
+      onPrint?.()
     } catch (error) {
       console.error("Print failed:", error)
     } finally {
-      setIsPrinting(false)
+      setIsLoading(false)
     }
   }
 
-  const handleDownload = () => {
-    setIsDownloading(true)
+  const handleDownload = async () => {
+    setIsLoading(true)
     try {
       // Create a blob with the permit content
-      const permitContent = document.getElementById("permit-content")?.innerHTML || ""
-      const blob = new Blob(
-        [
-          `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <title>Water Permit - ${application.applicationId}</title>
-          <style>
-            body { font-family: Arial, sans-serif; margin: 20px; }
-            .permit-container { max-width: 800px; margin: 0 auto; }
-            .header { text-align: center; margin-bottom: 30px; }
-            .section { margin-bottom: 20px; }
-            .signature-section { margin-top: 40px; }
-            @media print {
-              body { margin: 0; }
-              .no-print { display: none; }
-            }
-          </style>
-        </head>
-        <body>
-          <div class="permit-container">
-            ${permitContent}
-          </div>
-        </body>
-        </html>
-      `,
-        ],
-        { type: "text/html" },
-      )
+      const printContent = document.getElementById("permit-preview-content")
+      if (printContent) {
+        const htmlContent = `
+          <!DOCTYPE html>
+          <html>
+            <head>
+              <title>Permit ${permitData.permitNumber}</title>
+              <meta charset="utf-8">
+              <style>
+                body { font-family: 'Times New Roman', serif; font-size: 12pt; line-height: 1.4; }
+                table { border-collapse: collapse; width: 100%; }
+                th, td { border: 1px solid black; padding: 8px; }
+                .text-center { text-align: center; }
+                .font-bold { font-weight: bold; }
+              </style>
+            </head>
+            <body>
+              ${printContent.innerHTML}
+            </body>
+          </html>
+        `
 
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement("a")
-      a.href = url
-      a.download = `permit-${application.applicationId}.html`
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      URL.revokeObjectURL(url)
+        const blob = new Blob([htmlContent], { type: "text/html" })
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement("a")
+        a.href = url
+        a.download = `permit-${permitData.permitNumber}.html`
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        URL.revokeObjectURL(url)
+      }
+      onDownload?.()
     } catch (error) {
       console.error("Download failed:", error)
     } finally {
-      setIsDownloading(false)
+      setIsLoading(false)
     }
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Water Permit Preview - {application.applicationId}</DialogTitle>
-          <div className="flex space-x-2 no-print">
-            <Button onClick={handlePrint} disabled={isPrinting} variant="outline" size="sm">
-              <Printer className="h-4 w-4 mr-2" />
-              {isPrinting ? "Printing..." : "Print"}
-            </Button>
-            <Button onClick={handleDownload} disabled={isDownloading} variant="outline" size="sm">
-              <Download className="h-4 w-4 mr-2" />
-              {isDownloading ? "Downloading..." : "Download"}
-            </Button>
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <DialogTrigger asChild>
+        <Button variant="outline" size="sm" className="gap-2 bg-transparent">
+          <Eye className="h-4 w-4" />
+          Preview Permit
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-4xl max-h-[90vh] p-0">
+        <DialogHeader className="p-6 pb-0">
+          <div className="flex items-center justify-between">
+            <div>
+              <DialogTitle className="flex items-center gap-2">
+                <FileText className="h-5 w-5" />
+                Permit Preview
+              </DialogTitle>
+              <div className="flex items-center gap-2 mt-2">
+                <Badge variant="secondary">{permitData.permitNumber}</Badge>
+                <Badge variant="outline">{application.status}</Badge>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleDownload}
+                disabled={isLoading}
+                className="gap-2 bg-transparent"
+              >
+                <Download className="h-4 w-4" />
+                Download
+              </Button>
+              <Button variant="default" size="sm" onClick={handlePrint} disabled={isLoading} className="gap-2">
+                <Printer className="h-4 w-4" />
+                Print
+              </Button>
+            </div>
           </div>
         </DialogHeader>
 
-        <div id="permit-content">
-          <PermitTemplate application={application} />
-        </div>
+        <Separator />
+
+        <ScrollArea className="flex-1 p-6">
+          <div id="permit-preview-content" className="bg-white">
+            <PermitTemplate permitData={permitData} id="permit-preview-template" />
+          </div>
+        </ScrollArea>
       </DialogContent>
     </Dialog>
   )

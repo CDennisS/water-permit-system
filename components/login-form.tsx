@@ -6,119 +6,139 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import type { UserType } from "@/types"
-import { authenticateUser, getUserTypeLabel } from "@/lib/auth"
+import { Loader2 } from "lucide-react"
+import type { User } from "@/types"
 
 interface LoginFormProps {
-  onLogin: (user: any) => void
+  onLogin: (user: User) => void
 }
+
+// Mock users for testing
+const mockUsers: User[] = [
+  {
+    id: "1",
+    username: "officer1",
+    userType: "permitting_officer",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  },
+  {
+    id: "2",
+    username: "supervisor1",
+    userType: "permit_supervisor",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  },
+  {
+    id: "3",
+    username: "manager1",
+    userType: "catchment_manager",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  },
+  {
+    id: "4",
+    username: "chair1",
+    userType: "chairperson",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  },
+  {
+    id: "5",
+    username: "ict1",
+    userType: "ict",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  },
+]
 
 export function LoginForm({ onLogin }: LoginFormProps) {
   const [username, setUsername] = useState("")
   const [password, setPassword] = useState("")
-  const [userType, setUserType] = useState<UserType | "">("")
-  const [error, setError] = useState("")
   const [isLoading, setIsLoading] = useState(false)
-
-  const userTypes: UserType[] = [
-    "permitting_officer",
-    "chairperson",
-    "catchment_manager",
-    "catchment_chairperson",
-    "permit_supervisor",
-    "ict",
-  ]
+  const [error, setError] = useState("")
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setError("")
     setIsLoading(true)
-
-    if (!username || !password || !userType) {
-      setError("Please fill in all fields")
-      setIsLoading(false)
-      return
-    }
+    setError("")
 
     try {
-      const user = await authenticateUser(username, password, userType as UserType)
-      if (user) {
+      // Simulate API call
+      await new Promise((resolve) => setTimeout(resolve, 1000))
+
+      const user = mockUsers.find((u) => u.username === username)
+      if (user && password === "password") {
         onLogin(user)
       } else {
-        setError("Invalid credentials. Please check your username, password, and user type.")
+        setError("Invalid username or password")
       }
     } catch (err) {
-      setError("An error occurred during login. Please try again.")
+      setError("Login failed. Please try again.")
     } finally {
       setIsLoading(false)
     }
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-blue-100 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <div className="mx-auto mb-4 h-16 w-16 rounded-full bg-blue-600 flex items-center justify-center">
-            <div className="h-8 w-8 text-white font-bold text-xl">UM</div>
-          </div>
-          <CardTitle className="text-2xl font-bold text-blue-900">UMSCC Permit Management</CardTitle>
+          <CardTitle className="text-2xl font-bold">UMSCC Login</CardTitle>
           <CardDescription>Upper Manyame Sub Catchment Council</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="userType">User Type</Label>
-              <Select value={userType} onValueChange={(value) => setUserType(value as UserType)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select user type" />
-                </SelectTrigger>
-                <SelectContent>
-                  {userTypes.map((type) => (
-                    <SelectItem key={type} value={type}>
-                      {getUserTypeLabel(type)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
+            <div>
               <Label htmlFor="username">Username</Label>
               <Input
                 id="username"
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder="Enter your username"
                 required
+                disabled={isLoading}
               />
             </div>
-
-            <div className="space-y-2">
+            <div>
               <Label htmlFor="password">Password</Label>
               <Input
                 id="password"
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter your password"
                 required
+                disabled={isLoading}
               />
             </div>
-
             {error && (
               <Alert variant="destructive">
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
             )}
-
-            <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700" disabled={isLoading}>
-              {isLoading ? "Signing In..." : "Sign In"}
+            <Button type="submit" className="w-full" disabled={isLoading}>
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Signing in...
+                </>
+              ) : (
+                "Sign in"
+              )}
             </Button>
           </form>
+          <div className="mt-4 text-sm text-gray-600">
+            <p>Demo accounts:</p>
+            <ul className="list-disc list-inside mt-2 space-y-1">
+              <li>officer1 / password (Permitting Officer)</li>
+              <li>supervisor1 / password (Supervisor)</li>
+              <li>manager1 / password (Manager)</li>
+              <li>chair1 / password (Chairperson)</li>
+              <li>ict1 / password (ICT)</li>
+            </ul>
+          </div>
         </CardContent>
       </Card>
     </div>

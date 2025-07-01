@@ -57,11 +57,7 @@ export function EnhancedMessagingSystem({ user }: EnhancedMessagingSystemProps) 
   const loadUsers = async () => {
     try {
       const allUsers = await db.getUsers()
-      // Filter out current user and remove duplicates based on user ID
-      const uniqueUsers = allUsers
-        .filter((u) => u.id !== user.id)
-        .filter((user, index, self) => index === self.findIndex((u) => u.id === user.id))
-      setUsers(uniqueUsers)
+      setUsers(allUsers.filter((u) => u.id !== user.id))
     } catch (error) {
       console.error("Failed to load users:", error)
     }
@@ -415,10 +411,7 @@ export function EnhancedMessagingSystem({ user }: EnhancedMessagingSystemProps) 
                           <Avatar className="h-6 w-6">
                             <AvatarFallback className="text-xs">{getUserInitials(recipient.userType)}</AvatarFallback>
                           </Avatar>
-                          <div className="flex flex-col">
-                            <span className="text-sm font-medium">{getUserTypeLabel(recipient.userType)}</span>
-                            <span className="text-xs text-gray-500">{recipient.username || recipient.id}</span>
-                          </div>
+                          <span>{getUserTypeLabel(recipient.userType)}</span>
                         </div>
                       </SelectItem>
                     ))}

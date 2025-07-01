@@ -1,28 +1,55 @@
-export interface Application {
+export interface User {
   id: string
-  applicationId: string
-  applicantName: string
-  physicalAddress: string
-  customerAccountNumber: string
-  cellularNumber: string
-  permitType: "urban" | "irrigation" | "industrial"
-  waterSource: "ground_water" | "surface_water"
-  waterAllocation: number
-  landSize: number
-  gpsLatitude: number
-  gpsLongitude: number
-  status: "draft" | "submitted" | "approved" | "rejected"
-  currentStage: number
+  username: string
+  userType: UserType
+  password?: string // Optional for security, only used during creation/updates
   createdAt: Date
   updatedAt: Date
-  submittedAt: Date | null
-  approvedAt: Date | null
-  documents: Document[]
-  comments: Comment[]
-  intendedUse: string
 }
 
-export interface Document {
+export type UserType =
+  | "applicant"
+  | "permitting_officer"
+  | "permit_supervisor"
+  | "catchment_manager"
+  | "catchment_chairperson"
+  | "ict"
+
+export interface PermitApplication {
+  id: string
+  applicationNumber: string
+  applicantName: string
+  applicantId: string
+  physicalAddress: string
+  postalAddress?: string
+  landSize: number
+  numberOfBoreholes: number
+  waterAllocation: number // in ML
+  intendedUse: string
+  gpsLatitude: number
+  gpsLongitude: number
+  status: ApplicationStatus
+  submittedAt: Date
+  approvedAt?: Date
+  rejectedAt?: Date
+  permitNumber?: string
+  documents: ApplicationDocument[]
+  comments: ApplicationComment[]
+  workflowStage: WorkflowStage
+}
+
+export type ApplicationStatus = "draft" | "submitted" | "under_review" | "approved" | "rejected" | "permit_issued"
+
+export type WorkflowStage =
+  | "application_submitted"
+  | "technical_review"
+  | "supervisor_review"
+  | "manager_approval"
+  | "chairperson_approval"
+  | "permit_issued"
+  | "rejected"
+
+export interface ApplicationDocument {
   id: string
   applicationId: string
   fileName: string
@@ -30,101 +57,88 @@ export interface Document {
   fileSize: number
   uploadedAt: Date
   uploadedBy: string
-  documentType: "id_copy" | "proof_of_residence" | "site_plan" | "environmental_impact" | "other"
+  documentType: DocumentType
 }
 
-export interface Comment {
+export type DocumentType =
+  | "application_form"
+  | "site_plan"
+  | "water_impact_assessment"
+  | "environmental_clearance"
+  | "proof_of_ownership"
+  | "other"
+
+export interface ApplicationComment {
   id: string
   applicationId: string
   userId: string
-  userName: string
-  userRole: string
-  content: string
-  stage: number
+  userType: UserType
+  comment: string
+  commentType: CommentType
   createdAt: Date
-  isRequired: boolean
+  isInternal: boolean
 }
 
-export interface User {
-  id: string
-  username: string
-  email: string
-  role:
-    | "permitting_officer"
-    | "chairperson"
-    | "catchment_manager"
-    | "catchment_chairperson"
-    | "permit_supervisor"
-    | "ict"
-  firstName: string
-  lastName: string
-  createdAt: Date
-  lastLogin: Date | null
-  isActive: boolean
+export type CommentType = "general" | "technical_review" | "approval" | "rejection" | "clarification_request"
+
+export interface PermitData {
+  permitNumber: string
+  applicantName: string
+  physicalAddress: string
+  postalAddress?: string
+  landSize: number
+  numberOfBoreholes: number
+  totalAllocatedAbstraction: number
+  intendedUse: string
+  validUntil: string
+  issueDate: string
+  boreholeDetails: BoreholeDetail[]
+  gpsCoordinates: {
+    latitude: number
+    longitude: number
+  }
+  catchment: string
+  subCatchment: string
+  permitType: "temporary" | "provisional"
+}
+
+export interface BoreholeDetail {
+  boreholeNumber: string
+  allocatedAmount: number
+  gpsX: string
+  gpsY: string
+  intendedUse: string
+  maxAbstractionRate: number
+  waterSampleFrequency: string
 }
 
 export interface ActivityLog {
   id: string
-  applicationId: string
   userId: string
-  userName: string
+  userType: UserType
   action: string
   description: string
   timestamp: Date
+  applicationId?: string
   metadata?: Record<string, any>
 }
 
 export interface Message {
   id: string
-  fromUserId: string
-  toUserId: string
-  applicationId?: string
+  senderId: string
+  receiverId: string
   subject: string
   content: string
-  isRead: boolean
-  createdAt: Date
-  readAt: Date | null
+  sentAt: Date
+  readAt?: Date
+  applicationId?: string
+  messageType: MessageType
 }
 
-export interface SystemConfig {
-  maxFileSize: number
-  allowedFileTypes: string[]
-  workflowStages: WorkflowStage[]
-  notificationSettings: NotificationSettings
-}
-
-export interface WorkflowStage {
-  stage: number
-  name: string
-  description: string
-  requiredRole: string
-  isCommentRequired: boolean
-  canApprove: boolean
-  canReject: boolean
-}
-
-export interface NotificationSettings {
-  emailEnabled: boolean
-  smsEnabled: boolean
-  inAppEnabled: boolean
-  reminderInterval: number
-}
-
-export interface ReportFilter {
-  startDate?: Date
-  endDate?: Date
-  status?: string[]
-  permitType?: string[]
-  waterSource?: string[]
-  searchTerm?: string
-}
-
-export interface ExportOptions {
-  format: "csv" | "excel" | "pdf" | "json"
-  includeDocuments: boolean
-  includeComments: boolean
-  dateRange?: {
-    start: Date
-    end: Date
-  }
-}
+export type MessageType =
+  | "general"
+  | "application_update"
+  | "approval_notification"
+  | "rejection_notification"
+  | "clarification_request"
+  | "system_notification"
