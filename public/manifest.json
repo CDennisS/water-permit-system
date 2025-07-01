@@ -64,8 +64,8 @@
     {
       "name": "New Application",
       "short_name": "New App",
-      "description": "Create a new permit application",
-      "url": "/?action=new",
+      "description": "Submit a new water permit application",
+      "url": "/applications/new",
       "icons": [
         {
           "src": "/icons/shortcut-new.png",
@@ -76,8 +76,8 @@
     {
       "name": "My Applications",
       "short_name": "My Apps",
-      "description": "View my permit applications",
-      "url": "/?tab=dashboard",
+      "description": "View your submitted applications",
+      "url": "/applications",
       "icons": [
         {
           "src": "/icons/shortcut-apps.png",
@@ -86,13 +86,13 @@
       ]
     },
     {
-      "name": "Messages",
-      "short_name": "Messages",
-      "description": "Check messages and notifications",
-      "url": "/?tab=messages",
+      "name": "Dashboard",
+      "short_name": "Dashboard",
+      "description": "Access your dashboard",
+      "url": "/dashboard",
       "icons": [
         {
-          "src": "/icons/shortcut-messages.png",
+          "src": "/icons/shortcut-dashboard.png",
           "sizes": "96x96"
         }
       ]
@@ -107,11 +107,11 @@
       "label": "Dashboard view on desktop"
     },
     {
-      "src": "/screenshots/mobile-dashboard.png",
-      "sizes": "375x667",
+      "src": "/screenshots/mobile-applications.png",
+      "sizes": "375x812",
       "type": "image/png",
       "form_factor": "narrow",
-      "label": "Dashboard view on mobile"
+      "label": "Applications view on mobile"
     }
   ],
   "related_applications": [],

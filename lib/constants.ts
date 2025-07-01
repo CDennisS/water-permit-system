@@ -2,170 +2,287 @@
  * Application Constants
  *
  * Centralized constants for the UMSCC Permit Management System.
- * These values are used throughout the application for consistency.
+ * This file contains all static values used throughout the application.
  */
 
-import { config } from "./config"
-
-/**
- * User Types and Roles
- */
+// User Types and Roles
 export const USER_TYPES = {
   APPLICANT: "applicant",
   PERMITTING_OFFICER: "permitting_officer",
-  CHAIRPERSON: "chairperson",
   PERMIT_SUPERVISOR: "permit_supervisor",
-  ICT: "ict",
+  CHAIRPERSON: "chairperson",
   CATCHMENT_MANAGER: "catchment_manager",
   CATCHMENT_CHAIRPERSON: "catchment_chairperson",
+  ICT_ADMIN: "ict_admin",
+  SYSTEM_ADMIN: "system_admin",
 } as const
 
-export const USER_TYPE_LABELS = {
-  [USER_TYPES.APPLICANT]: "Applicant",
-  [USER_TYPES.PERMITTING_OFFICER]: "Permitting Officer",
-  [USER_TYPES.CHAIRPERSON]: "Chairperson",
-  [USER_TYPES.PERMIT_SUPERVISOR]: "Permit Supervisor",
-  [USER_TYPES.ICT]: "ICT Administrator",
-  [USER_TYPES.CATCHMENT_MANAGER]: "Catchment Manager",
-  [USER_TYPES.CATCHMENT_CHAIRPERSON]: "Catchment Chairperson",
+export const USER_ROLES = {
+  [USER_TYPES.APPLICANT]: {
+    label: "Applicant",
+    description: "Water permit applicant",
+    permissions: ["view_own_applications", "submit_applications", "upload_documents"],
+  },
+  [USER_TYPES.PERMITTING_OFFICER]: {
+    label: "Permitting Officer",
+    description: "Reviews and processes permit applications",
+    permissions: ["view_applications", "review_applications", "request_documents", "send_messages"],
+  },
+  [USER_TYPES.PERMIT_SUPERVISOR]: {
+    label: "Permit Supervisor",
+    description: "Supervises permit approval process",
+    permissions: ["approve_permits", "reject_permits", "view_all_applications", "generate_reports"],
+  },
+  [USER_TYPES.CHAIRPERSON]: {
+    label: "Chairperson",
+    description: "Final approval authority for permits",
+    permissions: ["final_approval", "view_all_data", "system_configuration", "user_management"],
+  },
+  [USER_TYPES.CATCHMENT_MANAGER]: {
+    label: "Catchment Manager",
+    description: "Manages catchment area operations",
+    permissions: ["manage_catchment", "view_catchment_data", "generate_catchment_reports"],
+  },
+  [USER_TYPES.CATCHMENT_CHAIRPERSON]: {
+    label: "Catchment Chairperson",
+    description: "Leads catchment area governance",
+    permissions: ["catchment_oversight", "approve_catchment_permits", "manage_catchment_users"],
+  },
+  [USER_TYPES.ICT_ADMIN]: {
+    label: "ICT Administrator",
+    description: "Manages system technical aspects",
+    permissions: ["system_maintenance", "user_support", "data_backup", "system_monitoring"],
+  },
+  [USER_TYPES.SYSTEM_ADMIN]: {
+    label: "System Administrator",
+    description: "Full system administration rights",
+    permissions: ["full_access", "system_configuration", "user_management", "data_management"],
+  },
 } as const
 
-/**
- * Application Status Types
- */
+// Application Status Types
 export const APPLICATION_STATUS = {
   DRAFT: "draft",
-  UNSUBMITTED: "unsubmitted",
   SUBMITTED: "submitted",
   UNDER_REVIEW: "under_review",
   PENDING_DOCUMENTS: "pending_documents",
+  TECHNICAL_REVIEW: "technical_review",
+  SUPERVISOR_REVIEW: "supervisor_review",
+  CHAIRPERSON_REVIEW: "chairperson_review",
   APPROVED: "approved",
   REJECTED: "rejected",
   CANCELLED: "cancelled",
   EXPIRED: "expired",
 } as const
 
-export const APPLICATION_STATUS_LABELS = {
+export const STATUS_COLORS = {
+  [APPLICATION_STATUS.DRAFT]: "bg-gray-100 text-gray-800",
+  [APPLICATION_STATUS.SUBMITTED]: "bg-blue-100 text-blue-800",
+  [APPLICATION_STATUS.UNDER_REVIEW]: "bg-yellow-100 text-yellow-800",
+  [APPLICATION_STATUS.PENDING_DOCUMENTS]: "bg-orange-100 text-orange-800",
+  [APPLICATION_STATUS.TECHNICAL_REVIEW]: "bg-purple-100 text-purple-800",
+  [APPLICATION_STATUS.SUPERVISOR_REVIEW]: "bg-indigo-100 text-indigo-800",
+  [APPLICATION_STATUS.CHAIRPERSON_REVIEW]: "bg-pink-100 text-pink-800",
+  [APPLICATION_STATUS.APPROVED]: "bg-green-100 text-green-800",
+  [APPLICATION_STATUS.REJECTED]: "bg-red-100 text-red-800",
+  [APPLICATION_STATUS.CANCELLED]: "bg-gray-100 text-gray-800",
+  [APPLICATION_STATUS.EXPIRED]: "bg-red-100 text-red-800",
+} as const
+
+export const STATUS_LABELS = {
   [APPLICATION_STATUS.DRAFT]: "Draft",
-  [APPLICATION_STATUS.UNSUBMITTED]: "Unsubmitted",
   [APPLICATION_STATUS.SUBMITTED]: "Submitted",
   [APPLICATION_STATUS.UNDER_REVIEW]: "Under Review",
   [APPLICATION_STATUS.PENDING_DOCUMENTS]: "Pending Documents",
+  [APPLICATION_STATUS.TECHNICAL_REVIEW]: "Technical Review",
+  [APPLICATION_STATUS.SUPERVISOR_REVIEW]: "Supervisor Review",
+  [APPLICATION_STATUS.CHAIRPERSON_REVIEW]: "Chairperson Review",
   [APPLICATION_STATUS.APPROVED]: "Approved",
   [APPLICATION_STATUS.REJECTED]: "Rejected",
   [APPLICATION_STATUS.CANCELLED]: "Cancelled",
   [APPLICATION_STATUS.EXPIRED]: "Expired",
 } as const
 
-export const APPLICATION_STATUS_COLORS = {
-  [APPLICATION_STATUS.DRAFT]: "gray",
-  [APPLICATION_STATUS.UNSUBMITTED]: "yellow",
-  [APPLICATION_STATUS.SUBMITTED]: "blue",
-  [APPLICATION_STATUS.UNDER_REVIEW]: "orange",
-  [APPLICATION_STATUS.PENDING_DOCUMENTS]: "purple",
-  [APPLICATION_STATUS.APPROVED]: "green",
-  [APPLICATION_STATUS.REJECTED]: "red",
-  [APPLICATION_STATUS.CANCELLED]: "gray",
-  [APPLICATION_STATUS.EXPIRED]: "red",
-} as const
-
-/**
- * Permit Types
- */
+// Permit Types
 export const PERMIT_TYPES = {
-  WATER_ABSTRACTION: "water_abstraction",
-  BOREHOLE_DRILLING: "borehole_drilling",
-  WATER_STORAGE: "water_storage",
+  BOREHOLE: "borehole",
+  SURFACE_WATER: "surface_water",
+  GROUNDWATER: "groundwater",
+  INDUSTRIAL: "industrial",
+  DOMESTIC: "domestic",
   IRRIGATION: "irrigation",
-  INDUSTRIAL_USE: "industrial_use",
-  DOMESTIC_USE: "domestic_use",
-  COMMERCIAL_USE: "commercial_use",
-  MINING_USE: "mining_use",
+  COMMERCIAL: "commercial",
+  MUNICIPAL: "municipal",
 } as const
 
 export const PERMIT_TYPE_LABELS = {
-  [PERMIT_TYPES.WATER_ABSTRACTION]: "Water Abstraction",
-  [PERMIT_TYPES.BOREHOLE_DRILLING]: "Borehole Drilling",
-  [PERMIT_TYPES.WATER_STORAGE]: "Water Storage",
-  [PERMIT_TYPES.IRRIGATION]: "Irrigation",
-  [PERMIT_TYPES.INDUSTRIAL_USE]: "Industrial Use",
-  [PERMIT_TYPES.DOMESTIC_USE]: "Domestic Use",
-  [PERMIT_TYPES.COMMERCIAL_USE]: "Commercial Use",
-  [PERMIT_TYPES.MINING_USE]: "Mining Use",
+  [PERMIT_TYPES.BOREHOLE]: "Borehole Permit",
+  [PERMIT_TYPES.SURFACE_WATER]: "Surface Water Permit",
+  [PERMIT_TYPES.GROUNDWATER]: "Groundwater Permit",
+  [PERMIT_TYPES.INDUSTRIAL]: "Industrial Water Permit",
+  [PERMIT_TYPES.DOMESTIC]: "Domestic Water Permit",
+  [PERMIT_TYPES.IRRIGATION]: "Irrigation Permit",
+  [PERMIT_TYPES.COMMERCIAL]: "Commercial Water Permit",
+  [PERMIT_TYPES.MUNICIPAL]: "Municipal Water Permit",
 } as const
 
-/**
- * Water Sources
- */
+// Water Sources
 export const WATER_SOURCES = {
-  RIVER: "river",
-  STREAM: "stream",
-  LAKE: "lake",
-  DAM: "dam",
   BOREHOLE: "borehole",
   WELL: "well",
+  RIVER: "river",
+  STREAM: "stream",
+  DAM: "dam",
   SPRING: "spring",
-  GROUNDWATER: "groundwater",
+  LAKE: "lake",
+  RESERVOIR: "reservoir",
 } as const
 
 export const WATER_SOURCE_LABELS = {
-  [WATER_SOURCES.RIVER]: "River",
-  [WATER_SOURCES.STREAM]: "Stream",
-  [WATER_SOURCES.LAKE]: "Lake",
-  [WATER_SOURCES.DAM]: "Dam",
   [WATER_SOURCES.BOREHOLE]: "Borehole",
   [WATER_SOURCES.WELL]: "Well",
+  [WATER_SOURCES.RIVER]: "River",
+  [WATER_SOURCES.STREAM]: "Stream",
+  [WATER_SOURCES.DAM]: "Dam",
   [WATER_SOURCES.SPRING]: "Spring",
-  [WATER_SOURCES.GROUNDWATER]: "Groundwater",
+  [WATER_SOURCES.LAKE]: "Lake",
+  [WATER_SOURCES.RESERVOIR]: "Reservoir",
 } as const
 
-/**
- * Document Types
- */
+// Document Types
 export const DOCUMENT_TYPES = {
   APPLICATION_FORM: "application_form",
-  IDENTITY_DOCUMENT: "identity_document",
-  PROOF_OF_RESIDENCE: "proof_of_residence",
   SITE_PLAN: "site_plan",
   ENVIRONMENTAL_IMPACT: "environmental_impact",
   TECHNICAL_DRAWINGS: "technical_drawings",
+  PROOF_OF_OWNERSHIP: "proof_of_ownership",
   WATER_QUALITY_REPORT: "water_quality_report",
-  BUSINESS_LICENSE: "business_license",
-  OTHER: "other",
+  DRILLING_LOG: "drilling_log",
+  PUMP_TEST_RESULTS: "pump_test_results",
+  SUPPORTING_DOCUMENTS: "supporting_documents",
+  PERMIT_CERTIFICATE: "permit_certificate",
 } as const
 
 export const DOCUMENT_TYPE_LABELS = {
   [DOCUMENT_TYPES.APPLICATION_FORM]: "Application Form",
-  [DOCUMENT_TYPES.IDENTITY_DOCUMENT]: "Identity Document",
-  [DOCUMENT_TYPES.PROOF_OF_RESIDENCE]: "Proof of Residence",
   [DOCUMENT_TYPES.SITE_PLAN]: "Site Plan",
   [DOCUMENT_TYPES.ENVIRONMENTAL_IMPACT]: "Environmental Impact Assessment",
   [DOCUMENT_TYPES.TECHNICAL_DRAWINGS]: "Technical Drawings",
+  [DOCUMENT_TYPES.PROOF_OF_OWNERSHIP]: "Proof of Ownership",
   [DOCUMENT_TYPES.WATER_QUALITY_REPORT]: "Water Quality Report",
-  [DOCUMENT_TYPES.BUSINESS_LICENSE]: "Business License",
-  [DOCUMENT_TYPES.OTHER]: "Other",
+  [DOCUMENT_TYPES.DRILLING_LOG]: "Drilling Log",
+  [DOCUMENT_TYPES.PUMP_TEST_RESULTS]: "Pump Test Results",
+  [DOCUMENT_TYPES.SUPPORTING_DOCUMENTS]: "Supporting Documents",
+  [DOCUMENT_TYPES.PERMIT_CERTIFICATE]: "Permit Certificate",
 } as const
 
-/**
- * Message Types
- */
+// Required Documents by Permit Type
+export const REQUIRED_DOCUMENTS = {
+  [PERMIT_TYPES.BOREHOLE]: [
+    DOCUMENT_TYPES.APPLICATION_FORM,
+    DOCUMENT_TYPES.SITE_PLAN,
+    DOCUMENT_TYPES.PROOF_OF_OWNERSHIP,
+    DOCUMENT_TYPES.DRILLING_LOG,
+    DOCUMENT_TYPES.PUMP_TEST_RESULTS,
+  ],
+  [PERMIT_TYPES.SURFACE_WATER]: [
+    DOCUMENT_TYPES.APPLICATION_FORM,
+    DOCUMENT_TYPES.SITE_PLAN,
+    DOCUMENT_TYPES.ENVIRONMENTAL_IMPACT,
+    DOCUMENT_TYPES.TECHNICAL_DRAWINGS,
+  ],
+  [PERMIT_TYPES.GROUNDWATER]: [
+    DOCUMENT_TYPES.APPLICATION_FORM,
+    DOCUMENT_TYPES.SITE_PLAN,
+    DOCUMENT_TYPES.PROOF_OF_OWNERSHIP,
+    DOCUMENT_TYPES.WATER_QUALITY_REPORT,
+  ],
+  [PERMIT_TYPES.INDUSTRIAL]: [
+    DOCUMENT_TYPES.APPLICATION_FORM,
+    DOCUMENT_TYPES.SITE_PLAN,
+    DOCUMENT_TYPES.ENVIRONMENTAL_IMPACT,
+    DOCUMENT_TYPES.TECHNICAL_DRAWINGS,
+    DOCUMENT_TYPES.WATER_QUALITY_REPORT,
+  ],
+  [PERMIT_TYPES.DOMESTIC]: [
+    DOCUMENT_TYPES.APPLICATION_FORM,
+    DOCUMENT_TYPES.SITE_PLAN,
+    DOCUMENT_TYPES.PROOF_OF_OWNERSHIP,
+  ],
+  [PERMIT_TYPES.IRRIGATION]: [
+    DOCUMENT_TYPES.APPLICATION_FORM,
+    DOCUMENT_TYPES.SITE_PLAN,
+    DOCUMENT_TYPES.TECHNICAL_DRAWINGS,
+    DOCUMENT_TYPES.PROOF_OF_OWNERSHIP,
+  ],
+  [PERMIT_TYPES.COMMERCIAL]: [
+    DOCUMENT_TYPES.APPLICATION_FORM,
+    DOCUMENT_TYPES.SITE_PLAN,
+    DOCUMENT_TYPES.PROOF_OF_OWNERSHIP,
+    DOCUMENT_TYPES.WATER_QUALITY_REPORT,
+  ],
+  [PERMIT_TYPES.MUNICIPAL]: [
+    DOCUMENT_TYPES.APPLICATION_FORM,
+    DOCUMENT_TYPES.SITE_PLAN,
+    DOCUMENT_TYPES.ENVIRONMENTAL_IMPACT,
+    DOCUMENT_TYPES.TECHNICAL_DRAWINGS,
+    DOCUMENT_TYPES.WATER_QUALITY_REPORT,
+  ],
+} as const
+
+// File Upload Constants
+export const FILE_UPLOAD = {
+  MAX_SIZE: 10 * 1024 * 1024, // 10MB
+  ALLOWED_TYPES: [
+    "application/pdf",
+    "image/jpeg",
+    "image/png",
+    "image/gif",
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  ],
+  ALLOWED_EXTENSIONS: [".pdf", ".jpg", ".jpeg", ".png", ".gif", ".doc", ".docx"],
+} as const
+
+// Pagination Constants
+export const PAGINATION = {
+  DEFAULT_PAGE_SIZE: 10,
+  PAGE_SIZE_OPTIONS: [5, 10, 20, 50, 100],
+  MAX_PAGE_SIZE: 100,
+} as const
+
+// Date Formats
+export const DATE_FORMATS = {
+  DISPLAY: "MMM dd, yyyy",
+  INPUT: "yyyy-MM-dd",
+  TIMESTAMP: "yyyy-MM-dd HH:mm:ss",
+  ISO: "yyyy-MM-dd'T'HH:mm:ss.SSSxxx",
+} as const
+
+// Message Types
 export const MESSAGE_TYPES = {
-  PUBLIC: "public",
-  PRIVATE: "private",
-  SYSTEM: "system",
-  NOTIFICATION: "notification",
+  INFO: "info",
+  WARNING: "warning",
+  ERROR: "error",
+  SUCCESS: "success",
+  DOCUMENT_REQUEST: "document_request",
+  STATUS_UPDATE: "status_update",
+  APPROVAL: "approval",
+  REJECTION: "rejection",
 } as const
 
-export const MESSAGE_TYPE_LABELS = {
-  [MESSAGE_TYPES.PUBLIC]: "Public Message",
-  [MESSAGE_TYPES.PRIVATE]: "Private Message",
-  [MESSAGE_TYPES.SYSTEM]: "System Message",
-  [MESSAGE_TYPES.NOTIFICATION]: "Notification",
+export const MESSAGE_TYPE_COLORS = {
+  [MESSAGE_TYPES.INFO]: "bg-blue-50 border-blue-200 text-blue-800",
+  [MESSAGE_TYPES.WARNING]: "bg-yellow-50 border-yellow-200 text-yellow-800",
+  [MESSAGE_TYPES.ERROR]: "bg-red-50 border-red-200 text-red-800",
+  [MESSAGE_TYPES.SUCCESS]: "bg-green-50 border-green-200 text-green-800",
+  [MESSAGE_TYPES.DOCUMENT_REQUEST]: "bg-orange-50 border-orange-200 text-orange-800",
+  [MESSAGE_TYPES.STATUS_UPDATE]: "bg-purple-50 border-purple-200 text-purple-800",
+  [MESSAGE_TYPES.APPROVAL]: "bg-green-50 border-green-200 text-green-800",
+  [MESSAGE_TYPES.REJECTION]: "bg-red-50 border-red-200 text-red-800",
 } as const
 
-/**
- * Priority Levels
- */
+// Priority Levels
 export const PRIORITY_LEVELS = {
   LOW: "low",
   NORMAL: "normal",
@@ -173,223 +290,173 @@ export const PRIORITY_LEVELS = {
   URGENT: "urgent",
 } as const
 
-export const PRIORITY_LABELS = {
-  [PRIORITY_LEVELS.LOW]: "Low",
-  [PRIORITY_LEVELS.NORMAL]: "Normal",
-  [PRIORITY_LEVELS.HIGH]: "High",
-  [PRIORITY_LEVELS.URGENT]: "Urgent",
-} as const
-
 export const PRIORITY_COLORS = {
-  [PRIORITY_LEVELS.LOW]: "gray",
-  [PRIORITY_LEVELS.NORMAL]: "blue",
-  [PRIORITY_LEVELS.HIGH]: "orange",
-  [PRIORITY_LEVELS.URGENT]: "red",
+  [PRIORITY_LEVELS.LOW]: "bg-gray-100 text-gray-800",
+  [PRIORITY_LEVELS.NORMAL]: "bg-blue-100 text-blue-800",
+  [PRIORITY_LEVELS.HIGH]: "bg-orange-100 text-orange-800",
+  [PRIORITY_LEVELS.URGENT]: "bg-red-100 text-red-800",
 } as const
 
-/**
- * File Upload Constants
- */
-export const FILE_UPLOAD = {
-  MAX_SIZE: config.security.maxFileSize,
-  ALLOWED_TYPES: config.security.allowedFileTypes,
-  MIME_TYPES: {
-    pdf: "application/pdf",
-    doc: "application/msword",
-    docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    jpg: "image/jpeg",
-    jpeg: "image/jpeg",
-    png: "image/png",
-    gif: "image/gif",
+// System Messages
+export const SYSTEM_MESSAGES = {
+  ERRORS: {
+    GENERIC: "An unexpected error occurred. Please try again.",
+    NETWORK: "Network error. Please check your connection.",
+    UNAUTHORIZED: "You are not authorized to perform this action.",
+    FORBIDDEN: "Access denied. Insufficient permissions.",
+    NOT_FOUND: "The requested resource was not found.",
+    VALIDATION: "Please check your input and try again.",
+    FILE_TOO_LARGE: "File size exceeds the maximum allowed limit.",
+    INVALID_FILE_TYPE: "Invalid file type. Please upload a supported file format.",
+    SESSION_EXPIRED: "Your session has expired. Please log in again.",
+  },
+  SUCCESS: {
+    APPLICATION_SUBMITTED: "Application submitted successfully.",
+    APPLICATION_UPDATED: "Application updated successfully.",
+    DOCUMENT_UPLOADED: "Document uploaded successfully.",
+    MESSAGE_SENT: "Message sent successfully.",
+    STATUS_UPDATED: "Status updated successfully.",
+    PERMIT_APPROVED: "Permit approved successfully.",
+    PERMIT_REJECTED: "Permit rejected successfully.",
+    USER_CREATED: "User created successfully.",
+    USER_UPDATED: "User updated successfully.",
+    SETTINGS_SAVED: "Settings saved successfully.",
+  },
+  INFO: {
+    LOADING: "Loading...",
+    PROCESSING: "Processing your request...",
+    SAVING: "Saving changes...",
+    UPLOADING: "Uploading file...",
+    GENERATING_REPORT: "Generating report...",
+    SENDING_EMAIL: "Sending email notification...",
   },
 } as const
 
-/**
- * Date and Time Constants
- */
-export const DATE_FORMATS = {
-  DISPLAY: "MMM dd, yyyy",
-  DISPLAY_WITH_TIME: "MMM dd, yyyy HH:mm",
-  ISO: "yyyy-MM-dd",
-  ISO_WITH_TIME: "yyyy-MM-dd HH:mm:ss",
-  RELATIVE: "relative",
+// API Endpoints
+export const API_ENDPOINTS = {
+  AUTH: {
+    LOGIN: "/api/auth/login",
+    LOGOUT: "/api/auth/logout",
+    REGISTER: "/api/auth/register",
+    REFRESH: "/api/auth/refresh",
+    PROFILE: "/api/auth/profile",
+  },
+  APPLICATIONS: {
+    LIST: "/api/applications",
+    CREATE: "/api/applications",
+    GET: (id: string) => `/api/applications/${id}`,
+    UPDATE: (id: string) => `/api/applications/${id}`,
+    DELETE: (id: string) => `/api/applications/${id}`,
+    SUBMIT: (id: string) => `/api/applications/${id}/submit`,
+    APPROVE: (id: string) => `/api/applications/${id}/approve`,
+    REJECT: (id: string) => `/api/applications/${id}/reject`,
+  },
+  DOCUMENTS: {
+    UPLOAD: "/api/documents/upload",
+    DOWNLOAD: (id: string) => `/api/documents/${id}/download`,
+    DELETE: (id: string) => `/api/documents/${id}`,
+  },
+  MESSAGES: {
+    LIST: "/api/messages",
+    SEND: "/api/messages",
+    MARK_READ: (id: string) => `/api/messages/${id}/read`,
+  },
+  REPORTS: {
+    GENERATE: "/api/reports/generate",
+    DOWNLOAD: (id: string) => `/api/reports/${id}/download`,
+  },
+  USERS: {
+    LIST: "/api/users",
+    CREATE: "/api/users",
+    GET: (id: string) => `/api/users/${id}`,
+    UPDATE: (id: string) => `/api/users/${id}`,
+    DELETE: (id: string) => `/api/users/${id}`,
+  },
 } as const
 
-export const TIME_ZONES = {
-  HARARE: "Africa/Harare",
-  UTC: "UTC",
+// Local Storage Keys
+export const STORAGE_KEYS = {
+  USER_PREFERENCES: "umscc_user_preferences",
+  THEME: "umscc_theme",
+  LANGUAGE: "umscc_language",
+  DRAFT_APPLICATION: "umscc_draft_application",
+  RECENT_SEARCHES: "umscc_recent_searches",
+  FILTER_SETTINGS: "umscc_filter_settings",
 } as const
 
-/**
- * Pagination Constants
- */
-export const PAGINATION = {
-  DEFAULT_PAGE_SIZE: 10,
-  MAX_PAGE_SIZE: 100,
-  PAGE_SIZE_OPTIONS: [10, 25, 50, 100],
+// Theme Constants
+export const THEMES = {
+  LIGHT: "light",
+  DARK: "dark",
+  SYSTEM: "system",
 } as const
 
-/**
- * Search and Filter Constants
- */
-export const SEARCH = {
-  MIN_QUERY_LENGTH: 2,
-  MAX_QUERY_LENGTH: 100,
-  DEBOUNCE_DELAY: 300,
+// Notification Settings
+export const NOTIFICATION_SETTINGS = {
+  TYPES: {
+    EMAIL: "email",
+    SMS: "sms",
+    PUSH: "push",
+    IN_APP: "in_app",
+  },
+  FREQUENCIES: {
+    IMMEDIATE: "immediate",
+    DAILY: "daily",
+    WEEKLY: "weekly",
+    NEVER: "never",
+  },
 } as const
 
-/**
- * Validation Constants
- */
-export const VALIDATION = {
-  MIN_PASSWORD_LENGTH: 8,
-  MAX_PASSWORD_LENGTH: 128,
-  MIN_USERNAME_LENGTH: 3,
-  MAX_USERNAME_LENGTH: 50,
-  MAX_NAME_LENGTH: 100,
-  MAX_DESCRIPTION_LENGTH: 1000,
-  MAX_COMMENT_LENGTH: 500,
-  PHONE_REGEX: /^\+?[1-9]\d{1,14}$/,
-  EMAIL_REGEX: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+// Export Types
+export const EXPORT_FORMATS = {
+  PDF: "pdf",
+  EXCEL: "excel",
+  CSV: "csv",
+  JSON: "json",
 } as const
 
-/**
- * UI Constants
- */
-export const UI = {
-  TOAST_DURATION: 5000,
-  LOADING_DELAY: 200,
-  ANIMATION_DURATION: 300,
-  DEBOUNCE_DELAY: 300,
-  THROTTLE_DELAY: 100,
+// Chart Colors
+export const CHART_COLORS = [
+  "#2563eb", // blue-600
+  "#dc2626", // red-600
+  "#16a34a", // green-600
+  "#ca8a04", // yellow-600
+  "#9333ea", // purple-600
+  "#c2410c", // orange-600
+  "#0891b2", // cyan-600
+  "#be123c", // rose-600
+  "#4338ca", // indigo-600
+  "#059669", // emerald-600
+] as const
+
+// System Limits
+export const SYSTEM_LIMITS = {
+  MAX_APPLICATIONS_PER_USER: 50,
+  MAX_DOCUMENTS_PER_APPLICATION: 20,
+  MAX_MESSAGE_LENGTH: 2000,
+  MAX_COMMENT_LENGTH: 1000,
+  SESSION_TIMEOUT: 30 * 60 * 1000, // 30 minutes
+  FILE_RETENTION_DAYS: 365,
+  AUDIT_LOG_RETENTION_DAYS: 2555, // 7 years
 } as const
 
-/**
- * API Constants
- */
-export const API = {
-  TIMEOUT: 30000,
+// Regular Expressions
+export const REGEX_PATTERNS = {
+  EMAIL: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+  PHONE: /^\+?[\d\s\-$$$$]+$/,
+  POSTAL_CODE: /^[A-Z0-9\s-]+$/i,
+  COORDINATES: /^-?\d+\.?\d*$/,
+  PERMIT_NUMBER: /^UMSCC-\d{4}-\d{6}$/,
+  APPLICATION_NUMBER: /^APP-\d{4}-\d{6}$/,
+} as const
+
+// Default Values
+export const DEFAULTS = {
+  PAGINATION_SIZE: 10,
+  SEARCH_DEBOUNCE: 300,
+  NOTIFICATION_TIMEOUT: 5000,
   RETRY_ATTEMPTS: 3,
   RETRY_DELAY: 1000,
-  RATE_LIMIT: 100,
-  RATE_LIMIT_WINDOW: 60000,
-} as const
-
-/**
- * Cache Keys
- */
-export const CACHE_KEYS = {
-  USER_PROFILE: "user_profile",
-  APPLICATIONS: "applications",
-  MESSAGES: "messages",
-  NOTIFICATIONS: "notifications",
-  SYSTEM_CONFIG: "system_config",
-} as const
-
-/**
- * Local Storage Keys
- */
-export const STORAGE_KEYS = {
-  THEME: "umscc-theme",
-  USER_PREFERENCES: "umscc-user-preferences",
-  DRAFT_APPLICATION: "umscc-draft-application",
-  LAST_ACTIVITY: "umscc-last-activity",
-} as const
-
-/**
- * Error Codes
- */
-export const ERROR_CODES = {
-  UNAUTHORIZED: "UNAUTHORIZED",
-  FORBIDDEN: "FORBIDDEN",
-  NOT_FOUND: "NOT_FOUND",
-  VALIDATION_ERROR: "VALIDATION_ERROR",
-  SERVER_ERROR: "SERVER_ERROR",
-  NETWORK_ERROR: "NETWORK_ERROR",
-  TIMEOUT_ERROR: "TIMEOUT_ERROR",
-} as const
-
-/**
- * Success Messages
- */
-export const SUCCESS_MESSAGES = {
-  APPLICATION_SAVED: "Application saved successfully",
-  APPLICATION_SUBMITTED: "Application submitted successfully",
-  APPLICATION_APPROVED: "Application approved successfully",
-  APPLICATION_REJECTED: "Application rejected",
-  MESSAGE_SENT: "Message sent successfully",
-  DOCUMENT_UPLOADED: "Document uploaded successfully",
-  PROFILE_UPDATED: "Profile updated successfully",
-} as const
-
-/**
- * Error Messages
- */
-export const ERROR_MESSAGES = {
-  GENERIC: "An unexpected error occurred. Please try again.",
-  NETWORK: "Network error. Please check your connection.",
-  UNAUTHORIZED: "You are not authorized to perform this action.",
-  FORBIDDEN: "Access denied. Please contact your administrator.",
-  NOT_FOUND: "The requested resource was not found.",
-  VALIDATION: "Please check your input and try again.",
-  FILE_TOO_LARGE: `File size must be less than ${FILE_UPLOAD.MAX_SIZE / 1024 / 1024}MB`,
-  INVALID_FILE_TYPE: `Only ${FILE_UPLOAD.ALLOWED_TYPES.join(", ")} files are allowed`,
-  SESSION_EXPIRED: "Your session has expired. Please log in again.",
-} as const
-
-/**
- * Application Workflow States
- */
-export const WORKFLOW_STATES = {
-  INITIAL: "initial",
-  REVIEW: "review",
-  APPROVAL: "approval",
-  FINAL: "final",
-} as const
-
-/**
- * Notification Types
- */
-export const NOTIFICATION_TYPES = {
-  INFO: "info",
-  SUCCESS: "success",
-  WARNING: "warning",
-  ERROR: "error",
-} as const
-
-/**
- * Export all constants as a single object for convenience
- */
-export const CONSTANTS = {
-  USER_TYPES,
-  USER_TYPE_LABELS,
-  APPLICATION_STATUS,
-  APPLICATION_STATUS_LABELS,
-  APPLICATION_STATUS_COLORS,
-  PERMIT_TYPES,
-  PERMIT_TYPE_LABELS,
-  WATER_SOURCES,
-  WATER_SOURCE_LABELS,
-  DOCUMENT_TYPES,
-  DOCUMENT_TYPE_LABELS,
-  MESSAGE_TYPES,
-  MESSAGE_TYPE_LABELS,
-  PRIORITY_LEVELS,
-  PRIORITY_LABELS,
-  PRIORITY_COLORS,
-  FILE_UPLOAD,
-  DATE_FORMATS,
-  TIME_ZONES,
-  PAGINATION,
-  SEARCH,
-  VALIDATION,
-  UI,
-  API,
-  CACHE_KEYS,
-  STORAGE_KEYS,
-  ERROR_CODES,
-  SUCCESS_MESSAGES,
-  ERROR_MESSAGES,
-  WORKFLOW_STATES,
-  NOTIFICATION_TYPES,
+  CACHE_DURATION: 5 * 60 * 1000, // 5 minutes
+  IDLE_TIMEOUT: 15 * 60 * 1000, // 15 minutes
 } as const
