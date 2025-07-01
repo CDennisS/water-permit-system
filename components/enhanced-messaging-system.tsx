@@ -57,7 +57,11 @@ export function EnhancedMessagingSystem({ user }: EnhancedMessagingSystemProps) 
   const loadUsers = async () => {
     try {
       const allUsers = await db.getUsers()
-      setUsers(allUsers.filter((u) => u.id !== user.id))
+      // Remove current user and deduplicate by user ID
+      const uniqueUsers = allUsers
+        .filter((u) => u.id !== user.id)
+        .filter((user, index, self) => index === self.findIndex((u) => u.id === user.id))
+      setUsers(uniqueUsers)
     } catch (error) {
       console.error("Failed to load users:", error)
     }
@@ -406,12 +410,14 @@ export function EnhancedMessagingSystem({ user }: EnhancedMessagingSystemProps) 
                   </SelectTrigger>
                   <SelectContent>
                     {users.map((recipient) => (
-                      <SelectItem key={recipient.id} value={recipient.id}>
+                      <SelectItem key={`recipient-${recipient.id}`} value={recipient.id}>
                         <div className="flex items-center space-x-2">
                           <Avatar className="h-6 w-6">
                             <AvatarFallback className="text-xs">{getUserInitials(recipient.userType)}</AvatarFallback>
                           </Avatar>
-                          <span>{getUserTypeLabel(recipient.userType)}</span>
+                          <span>
+                            {getUserTypeLabel(recipient.userType)} - {recipient.username}
+                          </span>
                         </div>
                       </SelectItem>
                     ))}
