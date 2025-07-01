@@ -1,709 +1,319 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
-import { LoginForm } from "@/components/login-form"
-import { DashboardHeader } from "@/components/dashboard-header"
-import { ApplicationForm } from "@/components/application-form"
-import { WorkflowManager } from "@/components/workflow-manager"
-import { MessagingSystem } from "@/components/messaging-system"
-import { EnhancedReportsAnalytics } from "@/components/enhanced-reports-analytics"
-import { ActivityLogs } from "@/components/activity-logs"
-import { DashboardApplications } from "@/components/dashboard-applications"
-import { RecordsSection } from "@/components/records-section"
-import { ChairpersonDashboard } from "@/components/chairperson-dashboard"
-import { PermitSupervisorDashboard } from "@/components/permit-supervisor-dashboard"
-import { ICTDashboard } from "@/components/ict-dashboard"
-import { CatchmentManagerDashboard } from "@/components/catchment-manager-dashboard"
-import { CatchmentChairpersonDashboard } from "@/components/catchment-chairperson-dashboard"
-import { ComprehensiveApplicationDetails } from "@/components/comprehensive-application-details"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { useState } from "react"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { useToast } from "@/components/ui/use-toast"
-import { Loader2, AlertTriangle } from "lucide-react"
-import type { User, PermitApplication } from "@/types"
-import { db } from "@/lib/database"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { PermitPreviewDialog } from "@/components/permit-preview-dialog"
+import { FileText, Users, CheckCircle, Clock, AlertCircle, Plus, Search, Filter, Download } from "lucide-react"
+import type { PermitApplication, User } from "@/types"
 
-/**
- * Main Application Component
- *
- * This is the root component that handles:
- * - User authentication and session management
- * - Application state management
- * - Navigation between different views
- * - Real-time message polling
- * - Error handling for all async operations
- *
- * The component uses role-based rendering to show different dashboards
- * based on the user's type (permitting_officer, chairperson, etc.)
- */
-export default function Home() {
-  /* ========================== STATE MANAGEMENT ========================== */
+// Mock data for demonstration
+const mockUser: User = {
+  id: "1",
+  name: "John Doe",
+  email: "john@example.com",
+  userType: "permitting_officer",
+  createdAt: new Date(),
+  updatedAt: new Date(),
+}
 
-  // Authentication state
-  const [user, setUser] = useState<User | null>(null)
-  const [isAuthenticating, setIsAuthenticating] = useState(false)
+const mockApplications: PermitApplication[] = [
+  {
+    id: "1",
+    applicantName: "ABC Farming Ltd",
+    applicantEmail: "contact@abcfarming.com",
+    physicalAddress: "Plot 123, Harare North",
+    postalAddress: "P.O. Box 456, Harare",
+    landSize: 50,
+    numberOfBoreholes: 3,
+    waterAllocation: 15,
+    intendedUse: "irrigation",
+    gpsLatitude: -17.8252,
+    gpsLongitude: 31.0335,
+    status: "approved",
+    permitNumber: "UMSCC-2024-01-0001",
+    submittedAt: new Date("2024-01-15"),
+    approvedAt: new Date("2024-01-20"),
+    createdAt: new Date("2024-01-10"),
+    updatedAt: new Date("2024-01-20"),
+    documents: [],
+    comments: [],
+  },
+  {
+    id: "2",
+    applicantName: "XYZ Mining Corp",
+    applicantEmail: "permits@xyzmining.com",
+    physicalAddress: "Mine Site 789, Mazowe",
+    landSize: 200,
+    numberOfBoreholes: 5,
+    waterAllocation: 50,
+    intendedUse: "mining",
+    gpsLatitude: -17.5087,
+    gpsLongitude: 30.9756,
+    status: "under_review",
+    submittedAt: new Date("2024-01-18"),
+    createdAt: new Date("2024-01-15"),
+    updatedAt: new Date("2024-01-18"),
+    documents: [],
+    comments: [],
+  },
+  {
+    id: "3",
+    applicantName: "Green Valley Estates",
+    applicantEmail: "info@greenvalley.co.zw",
+    physicalAddress: "Subdivision A, Borrowdale",
+    landSize: 25,
+    numberOfBoreholes: 2,
+    waterAllocation: 8,
+    intendedUse: "domestic",
+    gpsLatitude: -17.7669,
+    gpsLongitude: 31.107,
+    status: "permit_issued",
+    permitNumber: "UMSCC-2024-01-0002",
+    submittedAt: new Date("2024-01-12"),
+    approvedAt: new Date("2024-01-17"),
+    createdAt: new Date("2024-01-08"),
+    updatedAt: new Date("2024-01-17"),
+    documents: [],
+    comments: [],
+  },
+]
 
-  // Navigation and view state
-  const [currentView, setCurrentView] = useState("dashboard")
-  const [selectedApplication, setSelectedApplication] = useState<PermitApplication | null>(null)
-  const [isEditing, setIsEditing] = useState(false)
+export default function HomePage() {
+  const [selectedTab, setSelectedTab] = useState("overview")
 
-  // Message and notification state
-  const [unreadMessageCount, setUnreadMessageCount] = useState(0)
-  const [isLoadingMessages, setIsLoadingMessages] = useState(false)
-
-  // Error handling state
-  const [error, setError] = useState<string | null>(null)
-  const [isLoading, setIsLoading] = useState(false)
-
-  // Toast notifications
-  const { toast } = useToast()
-
-  /* ======================= MESSAGE POLLING SYSTEM ======================= */
-
-  /**
-   * Loads unread message count for the current user
-   * Handles both public and private messages
-   * Includes comprehensive error handling
-   */
-  const loadUnreadMessages = useCallback(async () => {
-    if (!user) return
-
-    try {
-      setIsLoadingMessages(true)
-      setError(null)
-
-      // Fetch both public and private messages concurrently
-      const [publicMsgs, privateMsgs] = await Promise.all([
-        db.getMessages(user.id, true), // public messages
-        db.getMessages(user.id, false), // private messages
-      ])
-
-      // Calculate unread counts
-      const unreadPublic = publicMsgs.filter((m) => m.senderId !== user.id && !m.readAt).length
-      const unreadPrivate = privateMsgs.filter((m) => m.senderId !== user.id && !m.readAt).length
-
-      const totalUnread = unreadPublic + unreadPrivate
-      setUnreadMessageCount(totalUnread)
-
-      // Log message polling activity (only in development)
-      if (process.env.NODE_ENV === "development") {
-        console.log(`Message poll: ${totalUnread} unread messages for user ${user.username}`)
-      }
-    } catch (error) {
-      console.error("Failed to load unread messages:", error)
-
-      // Don't show toast for message polling errors to avoid spam
-      // Just log the error and continue
-      setError("Failed to load messages")
-
-      // Reset unread count on error to prevent stale data
-      setUnreadMessageCount(0)
-    } finally {
-      setIsLoadingMessages(false)
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "approved":
+      case "permit_issued":
+        return "bg-green-100 text-green-800"
+      case "under_review":
+        return "bg-yellow-100 text-yellow-800"
+      case "rejected":
+        return "bg-red-100 text-red-800"
+      default:
+        return "bg-gray-100 text-gray-800"
     }
-  }, [user])
-
-  /**
-   * Set up message polling interval
-   * Polls every 30 seconds when user is authenticated
-   * Includes cleanup on component unmount
-   */
-  useEffect(() => {
-    if (!user) {
-      setUnreadMessageCount(0)
-      return
-    }
-
-    // Initial load
-    loadUnreadMessages()
-
-    // Set up polling interval
-    const pollInterval = setInterval(loadUnreadMessages, 30_000) // 30 seconds
-
-    // Cleanup interval on unmount or user change
-    return () => {
-      clearInterval(pollInterval)
-    }
-  }, [user, loadUnreadMessages])
-
-  /* ======================= AUTHENTICATION HANDLERS ======================= */
-
-  /**
-   * Handles user login
-   * Sets user state and initializes application
-   */
-  const handleLogin = useCallback(
-    async (newUser: User) => {
-      try {
-        setIsAuthenticating(true)
-        setError(null)
-
-        // Validate user object
-        if (!newUser || !newUser.id || !newUser.userType) {
-          throw new Error("Invalid user data received")
-        }
-
-        setUser(newUser)
-        setCurrentView("dashboard")
-
-        toast({
-          title: "Login Successful",
-          description: `Welcome back, ${newUser.username}!`,
-        })
-
-        // Log successful login (only in development)
-        if (process.env.NODE_ENV === "development") {
-          console.log(`User logged in: ${newUser.username} (${newUser.userType})`)
-        }
-      } catch (error) {
-        console.error("Login error:", error)
-        setError(error instanceof Error ? error.message : "Login failed")
-
-        toast({
-          title: "Login Failed",
-          description: "An error occurred during login. Please try again.",
-          variant: "destructive",
-        })
-      } finally {
-        setIsAuthenticating(false)
-      }
-    },
-    [toast],
-  )
-
-  /**
-   * Handles user logout
-   * Clears all user-related state and returns to login
-   */
-  const handleLogout = useCallback(async () => {
-    try {
-      setIsLoading(true)
-
-      // Clear all user-related state
-      setUser(null)
-      setCurrentView("dashboard")
-      setSelectedApplication(null)
-      setIsEditing(false)
-      setUnreadMessageCount(0)
-      setError(null)
-
-      toast({
-        title: "Logged Out",
-        description: "You have been successfully logged out.",
-      })
-
-      // Log logout (only in development)
-      if (process.env.NODE_ENV === "development") {
-        console.log("User logged out")
-      }
-    } catch (error) {
-      console.error("Logout error:", error)
-      // Even if logout fails, clear the state
-      setUser(null)
-    } finally {
-      setIsLoading(false)
-    }
-  }, [toast])
-
-  /* ===================== APPLICATION MANAGEMENT HANDLERS ===================== */
-
-  /**
-   * Handles creating a new application
-   * Switches to application form in create mode
-   */
-  const handleNewApplication = useCallback(() => {
-    try {
-      setIsEditing(true)
-      setSelectedApplication(null)
-      setCurrentView("application-form")
-      setError(null)
-
-      // Log new application creation (only in development)
-      if (process.env.NODE_ENV === "development") {
-        console.log("Starting new application creation")
-      }
-    } catch (error) {
-      console.error("Error starting new application:", error)
-      toast({
-        title: "Error",
-        description: "Failed to start new application. Please try again.",
-        variant: "destructive",
-      })
-    }
-  }, [toast])
-
-  /**
-   * Handles editing an existing application
-   * Switches to application form in edit mode
-   */
-  const handleEditApplication = useCallback(
-    async (application: PermitApplication) => {
-      try {
-        setIsLoading(true)
-        setError(null)
-
-        // Validate application object
-        if (!application || !application.id) {
-          throw new Error("Invalid application data")
-        }
-
-        // Check if application can be edited
-        if (application.status !== "unsubmitted" && application.status !== "draft") {
-          toast({
-            title: "Cannot Edit Application",
-            description: "Only unsubmitted or draft applications can be edited.",
-            variant: "destructive",
-          })
-          return
-        }
-
-        setIsEditing(true)
-        setSelectedApplication(application)
-        setCurrentView("application-form")
-
-        // Log application edit (only in development)
-        if (process.env.NODE_ENV === "development") {
-          console.log(`Editing application: ${application.applicationId}`)
-        }
-      } catch (error) {
-        console.error("Error editing application:", error)
-        setError(error instanceof Error ? error.message : "Failed to edit application")
-
-        toast({
-          title: "Edit Error",
-          description: "Failed to open application for editing. Please try again.",
-          variant: "destructive",
-        })
-      } finally {
-        setIsLoading(false)
-      }
-    },
-    [toast],
-  )
-
-  /**
-   * Handles viewing an application
-   * Switches to comprehensive view mode
-   */
-  const handleViewApplication = useCallback(
-    async (application: PermitApplication) => {
-      try {
-        setIsLoading(true)
-        setError(null)
-
-        // Validate application object
-        if (!application || !application.id) {
-          throw new Error("Invalid application data")
-        }
-
-        setIsEditing(false)
-        setSelectedApplication(application)
-        setCurrentView("comprehensive-view")
-
-        // Log application view (only in development)
-        if (process.env.NODE_ENV === "development") {
-          console.log(`Viewing application: ${application.applicationId}`)
-        }
-      } catch (error) {
-        console.error("Error viewing application:", error)
-        setError(error instanceof Error ? error.message : "Failed to view application")
-
-        toast({
-          title: "View Error",
-          description: "Failed to open application for viewing. Please try again.",
-          variant: "destructive",
-        })
-      } finally {
-        setIsLoading(false)
-      }
-    },
-    [toast],
-  )
-
-  /**
-   * Handles saving an application
-   * Returns to dashboard after successful save
-   */
-  const handleSaveApplication = useCallback(async () => {
-    try {
-      setIsLoading(true)
-      setError(null)
-
-      // Reset form state
-      setIsEditing(false)
-      setSelectedApplication(null)
-      setCurrentView("dashboard")
-
-      toast({
-        title: "Application Saved",
-        description: "Application has been saved successfully.",
-      })
-
-      // Log application save (only in development)
-      if (process.env.NODE_ENV === "development") {
-        console.log("Application saved successfully")
-      }
-    } catch (error) {
-      console.error("Error saving application:", error)
-      setError(error instanceof Error ? error.message : "Failed to save application")
-
-      toast({
-        title: "Save Error",
-        description: "Failed to save application. Please try again.",
-        variant: "destructive",
-      })
-    } finally {
-      setIsLoading(false)
-    }
-  }, [toast])
-
-  /**
-   * Handles canceling application edit
-   * Returns to dashboard without saving
-   */
-  const handleCancelEdit = useCallback(() => {
-    try {
-      setIsEditing(false)
-      setSelectedApplication(null)
-      setCurrentView("dashboard")
-      setError(null)
-
-      // Log edit cancellation (only in development)
-      if (process.env.NODE_ENV === "development") {
-        console.log("Application edit cancelled")
-      }
-    } catch (error) {
-      console.error("Error canceling edit:", error)
-      // Even if there's an error, still cancel the edit
-      setIsEditing(false)
-      setSelectedApplication(null)
-      setCurrentView("dashboard")
-    }
-  }, [])
-
-  /**
-   * Handles updating an application
-   * Updates the selected application state
-   */
-  const handleUpdateApplication = useCallback(
-    async (updatedApplication: PermitApplication) => {
-      try {
-        setError(null)
-
-        // Validate updated application
-        if (!updatedApplication || !updatedApplication.id) {
-          throw new Error("Invalid application update data")
-        }
-
-        setSelectedApplication(updatedApplication)
-
-        // Log application update (only in development)
-        if (process.env.NODE_ENV === "development") {
-          console.log(`Application updated: ${updatedApplication.applicationId}`)
-        }
-      } catch (error) {
-        console.error("Error updating application:", error)
-        setError(error instanceof Error ? error.message : "Failed to update application")
-
-        toast({
-          title: "Update Error",
-          description: "Failed to update application. Please refresh and try again.",
-          variant: "destructive",
-        })
-      }
-    },
-    [toast],
-  )
-
-  /* ======================= NAVIGATION HANDLERS ======================= */
-
-  /**
-   * Handles tab changes in the main navigation
-   * Includes special handling for messages tab
-   */
-  const handleTabChange = useCallback(async (newView: string) => {
-    try {
-      setError(null)
-      setCurrentView(newView)
-
-      // Clear unread count when switching to messages
-      if (newView === "messages") {
-        setUnreadMessageCount(0)
-      }
-
-      // Log tab change (only in development)
-      if (process.env.NODE_ENV === "development") {
-        console.log(`Tab changed to: ${newView}`)
-      }
-    } catch (error) {
-      console.error("Error changing tab:", error)
-      setError(error instanceof Error ? error.message : "Failed to change view")
-    }
-  }, [])
-
-  /**
-   * Handles direct navigation to messages
-   * Used by header message button
-   */
-  const handleMessagesClick = useCallback(async () => {
-    try {
-      setError(null)
-      setCurrentView("messages")
-      setUnreadMessageCount(0)
-
-      // Log messages navigation (only in development)
-      if (process.env.NODE_ENV === "development") {
-        console.log("Navigated to messages")
-      }
-    } catch (error) {
-      console.error("Error navigating to messages:", error)
-      setError(error instanceof Error ? error.message : "Failed to open messages")
-    }
-  }, [])
-
-  /**
-   * Handles returning to applications list
-   * Used by back buttons in detail views
-   */
-  const handleBackToApplications = useCallback(() => {
-    try {
-      setSelectedApplication(null)
-      setCurrentView("dashboard")
-      setError(null)
-
-      // Log navigation back (only in development)
-      if (process.env.NODE_ENV === "development") {
-        console.log("Navigated back to applications")
-      }
-    } catch (error) {
-      console.error("Error navigating back:", error)
-      // Even if there's an error, still navigate back
-      setSelectedApplication(null)
-      setCurrentView("dashboard")
-    }
-  }, [])
-
-  /* ======================= TAB CONFIGURATION ======================= */
-
-  /**
-   * Base tab configuration for all users
-   * Some tabs are filtered based on user permissions
-   */
-  const baseTabs = [
-    { value: "dashboard", label: "Dashboard & Applications" },
-    { value: "records", label: "Records" },
-    { value: "messages", label: "Messages" },
-    { value: "reports", label: "Reports & Analytics" },
-    { value: "logs", label: "Activity Logs" },
-  ]
-
-  /**
-   * Gets tabs available to the current user
-   * Filters out reports tab for users without permission
-   */
-  const getUserTabs = useCallback(() => {
-    if (!user) return baseTabs
-
-    // Only certain user types can access reports
-    const canAccessReports = ["permitting_officer", "permit_supervisor", "ict"].includes(user.userType)
-
-    return baseTabs.filter((tab) => tab.value !== "reports" || canAccessReports)
-  }, [user])
-
-  /* ======================= ERROR HANDLING COMPONENT ======================= */
-
-  /**
-   * Renders error alert when there are system errors
-   */
-  const renderErrorAlert = () => {
-    if (!error) return null
-
-    return (
-      <Alert variant="destructive" className="mb-4">
-        <AlertTriangle className="h-4 w-4" />
-        <AlertDescription>
-          {error}
-          <button onClick={() => setError(null)} className="ml-2 underline hover:no-underline">
-            Dismiss
-          </button>
-        </AlertDescription>
-      </Alert>
-    )
   }
 
-  /* ======================= LOADING STATES ======================= */
-
-  /**
-   * Show loading spinner during authentication
-   */
-  if (isAuthenticating) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
-          <p className="text-gray-600">Authenticating...</p>
-        </div>
-      </div>
-    )
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case "approved":
+      case "permit_issued":
+        return <CheckCircle className="h-4 w-4" />
+      case "under_review":
+        return <Clock className="h-4 w-4" />
+      case "rejected":
+        return <AlertCircle className="h-4 w-4" />
+      default:
+        return <FileText className="h-4 w-4" />
+    }
   }
-
-  /**
-   * Show login form if user is not authenticated
-   */
-  if (!user) {
-    return (
-      <div className="min-h-screen bg-gray-50">
-        {renderErrorAlert()}
-        <LoginForm onLogin={handleLogin} />
-      </div>
-    )
-  }
-
-  /* ======================= MAIN APPLICATION RENDER ======================= */
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Global error display */}
-      {renderErrorAlert()}
-
-      {/* Main header with user info and navigation */}
-      <DashboardHeader
-        user={user}
-        onLogout={handleLogout}
-        onMessagesClick={handleMessagesClick}
-        unreadCount={unreadMessageCount}
-        isLoadingMessages={isLoadingMessages}
-      />
-
-      <main className="p-6">
-        <div className="mx-auto max-w-7xl">
-          {/* Loading overlay for async operations */}
-          {isLoading && (
-            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-              <div className="bg-white p-6 rounded-lg shadow-lg text-center">
-                <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
-                <p>Loading...</p>
-              </div>
+      {/* Header */}
+      <header className="bg-white shadow-sm border-b">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center py-6">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">UMSCC Permit Management System</h1>
+              <p className="text-gray-600 mt-1">Upper Manyame Sub Catchment Council - Water Permit Management</p>
             </div>
-          )}
-
-          {/* Application Form View */}
-          {currentView === "application-form" ? (
-            <ApplicationForm
-              user={user}
-              application={selectedApplication}
-              onSave={handleSaveApplication}
-              onCancel={handleCancelEdit}
-            />
-          ) : /* Comprehensive Application Details View */
-          currentView === "comprehensive-view" && selectedApplication ? (
-            <ComprehensiveApplicationDetails
-              application={selectedApplication}
-              user={user}
-              onBack={handleBackToApplications}
-            />
-          ) : /* Workflow Management View */
-          currentView === "workflow" && selectedApplication ? (
-            <div className="space-y-6">
-              <div className="flex items-center justify-between">
-                <h2 className="text-2xl font-bold">Application Details – {selectedApplication.applicationId}</h2>
-                <button
-                  onClick={() => setCurrentView("dashboard")}
-                  className="text-blue-600 hover:text-blue-800 transition-colors"
-                >
-                  ← Back to Dashboard
-                </button>
-              </div>
-              <WorkflowManager user={user} application={selectedApplication} onUpdate={handleUpdateApplication} />
+            <div className="flex items-center gap-4">
+              <Button>
+                <Plus className="h-4 w-4 mr-2" />
+                New Application
+              </Button>
+              <Button variant="outline">
+                <Search className="h-4 w-4 mr-2" />
+                Search
+              </Button>
             </div>
-          ) : (
-            <>
-              {/* Role-Based Dashboard Rendering */}
-              {user.userType === "chairperson" ? (
-                <ChairpersonDashboard user={user} />
-              ) : user.userType === "catchment_manager" ? (
-                <CatchmentManagerDashboard user={user} />
-              ) : user.userType === "catchment_chairperson" ? (
-                <CatchmentChairpersonDashboard user={user} />
-              ) : user.userType === "permit_supervisor" ? (
-                <PermitSupervisorDashboard
-                  user={user}
-                  onNewApplication={handleNewApplication}
-                  onEditApplication={handleEditApplication}
-                  onViewApplication={handleViewApplication}
-                />
-              ) : user.userType === "ict" ? (
-                <ICTDashboard
-                  user={user}
-                  onNewApplication={handleNewApplication}
-                  onEditApplication={handleEditApplication}
-                  onViewApplication={handleViewApplication}
-                />
-              ) : (
-                /* Standard Tabbed Dashboard for Permitting Officers and other users */
-                <Tabs value={currentView} onValueChange={handleTabChange} className="w-full">
-                  <TabsList className="grid w-full grid-cols-5">
-                    {getUserTabs().map((tab) => (
-                      <TabsTrigger key={tab.value} value={tab.value} className="relative">
-                        {tab.label}
-                        {/* Unread message badge */}
-                        {tab.value === "messages" && unreadMessageCount > 0 && (
-                          <Badge
-                            variant="destructive"
-                            className="ml-2 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs"
-                          >
-                            {unreadMessageCount > 99 ? "99+" : unreadMessageCount}
-                          </Badge>
-                        )}
-                      </TabsTrigger>
-                    ))}
-                  </TabsList>
-
-                  {/* Dashboard Tab Content */}
-                  <TabsContent value="dashboard" className="space-y-6">
-                    <div className="mb-6">
-                      <h2 className="mb-2 text-2xl font-bold text-gray-900">Welcome back, {user.username}</h2>
-                      <p className="text-gray-600">Manage your permit applications and track progress</p>
-                    </div>
-
-                    <DashboardApplications
-                      user={user}
-                      onNewApplication={handleNewApplication}
-                      onEditApplication={handleEditApplication}
-                      onViewApplication={handleViewApplication}
-                    />
-                  </TabsContent>
-
-                  {/* Records Tab Content */}
-                  <TabsContent value="records">
-                    <RecordsSection
-                      user={user}
-                      onEditApplication={handleEditApplication}
-                      onViewApplication={handleViewApplication}
-                    />
-                  </TabsContent>
-
-                  {/* Messages Tab Content */}
-                  <TabsContent value="messages">
-                    <MessagingSystem user={user} />
-                  </TabsContent>
-
-                  {/* Reports Tab Content */}
-                  <TabsContent value="reports">
-                    <EnhancedReportsAnalytics />
-                  </TabsContent>
-
-                  {/* Activity Logs Tab Content */}
-                  <TabsContent value="logs">
-                    <ActivityLogs user={user} />
-                  </TabsContent>
-                </Tabs>
-              )}
-            </>
-          )}
+          </div>
         </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Applications</CardTitle>
+              <FileText className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">156</div>
+              <p className="text-xs text-muted-foreground">+12% from last month</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Pending Review</CardTitle>
+              <Clock className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">23</div>
+              <p className="text-xs text-muted-foreground">Requires attention</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Approved</CardTitle>
+              <CheckCircle className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">89</div>
+              <p className="text-xs text-muted-foreground">This month</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Active Users</CardTitle>
+              <Users className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">45</div>
+              <p className="text-xs text-muted-foreground">Online now</p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Tabs */}
+        <Tabs value={selectedTab} onValueChange={setSelectedTab} className="space-y-6">
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="applications">Recent Applications</TabsTrigger>
+            <TabsTrigger value="analytics">Analytics</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="overview" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>System Overview</CardTitle>
+                <CardDescription>Current status of the permit management system</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between p-4 border rounded-lg">
+                    <div>
+                      <h3 className="font-semibold">System Status</h3>
+                      <p className="text-sm text-gray-600">All services operational</p>
+                    </div>
+                    <Badge className="bg-green-100 text-green-800">Online</Badge>
+                  </div>
+
+                  <div className="flex items-center justify-between p-4 border rounded-lg">
+                    <div>
+                      <h3 className="font-semibold">Database</h3>
+                      <p className="text-sm text-gray-600">Connected and synchronized</p>
+                    </div>
+                    <Badge className="bg-green-100 text-green-800">Connected</Badge>
+                  </div>
+
+                  <div className="flex items-center justify-between p-4 border rounded-lg">
+                    <div>
+                      <h3 className="font-semibold">Backup Status</h3>
+                      <p className="text-sm text-gray-600">Last backup: 2 hours ago</p>
+                    </div>
+                    <Badge className="bg-blue-100 text-blue-800">Up to date</Badge>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="applications" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>Recent Applications</CardTitle>
+                    <CardDescription>Latest permit applications in the system</CardDescription>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm">
+                      <Filter className="h-4 w-4 mr-2" />
+                      Filter
+                    </Button>
+                    <Button variant="outline" size="sm">
+                      <Download className="h-4 w-4 mr-2" />
+                      Export
+                    </Button>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {mockApplications.map((application) => (
+                    <div
+                      key={application.id}
+                      className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50"
+                    >
+                      <div className="flex items-center space-x-4">
+                        <div className="flex-shrink-0">{getStatusIcon(application.status)}</div>
+                        <div>
+                          <h3 className="font-semibold">{application.applicantName}</h3>
+                          <p className="text-sm text-gray-600">{application.physicalAddress}</p>
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="text-xs text-gray-500">{application.numberOfBoreholes} boreholes</span>
+                            <span className="text-xs text-gray-500">•</span>
+                            <span className="text-xs text-gray-500">{application.waterAllocation} ML/year</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-3">
+                        <Badge className={getStatusColor(application.status)}>
+                          {application.status.replace("_", " ")}
+                        </Badge>
+                        {(application.status === "approved" || application.status === "permit_issued") && (
+                          <PermitPreviewDialog application={application} currentUser={mockUser} />
+                        )}
+                        <Button variant="outline" size="sm">
+                          View Details
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="analytics" className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Application Trends</CardTitle>
+                  <CardDescription>Monthly application submissions</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="h-64 flex items-center justify-center text-gray-500">
+                    Chart placeholder - Application trends over time
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Approval Rates</CardTitle>
+                  <CardDescription>Success rates by application type</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="h-64 flex items-center justify-center text-gray-500">
+                    Chart placeholder - Approval rates by category
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+        </Tabs>
       </main>
     </div>
   )
