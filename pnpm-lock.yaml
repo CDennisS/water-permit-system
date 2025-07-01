@@ -182,6 +182,9 @@ importers:
       vite:
         specifier: latest
         version: 7.0.0(@types/node@22.0.0)(jiti@1.21.7)(yaml@2.8.0)
+      zod:
+        specifier: latest
+        version: 3.25.67
     devDependencies:
       '@testing-library/jest-dom':
         specifier: ^6.1.4
@@ -4242,6 +4245,9 @@ packages:
     resolution: {integrity: sha512-AyeEbWOu/TAXdxlV9wmGcR0+yh2j3vYPGOECcIj2S7MkrLyC7ne+oye2BKTItt0ii2PHk4cDy+95+LshzbXnGg==}
     engines: {node: '>=12.20'}
 
+  zod@3.25.67:
+    resolution: {integrity: sha512-idA2YXwpCdqUSKRCACDE6ItZD9TZzy3OZMtpfLoh6oPR47lipysRrJfjzMqFxQ3uJuUPyUeWe1r9vLH33xO/Qw==}
+
 snapshots:
 
   '@adobe/css-tools@4.4.3': {}
@@ -6478,7 +6484,7 @@ snapshots:
       eslint: 8.53.0
       eslint-import-resolver-node: 0.3.9
       eslint-import-resolver-typescript: 3.10.1(eslint-plugin-import@2.31.0(eslint@8.53.0))(eslint@8.53.0)
-      eslint-plugin-import: 2.31.0(@typescript-eslint/parser@6.21.0(eslint@8.53.0)(typescript@5.0.2))(eslint-import-resolver-typescript@3.10.1)(eslint@8.53.0)
+      eslint-plugin-import: 2.31.0(@typescript-eslint/parser@6.21.0(eslint@8.53.0)(typescript@5.0.2))(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.31.0(eslint@8.53.0))(eslint@8.53.0))(eslint@8.53.0)
       eslint-plugin-jsx-a11y: 6.10.2(eslint@8.53.0)
       eslint-plugin-react: 7.37.5(eslint@8.53.0)
       eslint-plugin-react-hooks: 5.0.0-canary-7118f5dd7-20230705(eslint@8.53.0)
@@ -6508,7 +6514,7 @@ snapshots:
       tinyglobby: 0.2.14
       unrs-resolver: 1.9.0
     optionalDependencies:
-      eslint-plugin-import: 2.31.0(@typescript-eslint/parser@6.21.0(eslint@8.53.0)(typescript@5.0.2))(eslint-import-resolver-typescript@3.10.1)(eslint@8.53.0)
+      eslint-plugin-import: 2.31.0(@typescript-eslint/parser@6.21.0(eslint@8.53.0)(typescript@5.0.2))(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.31.0(eslint@8.53.0))(eslint@8.53.0))(eslint@8.53.0)
     transitivePeerDependencies:
       - supports-color
 
@@ -6523,7 +6529,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  eslint-plugin-import@2.31.0(@typescript-eslint/parser@6.21.0(eslint@8.53.0)(typescript@5.0.2))(eslint-import-resolver-typescript@3.10.1)(eslint@8.53.0):
+  eslint-plugin-import@2.31.0(@typescript-eslint/parser@6.21.0(eslint@8.53.0)(typescript@5.0.2))(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.31.0(eslint@8.53.0))(eslint@8.53.0))(eslint@8.53.0):
     dependencies:
       '@rtsao/scc': 1.1.0
       array-includes: 3.1.9
@@ -8461,3 +8467,5 @@ snapshots:
   yocto-queue@0.1.0: {}
 
   yocto-queue@1.2.1: {}
+
+  zod@3.25.67: {}
