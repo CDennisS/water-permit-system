@@ -2,16 +2,17 @@
 
 import type React from "react"
 
-import { useState, useEffect, useMemo, useCallback } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Textarea } from "@/components/ui/textarea"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
 import { useToast } from "@/hooks/use-toast"
-import { ArrowLeft, Send, MessageCircle, Clock, CheckCircle2 } from "lucide-react"
+import { Send, ArrowLeft, Eye, EyeOff, Edit3, Trash2, MoreVertical } from "lucide-react"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import type { User, Message } from "@/types"
 
 interface MessageThreadViewProps {
@@ -19,34 +20,22 @@ interface MessageThreadViewProps {
   otherUser: User
   messages: Message[]
   onSendMessage: (message: Omit<Message, "id" | "timestamp" | "isRead">) => void
-  onMarkAsRead?: (messageId: string) => void
+  onMarkAsRead: (messageId: string) => void
+  onEditMessage?: (messageId: string, newContent: string) => void
+  onDeleteMessage?: (messageId: string) => void
   onBack: () => void
 }
 
-const MESSAGE_CHAR_LIMIT = 500
-
-// User type color mapping for avatars
-const getUserTypeColor = (userType: string): string => {
-  const colors = {
-    applicant: "bg-blue-500",
-    permitting_officer: "bg-green-500",
-    permit_supervisor: "bg-purple-500",
-    catchment_manager: "bg-orange-500",
-    catchment_chairperson: "bg-red-500",
-    ict: "bg-gray-800",
-  }
-  return colors[userType as keyof typeof colors] || "bg-gray-500"
+const USER_TYPE_COLORS = {
+  ICT: "bg-blue-500",
+  "Permitting Officer": "bg-green-500",
+  "Permit Supervisor": "bg-purple-500",
+  "Catchment Manager": "bg-orange-500",
+  "Catchment Chairperson": "bg-red-500",
+  Applicant: "bg-gray-500",
 }
 
-// Get user initials for avatar
-const getUserInitials = (name: string): string => {
-  return name
-    .split(" ")
-    .map((word) => word.charAt(0))
-    .join("")
-    .toUpperCase()
-    .slice(0, 2)
-}
+const MAX_MESSAGE_LENGTH = 500
 
 export function MessageThreadView({
   currentUser,
@@ -54,44 +43,82 @@ export function MessageThreadView({
   messages,
   onSendMessage,
   onMarkAsRead,
+  onEditMessage,
+  onDeleteMessage,
   onBack,
 }: MessageThreadViewProps) {
-  const [newMessage, setNewMessage] = useState("")
-  const [isSending, setIsSending] = useState(false)
+  const [newMessage, setNewMessage] = useState<string>("")
+  const [editingMessage, setEditingMessage] = useState<string | null>(null)
+  const [editContent, setEditContent] = useState<string>("")
+  const [isSending, setIsSending] = useState<boolean>(false)
+  const scrollAreaRef = useRef<HTMLDivElement>(null)
   const { toast } = useToast()
 
-  // Filter and sort messages for this conversation
-  const conversationMessages = useMemo(() => {
-    return messages
-      .filter(
-        (message) =>
-          (message.senderId === currentUser.id && message.recipientId === otherUser.id) ||
-          (message.senderId === otherUser.id && message.recipientId === currentUser.id),
-      )
-      .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
-  }, [messages, currentUser.id, otherUser.id])
-
-  // Mark unread messages as read when component mounts or messages change
+  // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
-    if (onMarkAsRead) {
-      const unreadMessages = conversationMessages.filter(
-        (message) => message.recipientId === currentUser.id && !message.isRead,
-      )
-
-      unreadMessages.forEach((message) => {
-        onMarkAsRead(message.id)
-      })
+    if (scrollAreaRef.current) {
+      const scrollContainer = scrollAreaRef.current.querySelector("[data-radix-scroll-area-viewport]")
+      if (scrollContainer) {
+        scrollContainer.scrollTop = scrollContainer.scrollHeight
+      }
     }
-  }, [conversationMessages, currentUser.id, onMarkAsRead])
+  }, [messages])
+
+  // Mark unread messages as read when component mounts
+  useEffect(() => {
+    const unreadMessages = messages.filter((msg) => msg.recipientId === currentUser.id && !msg.isRead)
+
+    unreadMessages.forEach((msg) => {
+      onMarkAsRead(msg.id)
+    })
+  }, [messages, currentUser.id, onMarkAsRead])
+
+  // Get user initials for avatar
+  const getUserInitials = useCallback((user: User): string => {
+    return user.name
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase()
+  }, [])
+
+  // Get user type color
+  const getUserTypeColor = useCallback((userType: string): string => {
+    return USER_TYPE_COLORS[userType as keyof typeof USER_TYPE_COLORS] || "bg-gray-500"
+  }, [])
+
+  // Format timestamp
+  const formatTimestamp = useCallback((timestamp: string): string => {
+    const date = new Date(timestamp)
+    const now = new Date()
+    const diffMs = now.getTime() - date.getTime()
+    const diffMins = Math.floor(diffMs / (1000 * 60))
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60))
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
+
+    if (diffMins < 1) return "Just now"
+    if (diffMins < 60) return `${diffMins}m ago`
+    if (diffHours < 24) return `${diffHours}h ago`
+    if (diffDays < 7) return `${diffDays}d ago`
+
+    return date.toLocaleDateString() + " " + date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+  }, [])
 
   // Handle sending message
   const handleSendMessage = useCallback(async (): Promise<void> => {
-    if (!newMessage.trim() || isSending) return
+    if (!newMessage.trim()) {
+      toast({
+        title: "Empty Message",
+        description: "Please enter a message before sending.",
+        variant: "destructive",
+      })
+      return
+    }
 
-    if (newMessage.length > MESSAGE_CHAR_LIMIT) {
+    if (newMessage.length > MAX_MESSAGE_LENGTH) {
       toast({
         title: "Message Too Long",
-        description: `Message must be ${MESSAGE_CHAR_LIMIT} characters or less.`,
+        description: `Message must be ${MAX_MESSAGE_LENGTH} characters or less.`,
         variant: "destructive",
       })
       return
@@ -104,8 +131,7 @@ export function MessageThreadView({
         senderId: currentUser.id,
         recipientId: otherUser.id,
         content: newMessage.trim(),
-        subject: `Message from ${currentUser.name}`,
-        priority: "normal",
+        type: "private",
       })
 
       setNewMessage("")
@@ -123,7 +149,55 @@ export function MessageThreadView({
     } finally {
       setIsSending(false)
     }
-  }, [newMessage, isSending, currentUser, otherUser, onSendMessage, toast])
+  }, [newMessage, currentUser.id, otherUser.id, onSendMessage, toast])
+
+  // Handle editing message
+  const handleEditMessage = useCallback(
+    async (messageId: string): Promise<void> => {
+      if (!editContent.trim() || !onEditMessage) return
+
+      try {
+        await onEditMessage(messageId, editContent.trim())
+        setEditingMessage(null)
+        setEditContent("")
+
+        toast({
+          title: "Message Updated",
+          description: "Your message has been updated successfully.",
+        })
+      } catch (error) {
+        toast({
+          title: "Update Failed",
+          description: "Failed to update message. Please try again.",
+          variant: "destructive",
+        })
+      }
+    },
+    [editContent, onEditMessage, toast],
+  )
+
+  // Handle deleting message
+  const handleDeleteMessage = useCallback(
+    async (messageId: string): Promise<void> => {
+      if (!onDeleteMessage) return
+
+      try {
+        await onDeleteMessage(messageId)
+
+        toast({
+          title: "Message Deleted",
+          description: "Message has been deleted successfully.",
+        })
+      } catch (error) {
+        toast({
+          title: "Delete Failed",
+          description: "Failed to delete message. Please try again.",
+          variant: "destructive",
+        })
+      }
+    },
+    [onDeleteMessage, toast],
+  )
 
   // Handle keyboard shortcuts
   const handleKeyDown = useCallback(
@@ -136,33 +210,32 @@ export function MessageThreadView({
     [handleSendMessage],
   )
 
-  // Character count
-  const remainingChars = MESSAGE_CHAR_LIMIT - newMessage.length
-  const isOverLimit = remainingChars < 0
+  // Sort messages by timestamp
+  const sortedMessages = messages.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
 
   return (
     <div className="flex flex-col h-full max-h-[80vh]">
       {/* Header */}
-      <Card className="mb-4">
+      <Card className="rounded-b-none border-b-0">
         <CardHeader className="pb-3">
-          <div className="flex items-center gap-3">
-            <Button variant="ghost" size="sm" onClick={onBack} className="flex items-center gap-2">
+          <div className="flex items-center space-x-3">
+            <Button variant="ghost" size="sm" onClick={onBack} aria-label="Go back">
               <ArrowLeft className="h-4 w-4" />
-              Back
             </Button>
-
-            <Separator orientation="vertical" className="h-6" />
-
-            <Avatar className="h-8 w-8">
+            <Avatar>
               <AvatarFallback className={`text-white ${getUserTypeColor(otherUser.userType)}`}>
-                {getUserInitials(otherUser.name)}
+                {getUserInitials(otherUser)}
               </AvatarFallback>
             </Avatar>
-
-            <div>
+            <div className="flex-1">
               <CardTitle className="text-lg">{otherUser.name}</CardTitle>
-              <Badge variant="outline" className="text-xs">
-                {otherUser.userType.replace("_", " ")}
+              <Badge variant="outline" className="text-sm">
+                {otherUser.userType}
+              </Badge>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Badge variant="secondary" className="text-xs">
+                {sortedMessages.length} messages
               </Badge>
             </div>
           </div>
@@ -170,82 +243,175 @@ export function MessageThreadView({
       </Card>
 
       {/* Messages */}
-      <Card className="flex-1 flex flex-col">
-        <CardContent className="flex-1 flex flex-col p-0">
-          <ScrollArea className="flex-1 p-4">
-            {conversationMessages.length === 0 ? (
-              <div className="text-center py-8">
-                <MessageCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No messages yet</h3>
-                <p className="text-gray-500">Start the conversation by sending a message below</p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {conversationMessages.map((message, index) => {
+      <Card className="flex-1 rounded-t-none rounded-b-none border-t-0 border-b-0">
+        <CardContent className="p-0 h-full">
+          <ScrollArea className="h-96 p-4" ref={scrollAreaRef}>
+            <div className="space-y-4">
+              {sortedMessages.length === 0 ? (
+                <div className="text-center py-8">
+                  <p className="text-gray-500">No messages yet. Start the conversation!</p>
+                </div>
+              ) : (
+                sortedMessages.map((message, index) => {
                   const isFromCurrentUser = message.senderId === currentUser.id
-                  const sender = isFromCurrentUser ? currentUser : otherUser
+                  const showTimestamp =
+                    index === 0 ||
+                    new Date(message.timestamp).getTime() - new Date(sortedMessages[index - 1].timestamp).getTime() >
+                      300000 // 5 minutes
 
                   return (
-                    <div key={message.id} className={`flex ${isFromCurrentUser ? "justify-end" : "justify-start"}`}>
-                      <div className={`flex gap-2 max-w-[70%] ${isFromCurrentUser ? "flex-row-reverse" : "flex-row"}`}>
-                        <Avatar className="h-8 w-8 flex-shrink-0">
-                          <AvatarFallback className={`text-white text-xs ${getUserTypeColor(sender.userType)}`}>
-                            {getUserInitials(sender.name)}
-                          </AvatarFallback>
-                        </Avatar>
+                    <div key={message.id} className="space-y-2">
+                      {showTimestamp && (
+                        <div className="text-center">
+                          <Separator className="my-2" />
+                          <span className="text-xs text-gray-500 bg-white px-2">
+                            {formatTimestamp(message.timestamp)}
+                          </span>
+                        </div>
+                      )}
 
-                        <div className={`flex flex-col ${isFromCurrentUser ? "items-end" : "items-start"}`}>
-                          <div
-                            className={`rounded-lg px-3 py-2 ${
-                              isFromCurrentUser ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-900"
-                            }`}
-                          >
-                            <p className="text-sm whitespace-pre-wrap">{message.content}</p>
-                          </div>
+                      <div className={`flex ${isFromCurrentUser ? "justify-end" : "justify-start"}`}>
+                        <div
+                          className={`max-w-[80%] rounded-lg px-4 py-3 ${
+                            isFromCurrentUser
+                              ? "bg-blue-500 text-white"
+                              : message.isRead
+                                ? "bg-gray-100 text-gray-900"
+                                : "bg-yellow-50 text-gray-900 border border-yellow-200"
+                          }`}
+                        >
+                          {editingMessage === message.id ? (
+                            <div className="space-y-2">
+                              <Textarea
+                                value={editContent}
+                                onChange={(e) => setEditContent(e.target.value)}
+                                className="text-sm min-h-[60px]"
+                                maxLength={MAX_MESSAGE_LENGTH}
+                              />
+                              <div className="flex justify-between items-center">
+                                <span className="text-xs opacity-75">
+                                  {editContent.length}/{MAX_MESSAGE_LENGTH}
+                                </span>
+                                <div className="flex space-x-1">
+                                  <Button
+                                    size="sm"
+                                    onClick={() => handleEditMessage(message.id)}
+                                    disabled={!editContent.trim()}
+                                  >
+                                    Save
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => {
+                                      setEditingMessage(null)
+                                      setEditContent("")
+                                    }}
+                                  >
+                                    Cancel
+                                  </Button>
+                                </div>
+                              </div>
+                            </div>
+                          ) : (
+                            <>
+                              <p className="whitespace-pre-wrap">{message.content}</p>
+                              <div className="flex items-center justify-between mt-2">
+                                <div className="flex items-center space-x-2">
+                                  {!message.isRead && message.recipientId === currentUser.id && (
+                                    <EyeOff className="h-3 w-3 opacity-75" />
+                                  )}
+                                  {message.isRead && message.recipientId === currentUser.id && (
+                                    <Eye className="h-3 w-3 opacity-75" />
+                                  )}
+                                  <span className="text-xs opacity-75">
+                                    {new Date(message.timestamp).toLocaleTimeString([], {
+                                      hour: "2-digit",
+                                      minute: "2-digit",
+                                    })}
+                                  </span>
+                                </div>
 
-                          <div
-                            className={`flex items-center gap-1 mt-1 text-xs text-gray-500 ${isFromCurrentUser ? "flex-row-reverse" : "flex-row"}`}
-                          >
-                            <Clock className="h-3 w-3" />
-                            <span>{new Date(message.timestamp).toLocaleString()}</span>
-                            {message.isRead && isFromCurrentUser && <CheckCircle2 className="h-3 w-3 text-green-500" />}
-                          </div>
+                                {isFromCurrentUser &&
+                                  currentUser.userType === "ICT" &&
+                                  (onEditMessage || onDeleteMessage) && (
+                                    <DropdownMenu>
+                                      <DropdownMenuTrigger asChild>
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          className="h-6 w-6 p-0 opacity-75 hover:opacity-100"
+                                        >
+                                          <MoreVertical className="h-3 w-3" />
+                                        </Button>
+                                      </DropdownMenuTrigger>
+                                      <DropdownMenuContent align="end">
+                                        {onEditMessage && (
+                                          <DropdownMenuItem
+                                            onClick={() => {
+                                              setEditingMessage(message.id)
+                                              setEditContent(message.content)
+                                            }}
+                                          >
+                                            <Edit3 className="h-4 w-4 mr-2" />
+                                            Edit
+                                          </DropdownMenuItem>
+                                        )}
+                                        {onDeleteMessage && (
+                                          <DropdownMenuItem
+                                            onClick={() => handleDeleteMessage(message.id)}
+                                            className="text-red-600"
+                                          >
+                                            <Trash2 className="h-4 w-4 mr-2" />
+                                            Delete
+                                          </DropdownMenuItem>
+                                        )}
+                                      </DropdownMenuContent>
+                                    </DropdownMenu>
+                                  )}
+                              </div>
+                            </>
+                          )}
                         </div>
                       </div>
                     </div>
                   )
-                })}
-              </div>
-            )}
+                })
+              )}
+            </div>
           </ScrollArea>
+        </CardContent>
+      </Card>
 
-          <Separator />
-
-          {/* Message Input */}
-          <div className="p-4 space-y-3">
+      {/* Message Input */}
+      <Card className="rounded-t-none border-t-0">
+        <CardContent className="p-4">
+          <div className="space-y-3">
             <Textarea
               placeholder="Type your message here... (Press Enter to send, Shift+Enter for new line)"
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
               onKeyDown={handleKeyDown}
-              className={`min-h-[80px] resize-none ${isOverLimit ? "border-red-500" : ""}`}
+              maxLength={MAX_MESSAGE_LENGTH}
+              rows={3}
+              className="resize-none"
               disabled={isSending}
             />
-
             <div className="flex justify-between items-center">
-              <div className={`text-sm ${isOverLimit ? "text-red-500" : "text-gray-500"}`}>
-                {remainingChars} characters remaining
+              <div className="flex items-center space-x-2 text-xs text-gray-500">
+                <span>Press Enter to send, Shift+Enter for new line</span>
               </div>
-
-              <Button
-                onClick={handleSendMessage}
-                disabled={!newMessage.trim() || isSending || isOverLimit}
-                size="sm"
-                className="flex items-center gap-2"
-              >
-                <Send className="h-4 w-4" />
-                {isSending ? "Sending..." : "Send"}
-              </Button>
+              <div className="flex items-center space-x-2">
+                <span
+                  className={`text-xs ${newMessage.length > MAX_MESSAGE_LENGTH * 0.9 ? "text-orange-500" : "text-gray-500"}`}
+                >
+                  {newMessage.length}/{MAX_MESSAGE_LENGTH}
+                </span>
+                <Button onClick={handleSendMessage} disabled={!newMessage.trim() || isSending} size="sm">
+                  <Send className="h-4 w-4 mr-2" />
+                  {isSending ? "Sending..." : "Send"}
+                </Button>
+              </div>
             </div>
           </div>
         </CardContent>
@@ -253,3 +419,5 @@ export function MessageThreadView({
     </div>
   )
 }
+
+export default MessageThreadView

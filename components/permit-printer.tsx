@@ -184,9 +184,29 @@ const generatePrintHTML = (permitContent: string, permitNumber: string): string 
   </html>
 `
 
+// Generate download content
+const generateDownloadContent = (permitData: PermitData): string => `
+PERMIT DOCUMENT
+===============
+
+Permit Number: ${permitData.permitNumber}
+Applicant Name: ${permitData.applicantName}
+Physical Address: ${permitData.physicalAddress}
+Postal Address: ${permitData.postalAddress || "N/A"}
+
+Property Details:
+- Land Size: ${permitData.landSize} hectares
+- Number of Boreholes: ${permitData.numberOfBoreholes}
+- Total Allocated Abstraction: ${permitData.totalAllocatedAbstraction.toLocaleString()} m³/annum
+
+Valid Until: ${permitData.validUntil}
+
+Generated on: ${new Date().toLocaleString()}
+`
+
 export function PermitPrinter({ application, user, disabled = false }: PermitPrinterProps) {
-  const [isPreviewOpen, setIsPreviewOpen] = useState(false)
-  const [isPrinting, setIsPrinting] = useState(false)
+  const [isPreviewOpen, setIsPreviewOpen] = useState<boolean>(false)
+  const [isPrinting, setIsPrinting] = useState<boolean>(false)
   const { toast } = useToast()
 
   // Memoize permit data to avoid recalculation on every render
@@ -222,24 +242,56 @@ export function PermitPrinter({ application, user, disabled = false }: PermitPri
     console.log("PermitPrinter - Can print permits:", user ? canPrintPermits(user) : false)
   }
 
+  // Create a hidden permit template for printing without preview
+  const createHiddenPermitTemplate = useCallback((): HTMLElement => {
+    const hiddenDiv = document.createElement("div")
+    hiddenDiv.id = "hidden-permit-template"
+    hiddenDiv.style.position = "absolute"
+    hiddenDiv.style.left = "-9999px"
+    hiddenDiv.style.top = "-9999px"
+    hiddenDiv.style.visibility = "hidden"
+
+    // Create a temporary container to render the permit template
+    const tempContainer = document.createElement("div")
+    document.body.appendChild(tempContainer)
+
+    // This would need to be implemented with a proper React render
+    // For now, we'll create a basic HTML structure
+    hiddenDiv.innerHTML = `
+      <div class="permit-template">
+        <h1>PERMIT TO ABSTRACT WATER</h1>
+        <h2>UPPER MANYAME SUB-CATCHMENT COUNCIL</h2>
+        <div class="permit-details">
+          <p><strong>Permit Number:</strong> ${permitData.permitNumber}</p>
+          <p><strong>Applicant:</strong> ${permitData.applicantName}</p>
+          <p><strong>Physical Address:</strong> ${permitData.physicalAddress}</p>
+          <p><strong>Valid Until:</strong> ${permitData.validUntil}</p>
+        </div>
+      </div>
+    `
+
+    document.body.appendChild(hiddenDiv)
+    return hiddenDiv
+  }, [permitData])
+
   // Handle print functionality with better error handling
   const handlePrint = useCallback(async (): Promise<void> => {
     setIsPrinting(true)
 
     try {
-      // First, ensure the preview is rendered by opening it if not already open
-      if (!isPreviewOpen) {
-        setIsPreviewOpen(true)
-        // Wait a moment for the DOM to update
-        await new Promise((resolve) => setTimeout(resolve, 100))
-      }
+      let permitElement = document.getElementById("permit-template-preview")
+      let shouldCleanupHidden = false
 
-      const permitElement = document.getElementById("permit-template-preview")
+      // If preview is not open, create a hidden template for printing
+      if (!permitElement) {
+        permitElement = createHiddenPermitTemplate()
+        shouldCleanupHidden = true
+      }
 
       if (!permitElement) {
         toast({
           title: "Print Error",
-          description: "Permit template not found. Please open the preview first.",
+          description: "Unable to generate permit template for printing.",
           variant: "destructive",
         })
         return
@@ -266,11 +318,16 @@ export function PermitPrinter({ application, user, disabled = false }: PermitPri
         printWindow.focus()
         printWindow.print()
 
-        // Close window after printing (optional)
+        // Close window after printing
         setTimeout(() => {
           printWindow.close()
         }, 1000)
       }, 1000)
+
+      // Cleanup hidden element if created
+      if (shouldCleanupHidden && permitElement) {
+        document.body.removeChild(permitElement)
+      }
 
       toast({
         title: "Print Initiated",
@@ -286,29 +343,12 @@ export function PermitPrinter({ application, user, disabled = false }: PermitPri
     } finally {
       setIsPrinting(false)
     }
-  }, [isPreviewOpen, permitData.permitNumber, toast])
+  }, [permitData.permitNumber, toast, createHiddenPermitTemplate])
 
   // Handle download functionality with better error handling
   const handleDownload = useCallback((): void => {
     try {
-      const permitContent = `
-PERMIT DOCUMENT
-===============
-
-Permit Number: ${permitData.permitNumber}
-Applicant Name: ${permitData.applicantName}
-Physical Address: ${permitData.physicalAddress}
-Postal Address: ${permitData.postalAddress || "N/A"}
-
-Property Details:
-- Land Size: ${permitData.landSize} hectares
-- Number of Boreholes: ${permitData.numberOfBoreholes}
-- Total Allocated Abstraction: ${permitData.totalAllocatedAbstraction.toLocaleString()} m³/annum
-
-Valid Until: ${permitData.validUntil}
-
-Generated on: ${new Date().toLocaleString()}
-      `
+      const permitContent = generateDownloadContent(permitData)
 
       const blob = new Blob([permitContent], { type: "text/plain;charset=utf-8" })
       const url = URL.createObjectURL(blob)

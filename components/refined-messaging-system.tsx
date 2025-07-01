@@ -4,213 +4,202 @@ import type React from "react"
 
 import { useState, useEffect, useMemo, useCallback } from "react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { ScrollArea } from "@/components/ui/scroll-area"
 import { useToast } from "@/hooks/use-toast"
-import {
-  MessageCircle,
-  Send,
-  Search,
-  Filter,
-  Users,
-  Clock,
-  Edit3,
-  Trash2,
-  RefreshCw,
-  MessageSquare,
-  CheckCircle2,
-} from "lucide-react"
-import type { Message } from "@/types"
-import type { User } from "@/types" // Renamed import to avoid redeclaration
+import { Send, Search, Filter, MessageCircle, Eye, EyeOff, Edit3, Trash2, RefreshCw } from "lucide-react"
+import type { User, Message } from "@/types"
 
 interface RefinedMessagingSystemProps {
   currentUser: User
   users: User[]
   messages: Message[]
   onSendMessage: (message: Omit<Message, "id" | "timestamp" | "isRead">) => void
-  onEditMessage?: (messageId: string, content: string) => void
+  onMarkAsRead: (messageId: string) => void
+  onEditMessage?: (messageId: string, newContent: string) => void
   onDeleteMessage?: (messageId: string) => void
-  onMarkAsRead?: (messageId: string) => void
 }
 
-interface ConversationGroup {
-  participants: string[]
-  messages: Message[]
-  lastMessage: Message
-  unreadCount: number
+interface MessageFilters {
+  search: string
+  userType: string
+  dateRange: string
+  isRead: string
 }
 
-const MESSAGE_CHAR_LIMIT = 500
-const AUTO_REFRESH_INTERVAL = 30000 // 30 seconds
-
-// User type color mapping for avatars
-const getUserTypeColor = (userType: string): string => {
-  const colors = {
-    applicant: "bg-blue-500",
-    permitting_officer: "bg-green-500",
-    permit_supervisor: "bg-purple-500",
-    catchment_manager: "bg-orange-500",
-    catchment_chairperson: "bg-red-500",
-    ict: "bg-gray-800",
-  }
-  return colors[userType as keyof typeof colors] || "bg-gray-500"
+const USER_TYPE_COLORS = {
+  ICT: "bg-blue-500",
+  "Permitting Officer": "bg-green-500",
+  "Permit Supervisor": "bg-purple-500",
+  "Catchment Manager": "bg-orange-500",
+  "Catchment Chairperson": "bg-red-500",
+  Applicant: "bg-gray-500",
 }
 
-// Get user initials for avatar
-const getUserInitials = (name: string): string => {
-  return name
-    .split(" ")
-    .map((word) => word.charAt(0))
-    .join("")
-    .toUpperCase()
-    .slice(0, 2)
-}
+const MAX_MESSAGE_LENGTH = 500
 
 export function RefinedMessagingSystem({
   currentUser,
   users,
   messages,
   onSendMessage,
+  onMarkAsRead,
   onEditMessage,
   onDeleteMessage,
-  onMarkAsRead,
 }: RefinedMessagingSystemProps) {
-  const [newMessage, setNewMessage] = useState("")
-  const [selectedRecipient, setSelectedRecipient] = useState("")
-  const [searchTerm, setSearchTerm] = useState("")
-  const [filterUserType, setFilterUserType] = useState("all")
-  const [isSending, setIsSending] = useState(false)
+  const [newMessage, setNewMessage] = useState<string>("")
+  const [selectedRecipient, setSelectedRecipient] = useState<string>("")
+  const [filters, setFilters] = useState<MessageFilters>({
+    search: "",
+    userType: "all", // Updated default value
+    dateRange: "all", // Updated default value
+    isRead: "all", // Updated default value
+  })
+  const [isComposing, setIsComposing] = useState<boolean>(false)
   const [selectedConversation, setSelectedConversation] = useState<string | null>(null)
-  const [isComposerOpen, setIsComposerOpen] = useState(false)
-  const [lastRefresh, setLastRefresh] = useState(Date.now())
+  const [editingMessage, setEditingMessage] = useState<string | null>(null)
+  const [editContent, setEditContent] = useState<string>("")
+  const [lastRefresh, setLastRefresh] = useState<Date>(new Date())
   const { toast } = useToast()
 
-  // Auto-refresh messages
+  // Auto-refresh messages every 30 seconds
   useEffect(() => {
     const interval = setInterval(() => {
-      setLastRefresh(Date.now())
-    }, AUTO_REFRESH_INTERVAL)
+      setLastRefresh(new Date())
+    }, 30000)
 
     return () => clearInterval(interval)
   }, [])
 
-  // Filter available recipients (exclude current user)
+  // Get available recipients (exclude current user)
   const availableRecipients = useMemo(() => {
     return users.filter((user) => user.id !== currentUser.id)
   }, [users, currentUser.id])
 
-  // Group messages into conversations
-  const conversations = useMemo((): ConversationGroup[] => {
-    const conversationMap = new Map<string, ConversationGroup>()
-
-    messages.forEach((message) => {
-      // Create a unique key for the conversation between sender and recipient
-      const participants = [message.senderId, message.recipientId].sort()
-      const conversationKey = participants.join("-")
-
-      if (!conversationMap.has(conversationKey)) {
-        conversationMap.set(conversationKey, {
-          participants,
-          messages: [],
-          lastMessage: message,
-          unreadCount: 0,
-        })
-      }
-
-      const conversation = conversationMap.get(conversationKey)!
-      conversation.messages.push(message)
-
-      // Update last message if this one is newer
-      if (new Date(message.timestamp) > new Date(conversation.lastMessage.timestamp)) {
-        conversation.lastMessage = message
-      }
-
-      // Count unread messages for current user
-      if (message.recipientId === currentUser.id && !message.isRead) {
-        conversation.unreadCount++
-      }
-    })
-
-    // Sort conversations by last message timestamp
-    return Array.from(conversationMap.values()).sort(
-      (a, b) => new Date(b.lastMessage.timestamp).getTime() - new Date(a.lastMessage.timestamp).getTime(),
-    )
-  }, [messages, currentUser.id])
-
-  // Filter messages based on search and filters
+  // Filter and sort messages
   const filteredMessages = useMemo(() => {
-    let filtered = messages.filter(
-      (message) => message.senderId === currentUser.id || message.recipientId === currentUser.id,
-    )
+    const filtered = messages.filter((message) => {
+      // Only show messages involving current user
+      const isInvolved = message.senderId === currentUser.id || message.recipientId === currentUser.id
 
-    if (searchTerm) {
-      filtered = filtered.filter(
-        (message) =>
-          message.content.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          users
-            .find((u) => u.id === message.senderId)
-            ?.name.toLowerCase()
-            .includes(searchTerm.toLowerCase()) ||
-          users
-            .find((u) => u.id === message.recipientId)
-            ?.name.toLowerCase()
-            .includes(searchTerm.toLowerCase()),
-      )
-    }
+      if (!isInvolved) return false
 
-    if (filterUserType !== "all") {
-      filtered = filtered.filter((message) => {
+      // Apply search filter
+      if (filters.search && !message.content.toLowerCase().includes(filters.search.toLowerCase())) {
+        return false
+      }
+
+      // Apply user type filter
+      if (filters.userType !== "all") {
         const sender = users.find((u) => u.id === message.senderId)
         const recipient = users.find((u) => u.id === message.recipientId)
-        return sender?.userType === filterUserType || recipient?.userType === filterUserType
-      })
-    }
+        if (sender?.userType !== filters.userType && recipient?.userType !== filters.userType) {
+          return false
+        }
+      }
+
+      // Apply read status filter
+      if (filters.isRead === "read" && !message.isRead) return false
+      if (filters.isRead === "unread" && message.isRead) return false
+
+      // Apply date range filter
+      if (filters.dateRange !== "all") {
+        const messageDate = new Date(message.timestamp)
+        const now = new Date()
+        const daysDiff = Math.floor((now.getTime() - messageDate.getTime()) / (1000 * 60 * 60 * 24))
+
+        switch (filters.dateRange) {
+          case "today":
+            if (daysDiff > 0) return false
+            break
+          case "week":
+            if (daysDiff > 7) return false
+            break
+          case "month":
+            if (daysDiff > 30) return false
+            break
+        }
+      }
+
+      return true
+    })
 
     return filtered.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-  }, [messages, currentUser.id, searchTerm, filterUserType, users])
+  }, [messages, currentUser.id, users, filters])
 
-  // Get user by ID
-  const getUserById = useCallback(
-    (userId: string): User | undefined => {
-      return users.find((user) => user.id === userId)
-    },
-    [users],
-  )
+  // Group messages by conversation
+  const conversations = useMemo(() => {
+    const convMap = new Map<string, Message[]>()
+
+    filteredMessages.forEach((message) => {
+      const otherUserId = message.senderId === currentUser.id ? message.recipientId : message.senderId
+      const key = [currentUser.id, otherUserId].sort().join("-")
+
+      if (!convMap.has(key)) {
+        convMap.set(key, [])
+      }
+      convMap.get(key)!.push(message)
+    })
+
+    return Array.from(convMap.entries())
+      .map(([key, msgs]) => {
+        const otherUserId = key.split("-").find((id) => id !== currentUser.id)!
+        const otherUser = users.find((u) => u.id === otherUserId)
+        const unreadCount = msgs.filter((m) => m.recipientId === currentUser.id && !m.isRead).length
+
+        return {
+          key,
+          otherUser,
+          messages: msgs.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()),
+          lastMessage: msgs[msgs.length - 1],
+          unreadCount,
+        }
+      })
+      .sort((a, b) => new Date(b.lastMessage.timestamp).getTime() - new Date(a.lastMessage.timestamp).getTime())
+  }, [filteredMessages, currentUser.id, users])
+
+  // Get unread message count
+  const unreadCount = useMemo(() => {
+    return messages.filter((m) => m.recipientId === currentUser.id && !m.isRead).length
+  }, [messages, currentUser.id])
 
   // Handle sending message
   const handleSendMessage = useCallback(async (): Promise<void> => {
-    if (!newMessage.trim() || !selectedRecipient || isSending) return
-
-    if (newMessage.length > MESSAGE_CHAR_LIMIT) {
+    if (!newMessage.trim() || !selectedRecipient) {
       toast({
-        title: "Message Too Long",
-        description: `Message must be ${MESSAGE_CHAR_LIMIT} characters or less.`,
+        title: "Invalid Message",
+        description: "Please enter a message and select a recipient.",
         variant: "destructive",
       })
       return
     }
 
-    setIsSending(true)
+    if (newMessage.length > MAX_MESSAGE_LENGTH) {
+      toast({
+        title: "Message Too Long",
+        description: `Message must be ${MAX_MESSAGE_LENGTH} characters or less.`,
+        variant: "destructive",
+      })
+      return
+    }
 
     try {
       await onSendMessage({
         senderId: currentUser.id,
         recipientId: selectedRecipient,
         content: newMessage.trim(),
-        subject: `Message from ${currentUser.name}`,
-        priority: "normal",
+        type: "private",
       })
 
       setNewMessage("")
       setSelectedRecipient("")
-      setIsComposerOpen(false)
+      setIsComposing(false)
 
       toast({
         title: "Message Sent",
@@ -222,10 +211,64 @@ export function RefinedMessagingSystem({
         description: "Failed to send message. Please try again.",
         variant: "destructive",
       })
-    } finally {
-      setIsSending(false)
     }
-  }, [newMessage, selectedRecipient, isSending, currentUser, onSendMessage, toast])
+  }, [newMessage, selectedRecipient, currentUser.id, onSendMessage, toast])
+
+  // Handle editing message
+  const handleEditMessage = useCallback(
+    async (messageId: string): Promise<void> => {
+      if (!editContent.trim() || !onEditMessage) return
+
+      try {
+        await onEditMessage(messageId, editContent.trim())
+        setEditingMessage(null)
+        setEditContent("")
+
+        toast({
+          title: "Message Updated",
+          description: "Your message has been updated successfully.",
+        })
+      } catch (error) {
+        toast({
+          title: "Update Failed",
+          description: "Failed to update message. Please try again.",
+          variant: "destructive",
+        })
+      }
+    },
+    [editContent, onEditMessage, toast],
+  )
+
+  // Handle deleting message
+  const handleDeleteMessage = useCallback(
+    async (messageId: string): Promise<void> => {
+      if (!onDeleteMessage) return
+
+      try {
+        await onDeleteMessage(messageId)
+
+        toast({
+          title: "Message Deleted",
+          description: "Message has been deleted successfully.",
+        })
+      } catch (error) {
+        toast({
+          title: "Delete Failed",
+          description: "Failed to delete message. Please try again.",
+          variant: "destructive",
+        })
+      }
+    },
+    [onDeleteMessage, toast],
+  )
+
+  // Handle marking messages as read
+  const handleMarkAsRead = useCallback(
+    (messageId: string): void => {
+      onMarkAsRead(messageId)
+    },
+    [onMarkAsRead],
+  )
 
   // Handle keyboard shortcuts
   const handleKeyDown = useCallback(
@@ -238,166 +281,132 @@ export function RefinedMessagingSystem({
     [handleSendMessage],
   )
 
-  // Handle message editing
-  const handleEditMessage = useCallback(
-    (messageId: string, content: string): void => {
-      if (onEditMessage) {
-        onEditMessage(messageId, content)
-        toast({
-          title: "Message Updated",
-          description: "Message has been updated successfully.",
-        })
-      }
-    },
-    [onEditMessage, toast],
-  )
+  // Get user avatar initials
+  const getUserInitials = useCallback((user: User): string => {
+    return user.name
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase()
+  }, [])
 
-  // Handle message deletion
-  const handleDeleteMessage = useCallback(
-    (messageId: string): void => {
-      if (onDeleteMessage) {
-        onDeleteMessage(messageId)
-        toast({
-          title: "Message Deleted",
-          description: "Message has been deleted successfully.",
-        })
-      }
-    },
-    [onDeleteMessage, toast],
-  )
+  // Get user type color
+  const getUserTypeColor = useCallback((userType: string): string => {
+    return USER_TYPE_COLORS[userType as keyof typeof USER_TYPE_COLORS] || "bg-gray-500"
+  }, [])
 
-  // Get conversation partner
-  const getConversationPartner = useCallback(
-    (participants: string[]): User | undefined => {
-      const partnerId = participants.find((id) => id !== currentUser.id)
-      return partnerId ? getUserById(partnerId) : undefined
-    },
-    [currentUser.id, getUserById],
-  )
+  // Format timestamp
+  const formatTimestamp = useCallback((timestamp: string): string => {
+    const date = new Date(timestamp)
+    const now = new Date()
+    const diffMs = now.getTime() - date.getTime()
+    const diffMins = Math.floor(diffMs / (1000 * 60))
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60))
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
 
-  // Character count for message input
-  const remainingChars = MESSAGE_CHAR_LIMIT - newMessage.length
-  const isOverLimit = remainingChars < 0
+    if (diffMins < 1) return "Just now"
+    if (diffMins < 60) return `${diffMins}m ago`
+    if (diffHours < 24) return `${diffHours}h ago`
+    if (diffDays < 7) return `${diffDays}d ago`
+
+    return date.toLocaleDateString()
+  }, [])
 
   return (
     <div className="space-y-6">
-      {/* Header with Actions */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div className="flex items-center gap-2">
-          <MessageCircle className="h-6 w-6 text-blue-600" />
+      {/* Header with stats and refresh */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-4">
           <h2 className="text-2xl font-bold">Messages</h2>
-          <Badge variant="secondary" className="ml-2">
-            {conversations.reduce((total, conv) => total + conv.unreadCount, 0)} unread
-          </Badge>
+          {unreadCount > 0 && (
+            <Badge variant="destructive" className="px-2 py-1">
+              {unreadCount} unread
+            </Badge>
+          )}
         </div>
-
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setLastRefresh(Date.now())}
-            className="flex items-center gap-2"
-          >
+        <div className="flex items-center space-x-2">
+          <span className="text-sm text-gray-500">Last updated: {formatTimestamp(lastRefresh.toISOString())}</span>
+          <Button variant="outline" size="sm" onClick={() => setLastRefresh(new Date())}>
             <RefreshCw className="h-4 w-4" />
-            Refresh
           </Button>
-
-          <Dialog open={isComposerOpen} onOpenChange={setIsComposerOpen}>
-            <DialogTrigger asChild>
-              <Button size="sm" className="flex items-center gap-2">
-                <Send className="h-4 w-4" />
-                New Message
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-md">
-              <DialogHeader>
-                <DialogTitle>Compose Message</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="recipient">Recipient</Label>
-                  <Select value={selectedRecipient} onValueChange={setSelectedRecipient}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select recipient" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {availableRecipients.map((user) => (
-                        <SelectItem key={user.id} value={user.id}>
-                          <div className="flex items-center gap-2">
-                            <Avatar className="h-6 w-6">
-                              <AvatarFallback className={`text-xs text-white ${getUserTypeColor(user.userType)}`}>
-                                {getUserInitials(user.name)}
-                              </AvatarFallback>
-                            </Avatar>
-                            <span>{user.name}</span>
-                            <Badge variant="outline" className="text-xs">
-                              {user.userType.replace("_", " ")}
-                            </Badge>
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <Label htmlFor="message">Message</Label>
-                  <Textarea
-                    id="message"
-                    placeholder="Type your message here..."
-                    value={newMessage}
-                    onChange={(e) => setNewMessage(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    className={`min-h-[100px] ${isOverLimit ? "border-red-500" : ""}`}
-                  />
-                  <div className={`text-sm mt-1 ${isOverLimit ? "text-red-500" : "text-gray-500"}`}>
-                    {remainingChars} characters remaining
-                  </div>
-                </div>
-
-                <Button
-                  onClick={handleSendMessage}
-                  disabled={!newMessage.trim() || !selectedRecipient || isSending || isOverLimit}
-                  className="w-full"
-                >
-                  {isSending ? "Sending..." : "Send Message"}
-                </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
         </div>
       </div>
 
-      {/* Search and Filters */}
+      {/* Filters */}
       <Card>
-        <CardContent className="pt-6">
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="flex-1">
+        <CardHeader>
+          <CardTitle className="flex items-center space-x-2">
+            <Filter className="h-5 w-5" />
+            <span>Filters</span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Search Messages</label>
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                 <Input
-                  placeholder="Search messages or users..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Search content..."
+                  value={filters.search}
+                  onChange={(e) => setFilters((prev) => ({ ...prev, search: e.target.value }))}
                   className="pl-10"
                 />
               </div>
             </div>
 
-            <div className="flex gap-2">
-              <Select value={filterUserType} onValueChange={setFilterUserType}>
-                <SelectTrigger className="w-[180px]">
-                  <Filter className="h-4 w-4 mr-2" />
-                  <SelectValue />
+            <div className="space-y-2">
+              <label className="text-sm font-medium">User Type</label>
+              <Select
+                value={filters.userType}
+                onValueChange={(value) => setFilters((prev) => ({ ...prev, userType: value }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="All user types" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All User Types</SelectItem>
-                  <SelectItem value="applicant">Applicants</SelectItem>
-                  <SelectItem value="permitting_officer">Officers</SelectItem>
-                  <SelectItem value="permit_supervisor">Supervisors</SelectItem>
-                  <SelectItem value="catchment_manager">Managers</SelectItem>
-                  <SelectItem value="catchment_chairperson">Chairpersons</SelectItem>
-                  <SelectItem value="ict">ICT</SelectItem>
+                  <SelectItem value="all">All user types</SelectItem>
+                  <SelectItem value="ICT">ICT</SelectItem>
+                  <SelectItem value="Permitting Officer">Permitting Officer</SelectItem>
+                  <SelectItem value="Permit Supervisor">Permit Supervisor</SelectItem>
+                  <SelectItem value="Catchment Manager">Catchment Manager</SelectItem>
+                  <SelectItem value="Catchment Chairperson">Catchment Chairperson</SelectItem>
+                  <SelectItem value="Applicant">Applicant</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Date Range</label>
+              <Select
+                value={filters.dateRange}
+                onValueChange={(value) => setFilters((prev) => ({ ...prev, dateRange: value }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="All time" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All time</SelectItem>
+                  <SelectItem value="today">Today</SelectItem>
+                  <SelectItem value="week">This week</SelectItem>
+                  <SelectItem value="month">This month</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Read Status</label>
+              <Select
+                value={filters.isRead}
+                onValueChange={(value) => setFilters((prev) => ({ ...prev, isRead: value }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="All messages" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All messages</SelectItem>
+                  <SelectItem value="unread">Unread only</SelectItem>
+                  <SelectItem value="read">Read only</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -405,197 +414,291 @@ export function RefinedMessagingSystem({
         </CardContent>
       </Card>
 
-      {/* Main Content */}
-      <Tabs defaultValue="conversations" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="conversations" className="flex items-center gap-2">
-            <MessageSquare className="h-4 w-4" />
-            Conversations ({conversations.length})
-          </TabsTrigger>
-          <TabsTrigger value="all-messages" className="flex items-center gap-2">
-            <Users className="h-4 w-4" />
-            All Messages ({filteredMessages.length})
-          </TabsTrigger>
-        </TabsList>
-
-        {/* Conversations View */}
-        <TabsContent value="conversations" className="space-y-4">
-          {conversations.length === 0 ? (
-            <Card>
-              <CardContent className="pt-6">
-                <div className="text-center py-8">
-                  <MessageCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">No conversations yet</h3>
-                  <p className="text-gray-500 mb-4">Start a conversation by sending a message</p>
-                  <Button onClick={() => setIsComposerOpen(true)}>Send First Message</Button>
-                </div>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="grid gap-4">
-              {conversations.map((conversation, index) => {
-                const partner = getConversationPartner(conversation.participants)
-                if (!partner) return null
-
-                return (
-                  <Card key={index} className="hover:shadow-md transition-shadow cursor-pointer">
-                    <CardContent className="p-4">
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-center gap-3 flex-1">
-                          <Avatar className="h-10 w-10">
-                            <AvatarFallback className={`text-white ${getUserTypeColor(partner.userType)}`}>
-                              {getUserInitials(partner.name)}
+      {/* Compose Message Button */}
+      <div className="flex justify-end">
+        <Dialog open={isComposing} onOpenChange={setIsComposing}>
+          <DialogTrigger asChild>
+            <Button>
+              <MessageCircle className="h-4 w-4 mr-2" />
+              New Message
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Compose Message</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Recipient</label>
+                <Select value={selectedRecipient} onValueChange={setSelectedRecipient}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select recipient" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableRecipients.map((user) => (
+                      <SelectItem key={user.id} value={user.id}>
+                        <div className="flex items-center space-x-2">
+                          <Avatar className="h-6 w-6">
+                            <AvatarFallback className={`text-xs text-white ${getUserTypeColor(user.userType)}`}>
+                              {getUserInitials(user)}
                             </AvatarFallback>
                           </Avatar>
-
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
-                              <h4 className="font-medium truncate">{partner.name}</h4>
-                              <Badge variant="outline" className="text-xs">
-                                {partner.userType.replace("_", " ")}
-                              </Badge>
-                              {conversation.unreadCount > 0 && (
-                                <Badge className="bg-blue-600 text-xs">{conversation.unreadCount}</Badge>
-                              )}
-                            </div>
-
-                            <p className="text-sm text-gray-600 truncate">{conversation.lastMessage.content}</p>
-
-                            <div className="flex items-center gap-2 mt-2 text-xs text-gray-500">
-                              <Clock className="h-3 w-3" />
-                              {new Date(conversation.lastMessage.timestamp).toLocaleString()}
-                            </div>
-                          </div>
+                          <span>{user.name}</span>
+                          <Badge variant="outline" className="text-xs">
+                            {user.userType}
+                          </Badge>
                         </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setSelectedConversation(conversation.participants.join("-"))}
-                        >
-                          View
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )
-              })}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Message</label>
+                <Textarea
+                  placeholder="Type your message here... (Press Enter to send, Shift+Enter for new line)"
+                  value={newMessage}
+                  onChange={(e) => setNewMessage(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  maxLength={MAX_MESSAGE_LENGTH}
+                  rows={4}
+                />
+                <div className="flex justify-between text-xs text-gray-500">
+                  <span>Press Enter to send, Shift+Enter for new line</span>
+                  <span>
+                    {newMessage.length}/{MAX_MESSAGE_LENGTH}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex justify-end space-x-2">
+                <Button variant="outline" onClick={() => setIsComposing(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={handleSendMessage} disabled={!newMessage.trim() || !selectedRecipient}>
+                  <Send className="h-4 w-4 mr-2" />
+                  Send
+                </Button>
+              </div>
             </div>
-          )}
-        </TabsContent>
+          </DialogContent>
+        </Dialog>
+      </div>
 
-        {/* All Messages View */}
-        <TabsContent value="all-messages" className="space-y-4">
-          {filteredMessages.length === 0 ? (
-            <Card>
-              <CardContent className="pt-6">
-                <div className="text-center py-8">
-                  <MessageCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">No messages found</h3>
-                  <p className="text-gray-500">Try adjusting your search or filters</p>
+      {/* Conversations */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {conversations.length === 0 ? (
+          <Card className="col-span-full">
+            <CardContent className="flex flex-col items-center justify-center py-12">
+              <MessageCircle className="h-12 w-12 text-gray-400 mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No messages found</h3>
+              <p className="text-gray-500 text-center">
+                {Object.values(filters).some((f) => f !== "all")
+                  ? "Try adjusting your filters to see more messages."
+                  : "Start a conversation by sending your first message."}
+              </p>
+            </CardContent>
+          </Card>
+        ) : (
+          conversations.map((conversation) => (
+            <Card key={conversation.key} className="hover:shadow-md transition-shadow">
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <Avatar>
+                      <AvatarFallback
+                        className={`text-white ${getUserTypeColor(conversation.otherUser?.userType || "")}`}
+                      >
+                        {getUserInitials(conversation.otherUser!)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <h3 className="font-medium">{conversation.otherUser?.name}</h3>
+                      <Badge variant="outline" className="text-xs">
+                        {conversation.otherUser?.userType}
+                      </Badge>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    {conversation.unreadCount > 0 && (
+                      <Badge variant="destructive" className="text-xs">
+                        {conversation.unreadCount}
+                      </Badge>
+                    )}
+                    <Button variant="outline" size="sm" onClick={() => setSelectedConversation(conversation.key)}>
+                      <Eye className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="grid gap-4">
-              {filteredMessages.map((message) => {
-                const sender = getUserById(message.senderId)
-                const recipient = getUserById(message.recipientId)
-                const isFromCurrentUser = message.senderId === currentUser.id
-                const canEdit = currentUser.userType === "ict" || isFromCurrentUser
-                const canDelete = currentUser.userType === "ict"
+              </CardHeader>
+              <CardContent>
+                <ScrollArea className="h-48">
+                  <div className="space-y-3">
+                    {conversation.messages.slice(-5).map((message) => {
+                      const isFromCurrentUser = message.senderId === currentUser.id
+                      const sender = users.find((u) => u.id === message.senderId)
 
-                return (
-                  <Card
-                    key={message.id}
-                    className={`${!message.isRead && !isFromCurrentUser ? "border-blue-200 bg-blue-50" : ""}`}
-                  >
-                    <CardContent className="p-4">
-                      <div className="flex items-start justify-between mb-3">
-                        <div className="flex items-center gap-3">
-                          <Avatar className="h-8 w-8">
-                            <AvatarFallback
-                              className={`text-white text-xs ${getUserTypeColor(sender?.userType || "")}`}
-                            >
-                              {sender ? getUserInitials(sender.name) : "?"}
-                            </AvatarFallback>
-                          </Avatar>
-
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <span className="font-medium">{sender?.name || "Unknown"}</span>
-                              <span className="text-gray-400">→</span>
-                              <span className="text-gray-600">{recipient?.name || "Unknown"}</span>
-                              {!message.isRead && !isFromCurrentUser && (
-                                <Badge variant="secondary" className="text-xs">
-                                  New
-                                </Badge>
-                              )}
+                      return (
+                        <div
+                          key={message.id}
+                          className={`flex ${isFromCurrentUser ? "justify-end" : "justify-start"}`}
+                          onClick={() =>
+                            !message.isRead && message.recipientId === currentUser.id && handleMarkAsRead(message.id)
+                          }
+                        >
+                          <div
+                            className={`max-w-[80%] rounded-lg px-3 py-2 ${
+                              isFromCurrentUser
+                                ? "bg-blue-500 text-white"
+                                : message.isRead
+                                  ? "bg-gray-100 text-gray-900"
+                                  : "bg-yellow-50 text-gray-900 border border-yellow-200"
+                            }`}
+                          >
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-xs opacity-75">{sender?.name}</span>
+                              <div className="flex items-center space-x-1">
+                                {!message.isRead && message.recipientId === currentUser.id && (
+                                  <EyeOff className="h-3 w-3" />
+                                )}
+                                {isFromCurrentUser && currentUser.userType === "ICT" && onEditMessage && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-4 w-4 p-0"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      setEditingMessage(message.id)
+                                      setEditContent(message.content)
+                                    }}
+                                  >
+                                    <Edit3 className="h-3 w-3" />
+                                  </Button>
+                                )}
+                                {isFromCurrentUser && currentUser.userType === "ICT" && onDeleteMessage && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-4 w-4 p-0"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      handleDeleteMessage(message.id)
+                                    }}
+                                  >
+                                    <Trash2 className="h-3 w-3" />
+                                  </Button>
+                                )}
+                              </div>
                             </div>
-
-                            <div className="flex items-center gap-2 text-xs text-gray-500 mt-1">
-                              <Clock className="h-3 w-3" />
-                              {new Date(message.timestamp).toLocaleString()}
-                              {message.isRead && <CheckCircle2 className="h-3 w-3 text-green-500" />}
-                            </div>
+                            {editingMessage === message.id ? (
+                              <div className="space-y-2">
+                                <Textarea
+                                  value={editContent}
+                                  onChange={(e) => setEditContent(e.target.value)}
+                                  className="text-sm"
+                                  rows={2}
+                                />
+                                <div className="flex space-x-1">
+                                  <Button size="sm" onClick={() => handleEditMessage(message.id)}>
+                                    Save
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => {
+                                      setEditingMessage(null)
+                                      setEditContent("")
+                                    }}
+                                  >
+                                    Cancel
+                                  </Button>
+                                </div>
+                              </div>
+                            ) : (
+                              <>
+                                <p className="text-sm">{message.content}</p>
+                                <div className="flex items-center justify-between mt-1">
+                                  <span className="text-xs opacity-75">{formatTimestamp(message.timestamp)}</span>
+                                  {message.type === "private" && (
+                                    <Badge variant="outline" className="text-xs">
+                                      Private
+                                    </Badge>
+                                  )}
+                                </div>
+                              </>
+                            )}
                           </div>
                         </div>
+                      )
+                    })}
+                  </div>
+                </ScrollArea>
+                {conversation.messages.length > 5 && (
+                  <div className="text-center mt-2">
+                    <Button variant="link" size="sm" onClick={() => setSelectedConversation(conversation.key)}>
+                      View all {conversation.messages.length} messages
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          ))
+        )}
+      </div>
 
-                        {(canEdit || canDelete) && (
-                          <div className="flex gap-1">
-                            {canEdit && (
+      {/* Full Conversation Dialog */}
+      {selectedConversation && (
+        <Dialog open={!!selectedConversation} onOpenChange={() => setSelectedConversation(null)}>
+          <DialogContent className="max-w-4xl max-h-[80vh]">
+            <DialogHeader>
+              <DialogTitle>
+                Conversation with {conversations.find((c) => c.key === selectedConversation)?.otherUser?.name}
+              </DialogTitle>
+            </DialogHeader>
+            <ScrollArea className="h-96">
+              <div className="space-y-4 p-4">
+                {conversations
+                  .find((c) => c.key === selectedConversation)
+                  ?.messages.map((message) => {
+                    const isFromCurrentUser = message.senderId === currentUser.id
+                    const sender = users.find((u) => u.id === message.senderId)
+
+                    return (
+                      <div key={message.id} className={`flex ${isFromCurrentUser ? "justify-end" : "justify-start"}`}>
+                        <div
+                          className={`max-w-[70%] rounded-lg px-4 py-3 ${
+                            isFromCurrentUser ? "bg-blue-500 text-white" : "bg-gray-100 text-gray-900"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-sm font-medium opacity-75">{sender?.name}</span>
+                            <span className="text-xs opacity-75">{formatTimestamp(message.timestamp)}</span>
+                          </div>
+                          <p>{message.content}</p>
+                          {!message.isRead && message.recipientId === currentUser.id && (
+                            <div className="mt-2">
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => {
-                                  const newContent = prompt("Edit message:", message.content)
-                                  if (newContent && newContent !== message.content) {
-                                    handleEditMessage(message.id, newContent)
-                                  }
-                                }}
+                                onClick={() => handleMarkAsRead(message.id)}
+                                className="text-xs"
                               >
-                                <Edit3 className="h-3 w-3" />
+                                Mark as read
                               </Button>
-                            )}
-                            {canDelete && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => {
-                                  if (confirm("Are you sure you want to delete this message?")) {
-                                    handleDeleteMessage(message.id)
-                                  }
-                                }}
-                              >
-                                <Trash2 className="h-3 w-3" />
-                              </Button>
-                            )}
-                          </div>
-                        )}
+                            </div>
+                          )}
+                        </div>
                       </div>
-
-                      <div className="bg-white rounded-lg p-3 border">
-                        <p className="text-gray-800 whitespace-pre-wrap">{message.content}</p>
-                      </div>
-
-                      {!message.isRead && !isFromCurrentUser && onMarkAsRead && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="mt-2 bg-transparent"
-                          onClick={() => onMarkAsRead(message.id)}
-                        >
-                          Mark as Read
-                        </Button>
-                      )}
-                    </CardContent>
-                  </Card>
-                )
-              })}
-            </div>
-          )}
-        </TabsContent>
-      </Tabs>
+                    )
+                  })}
+              </div>
+            </ScrollArea>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   )
 }
+
+export default RefinedMessagingSystem
