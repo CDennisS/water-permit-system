@@ -19,12 +19,8 @@ const inter = Inter({
  * This includes title, description, and other meta tags.
  */
 export const metadata: Metadata = {
-  title: {
-    default: "UMSCC Permit Management System",
-    template: "%s | UMSCC Permit Management",
-  },
-  description:
-    "Upper Manyame Sub Catchment Council Water Permit Management System - Streamlined permit application processing and management for water resource allocation in Zimbabwe.",
+  title: "UMSCC Permit Management System",
+  description: "Upper Manyame Sub Catchment Council Water Permit Management System",
   keywords: [
     "water permits",
     "Zimbabwe",
@@ -61,12 +57,13 @@ export const metadata: Metadata = {
   },
   // Additional metadata for PWA support
   manifest: "/manifest.json",
+  themeColor: "#2563eb",
   icons: {
     icon: [
-      { url: "/favicon-16x16.png", sizes: "16x16", type: "image/png" },
-      { url: "/favicon-32x32.png", sizes: "32x32", type: "image/png" },
+      { url: "/icons/icon-192x192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icons/icon-512x512.png", sizes: "512x512", type: "image/png" },
     ],
-    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
+    apple: [{ url: "/icons/icon-152x152.png", sizes: "152x152", type: "image/png" }],
   },
   // Viewport configuration for responsive design
   viewport: {
@@ -75,7 +72,7 @@ export const metadata: Metadata = {
     maximumScale: 1,
     userScalable: false, // Prevent zoom on mobile for better UX
   },
-    generator: 'v0.dev'
+  generator: "v0.dev",
 }
 
 /**
@@ -126,13 +123,7 @@ export default function RootLayout({
           - Persists theme preference in localStorage
           - Provides theme context to all components
         */}
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="light"
-          enableSystem={true}
-          disableTransitionOnChange={false}
-          storageKey="umscc-theme"
-        >
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
           {/* 
             Main Application Content
             - All page content is rendered here
