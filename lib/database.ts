@@ -9,23 +9,6 @@ class MockDatabase {
   /* ──────────────────────────── core storage ────────────────────────────── */
   private applications: PermitApplication[] = []
   private users: User[] = [
-    // Permitting Officers
-    {
-      id: "1",
-      username: "john.officer",
-      userType: "permitting_officer",
-      password: "officer123",
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    },
-    {
-      id: "7",
-      username: "mary.permits",
-      userType: "permitting_officer",
-      password: "permits123",
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    },
     // Chairpersons
     {
       id: "2",
@@ -100,15 +83,6 @@ class MockDatabase {
       username: "admin.ict",
       userType: "ict",
       password: "ictadmin123",
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    },
-    // Test Admin Account
-    {
-      id: "12",
-      username: "testuser",
-      userType: "permitting_officer",
-      password: "test123",
       createdAt: new Date(),
       updatedAt: new Date(),
     },
@@ -724,7 +698,7 @@ class MockDatabase {
         status: "pending",
         currentStage: 1,
         workflowComments: [],
-        assignedTo: "12", // testuser
+        assignedTo: null,
         createdAt: new Date("2024-03-15"),
         updatedAt: new Date("2024-03-15"),
         submittedAt: new Date("2024-03-15"),
@@ -748,7 +722,7 @@ class MockDatabase {
         status: "approved",
         currentStage: 4,
         workflowComments: [],
-        assignedTo: "12", // testuser
+        assignedTo: null,
         createdAt: new Date("2024-03-10"),
         updatedAt: new Date("2024-03-14"),
         submittedAt: new Date("2024-03-10"),
@@ -773,7 +747,7 @@ class MockDatabase {
         status: "rejected",
         currentStage: 2,
         workflowComments: [],
-        assignedTo: "12", // testuser
+        assignedTo: null,
         createdAt: new Date("2024-03-05"),
         updatedAt: new Date("2024-03-12"),
         submittedAt: new Date("2024-03-05"),
@@ -797,7 +771,7 @@ class MockDatabase {
         status: "draft",
         currentStage: 0,
         workflowComments: [],
-        assignedTo: "12", // testuser
+        assignedTo: null,
         createdAt: new Date("2024-03-16"),
         updatedAt: new Date("2024-03-16"),
         submittedAt: undefined,
@@ -821,7 +795,7 @@ class MockDatabase {
         status: "under_review",
         currentStage: 2,
         workflowComments: [],
-        assignedTo: "12", // testuser
+        assignedTo: null,
         createdAt: new Date("2024-03-08"),
         updatedAt: new Date("2024-03-13"),
         submittedAt: new Date("2024-03-08"),
@@ -836,7 +810,7 @@ class MockDatabase {
       {
         id: "comment_pending_001",
         applicationId: "app_pending_001",
-        userId: "1",
+        userId: "2",
         userType: "permitting_officer",
         comment: "Application received and under initial review. Checking documentation completeness.",
         stage: 1,
@@ -846,7 +820,7 @@ class MockDatabase {
       {
         id: "comment_pending_002",
         applicationId: "app_pending_002",
-        userId: "1",
+        userId: "2",
         userType: "permitting_officer",
         comment: "Surface water extraction application under review. Assessing environmental impact requirements.",
         stage: 1,
@@ -858,7 +832,7 @@ class MockDatabase {
       {
         id: "comment_review_001",
         applicationId: "app_review_001",
-        userId: "1",
+        userId: "2",
         userType: "permitting_officer",
         comment:
           "Initial review completed. All required documents submitted. Forwarding to chairperson for technical assessment.",
@@ -879,7 +853,7 @@ class MockDatabase {
       {
         id: "comment_review_003",
         applicationId: "app_review_002",
-        userId: "1",
+        userId: "2",
         userType: "permitting_officer",
         comment: "Aquaculture application reviewed. Water quality requirements and discharge plans need assessment.",
         stage: 1,
@@ -901,7 +875,7 @@ class MockDatabase {
       {
         id: "comment_technical_001",
         applicationId: "app_technical_001",
-        userId: "1",
+        userId: "2",
         userType: "permitting_officer",
         comment:
           "Industrial water extraction application reviewed. High volume allocation requires detailed assessment.",
@@ -934,7 +908,7 @@ class MockDatabase {
       {
         id: "comment_approved_001",
         applicationId: "app_approved_001",
-        userId: "1",
+        userId: "2",
         userType: "permitting_officer",
         comment:
           "Application reviewed and found to be complete. All required documentation submitted. Recommended for technical review.",
@@ -966,7 +940,7 @@ class MockDatabase {
       {
         id: "comment_approved_004",
         applicationId: "app_approved_001",
-        userId: "1",
+        userId: "2",
         userType: "permitting_officer",
         comment: "Permit ready for printing and issuance. All fees paid and conditions satisfied.",
         stage: 4,
@@ -978,7 +952,7 @@ class MockDatabase {
       {
         id: "comment_approved_005",
         applicationId: "app_approved_002",
-        userId: "1",
+        userId: "2",
         userType: "permitting_officer",
         comment: "Small scale irrigation application reviewed. Documentation complete and water allocation reasonable.",
         stage: 1,
@@ -1008,7 +982,7 @@ class MockDatabase {
       {
         id: "comment_approved_008",
         applicationId: "app_approved_002",
-        userId: "1",
+        userId: "2",
         userType: "permitting_officer",
         comment: "Permit approved and ready for printing. All requirements satisfied.",
         stage: 4,
@@ -1020,7 +994,7 @@ class MockDatabase {
       {
         id: "comment_rejected_001",
         applicationId: "app_rejected_001",
-        userId: "1",
+        userId: "2",
         userType: "permitting_officer",
         comment:
           "Industrial water extraction application reviewed. High volume allocation requires detailed environmental assessment.",
@@ -1054,7 +1028,7 @@ class MockDatabase {
       {
         id: "comment_rejected_004",
         applicationId: "app_rejected_002",
-        userId: "1",
+        userId: "2",
         userType: "permitting_officer",
         comment:
           "Commercial car wash application reviewed. High water allocation for small land area raises sustainability concerns.",
@@ -1078,7 +1052,7 @@ class MockDatabase {
       {
         id: "comment_rejected_006",
         applicationId: "app_rejected_003",
-        userId: "1",
+        userId: "2",
         userType: "permitting_officer",
         comment:
           "REJECTION: Mining operations water extraction application rejected at initial review. Insufficient environmental impact assessment documentation. Missing water treatment and discharge management plans. Application does not meet minimum documentation requirements for mining operations.",
@@ -1091,7 +1065,7 @@ class MockDatabase {
       {
         id: "comment_rejected_007",
         applicationId: "app_rejected_004",
-        userId: "1",
+        userId: "2",
         userType: "permitting_officer",
         comment:
           "Manufacturing water extraction application reviewed. High volume allocation requires detailed assessment.",
@@ -1115,7 +1089,7 @@ class MockDatabase {
       {
         id: "comment_rejected_009",
         applicationId: "app_rejected_005",
-        userId: "1",
+        userId: "2",
         userType: "permitting_officer",
         comment:
           "REJECTION: Brick making operation water extraction application rejected at initial review. Insufficient documentation provided. Missing environmental impact assessment, water recycling plan, and proper site drainage plans. Water allocation of 5,000 m³/annum not justified for 10-hectare site. Application does not meet minimum documentation requirements.",
@@ -1125,70 +1099,9 @@ class MockDatabase {
       },
       // Comments for test applications
       {
-        id: "comment_test_001",
-        applicationId: "app_test_001",
-        userId: "12",
-        userType: "permitting_officer",
-        comment: "Test application received and under review. Checking all documentation.",
-        stage: 1,
-        createdAt: new Date("2024-03-15"),
-        isRejectionReason: false,
-      },
-      {
-        id: "comment_test_002",
-        applicationId: "app_test_002",
-        userId: "12",
-        userType: "permitting_officer",
-        comment: "Agricultural test application reviewed and approved. All requirements met.",
-        stage: 1,
-        createdAt: new Date("2024-03-11"),
-        isRejectionReason: false,
-      },
-      {
-        id: "comment_test_003",
-        applicationId: "app_test_002",
-        userId: "2",
-        userType: "chairperson",
-        comment: "Technical review completed. Application approved for permit issuance.",
-        stage: 2,
-        createdAt: new Date("2024-03-13"),
-        isRejectionReason: false,
-      },
-      {
-        id: "comment_test_004",
-        applicationId: "app_test_002",
-        userId: "12",
-        userType: "permitting_officer",
-        comment: "Permit ready for printing. All conditions satisfied.",
-        stage: 4,
-        createdAt: new Date("2024-03-14"),
-        isRejectionReason: false,
-      },
-      {
-        id: "comment_test_005",
-        applicationId: "app_test_003",
-        userId: "12",
-        userType: "permitting_officer",
-        comment: "Industrial test application reviewed. High water allocation requires detailed assessment.",
-        stage: 1,
-        createdAt: new Date("2024-03-06"),
-        isRejectionReason: false,
-      },
-      {
-        id: "comment_test_006",
-        applicationId: "app_test_003",
-        userId: "2",
-        userType: "chairperson",
-        comment:
-          "REJECTION: Water allocation of 5,000 m³/annum for testing purposes exceeds reasonable limits. Environmental impact assessment insufficient. Application rejected pending revised water management plan with reduced allocation.",
-        stage: 2,
-        createdAt: new Date("2024-03-12"),
-        isRejectionReason: true,
-      },
-      {
         id: "comment_test_007",
         applicationId: "app_test_005",
-        userId: "12",
+        userId: "2",
         userType: "permitting_officer",
         comment: "Review test application submitted. Surface water extraction requires environmental assessment.",
         stage: 1,
@@ -1210,40 +1123,8 @@ class MockDatabase {
     // Add mock activity logs
     const mockLogs: ActivityLog[] = [
       {
-        id: "log_001",
-        userId: "1",
-        action: "Application created",
-        applicationId: "app_draft_001",
-        details: "Draft application created by Thomas Mutasa",
-        timestamp: new Date("2024-03-10"),
-      },
-      {
-        id: "log_002",
-        userId: "1",
-        action: "Application submitted",
-        applicationId: "app_pending_001",
-        details: "New water extraction application submitted by John Mukamuri",
-        timestamp: new Date("2024-03-01"),
-      },
-      {
-        id: "log_003",
-        userId: "1",
-        action: "Application reviewed",
-        applicationId: "app_approved_001",
-        details: "Application MC2024-0014 approved for permit issuance",
-        timestamp: new Date("2024-02-15"),
-      },
-      {
-        id: "log_004",
-        userId: "3",
-        action: "Application rejected",
-        applicationId: "app_rejected_001",
-        details: "Application MC2024-0007 rejected due to environmental concerns",
-        timestamp: new Date("2024-02-10"),
-      },
-      {
         id: "log_005",
-        userId: "1",
+        userId: "2",
         action: "Draft updated",
         applicationId: "app_draft_002",
         details: "Draft application updated by Jennifer Chikwanha",
@@ -1254,16 +1135,6 @@ class MockDatabase {
     // Add mock messages
     const mockMessages: Message[] = [
       {
-        id: "msg_001",
-        senderId: "1",
-        receiverId: "2",
-        subject: "Application MC2024-0003 Review",
-        content: "Please review the technical aspects of this irrigation application.",
-        applicationId: "app_review_001",
-        isPublic: false,
-        createdAt: new Date("2024-02-20"),
-      },
-      {
         id: "msg_002",
         senderId: "2",
         receiverId: "3",
@@ -1272,16 +1143,6 @@ class MockDatabase {
         applicationId: "app_technical_001",
         isPublic: false,
         createdAt: new Date("2024-02-15"),
-      },
-      {
-        id: "msg_003",
-        senderId: "1",
-        receiverId: "1",
-        subject: "Draft Application Reminder",
-        content: "Remember to complete and submit your draft applications.",
-        applicationId: "app_draft_001",
-        isPublic: false,
-        createdAt: new Date("2024-03-11"),
       },
     ]
 
@@ -1327,7 +1188,7 @@ class MockDatabase {
     this.logs.push(...mockLogs)
     this.messages.push(...mockMessages)
     this.documents.push(...mockDocuments)
-    this.applicationCounter = 37 // Update counter to avoid conflicts
+    this.applicationCounter = 1 // Update counter to avoid conflicts
   }
 
   // Call initialization in constructor
