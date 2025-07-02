@@ -58,10 +58,12 @@
     "@testing-library/dom": "latest",
     "@types/debug": "latest",
     "@vitest/browser": "latest",
+    "child_process": "latest",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "latest",
     "embla-carousel-react": "latest",
+    "fs": "latest",
     "happy-dom": "latest",
     "input-otp": "latest",
     "lucide-react": "^0.454.0",
@@ -80,7 +82,8 @@
     "tailwind-merge": "^2.5.5",
     "tailwindcss-animate": "^1.0.7",
     "vaul": "latest",
-    "vite": "latest"
+    "vite": "latest",
+    "vitest-mock": "latest"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.1.4",
