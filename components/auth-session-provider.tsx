@@ -1,24 +1,23 @@
 "use client"
 
-import "@/lib/ensure-env" // Must run before importing from next-auth/react
+import "@/lib/ensure-env" // 🛡️ Must be first import to prevent Invalid URL errors
+
 import { SessionProvider } from "next-auth/react"
 import type { Session } from "next-auth"
 import type { ReactNode } from "react"
 
 interface AuthSessionProviderProps {
-  session?: Session | null
   children: ReactNode
+  session?: Session | null
 }
 
-/**
- * AuthSessionProvider
- * -------------------
- * Wraps children with NextAuth's SessionProvider so `useSession`
- * works throughout the client-side tree.
- */
-export function AuthSessionProvider({ session = null, children }: AuthSessionProviderProps) {
-  return <SessionProvider session={session}>{children}</SessionProvider>
+export function AuthSessionProvider({ children, session }: AuthSessionProviderProps) {
+  return (
+    <SessionProvider session={session} refetchInterval={5 * 60} refetchOnWindowFocus={true}>
+      {children}
+    </SessionProvider>
+  )
 }
 
-/* Preserve the default export expected elsewhere in the codebase */
+// Default export for backward compatibility
 export default AuthSessionProvider

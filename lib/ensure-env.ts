@@ -1,38 +1,26 @@
 /**
- * ensure-env.ts
- * --------------
- * Guarantees `process.env.NEXTAUTH_URL` is **always** a valid absolute URL
- * before any code from `next-auth` executes.  This prevents the
- * “Failed to construct 'URL': Invalid URL” runtime error during local
- * development, Vercel preview deployments, and production.
- *
- * How it works:
- *  • On the server  – sets `process.env.NEXTAUTH_URL` if it is missing.
- *  • On the client  – nothing to do; `next-auth` uses `window.location.origin`.
- *
- * IMPORTANT: place `import "@/lib/ensure-env"` **above** every `next-auth`
- *            import in your entry files (e.g. lib/auth.ts, providers, etc.).
+ * Environment variable safety guard for next-auth
+ * This MUST be imported before any next-auth modules to prevent "Invalid URL" errors
  */
 
-;(() => {
-  // Only run the patch once.
-  if ((globalThis as any).__nextAuthEnvPatched) return
-  ;(globalThis as any).__nextAuthEnvPatched = true
-
-  // Run this part only on the server where process.env is mutable.
+// Ensure NEXTAUTH_URL is always defined with a valid absolute URL
+if (!process.env.NEXTAUTH_URL) {
   if (typeof window === "undefined") {
-    if (!process.env.NEXTAUTH_URL || process.env.NEXTAUTH_URL.trim() === "") {
-      // Prefer the Vercel-provided URL in preview/production.
-      const fallback =
-        process.env.VERCEL_URL && process.env.VERCEL_URL !== ""
-          ? `https://${process.env.VERCEL_URL}`
-          : "http://localhost:3000"
-
-      process.env.NEXTAUTH_URL = fallback
-      // eslint-disable-next-line no-console
-      console.info(`[ensure-env] NEXTAUTH_URL was missing – set to "${process.env.NEXTAUTH_URL}".`)
-    }
+    // Server-side: use localhost for development, or construct from HOST/PORT
+    const host = process.env.HOST || "localhost"
+    const port = process.env.PORT || "3000"
+    process.env.NEXTAUTH_URL = `http://${host}:${port}`
+  } else {
+    // Client-side: use current origin
+    process.env.NEXTAUTH_URL = window.location.origin
   }
-})()
+}
 
-export {} // makes this an ES module
+// Ensure NEXTAUTH_SECRET is defined (required for JWT signing)
+if (!process.env.NEXTAUTH_SECRET) {
+  process.env.NEXTAUTH_SECRET = "umscc-permit-management-dev-secret-key-2025"
+}
+
+// Export for verification purposes
+export const getNextAuthUrl = () => process.env.NEXTAUTH_URL
+export const hasNextAuthSecret = () => !!process.env.NEXTAUTH_SECRET
