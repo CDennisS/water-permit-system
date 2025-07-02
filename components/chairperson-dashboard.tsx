@@ -5,7 +5,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { FileText, Users, CheckCircle, Clock, AlertTriangle } from "lucide-react"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { FileText, Users, CheckCircle, Clock, AlertTriangle, Eye, Save } from "lucide-react"
 import type { User, PermitApplication } from "@/types"
 import { db } from "@/lib/database"
 import { StrictViewOnlyApplicationDetails } from "./strict-view-only-application-details"
@@ -22,6 +24,9 @@ export function ChairpersonDashboard({ user }: ChairpersonDashboardProps) {
   const [selectedApplication, setSelectedApplication] = useState<PermitApplication | null>(null)
   const [activeView, setActiveView] = useState("overview")
   const [unreadMessageCount, setUnreadMessageCount] = useState(0)
+  const [reviewedApplications, setReviewedApplications] = useState<Set<string>>(new Set())
+  const [selectAllUnsubmitted, setSelectAllUnsubmitted] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const [stats, setStats] = useState({
     totalApplications: 0,
     pendingReview: 0,
@@ -95,6 +100,91 @@ export function ChairpersonDashboard({ user }: ChairpersonDashboardProps) {
     setUnreadMessageCount(0)
   }
 
+  const handleApplicationReviewed = async (applicationId: string, isReviewed: boolean) => {
+    const newReviewed = new Set(reviewedApplications)
+    if (isReviewed) {
+      newReviewed.add(applicationId)
+    } else {
+      newReviewed.delete(applicationId)
+    }
+    setReviewedApplications(newReviewed)
+
+    // Add activity log for review
+    if (isReviewed) {
+      await db.addLog({
+        userId: user.id,
+        userType: user.userType,
+        action: "Application Reviewed",
+        details: `Application ${applications.find((app) => app.id === applicationId)?.applicationId} marked as reviewed by chairperson`,
+        applicationId: applicationId,
+      })
+    }
+  }
+
+  const handleSelectAllUnsubmitted = (checked: boolean) => {
+    setSelectAllUnsubmitted(checked)
+    if (checked) {
+      // Mark all pending applications as reviewed
+      const pendingApps = applications.filter((app) => app.currentStage === 2 && app.status === "submitted")
+      const newReviewed = new Set(reviewedApplications)
+      pendingApps.forEach((app) => newReviewed.add(app.id))
+      setReviewedApplications(newReviewed)
+    }
+  }
+
+  const handleSubmitPermits = async () => {
+    if (!selectAllUnsubmitted) return
+
+    setIsSubmitting(true)
+    try {
+      const pendingApps = applications.filter(
+        (app) => app.currentStage === 2 && app.status === "submitted" && reviewedApplications.has(app.id),
+      )
+
+      for (const app of pendingApps) {
+        await db.updateApplication(app.id, {
+          currentStage: 3,
+          status: "under_review",
+          updatedAt: new Date(),
+        })
+
+        // Add workflow comment
+        await db.addComment({
+          applicationId: app.id,
+          userId: user.id,
+          userType: user.userType,
+          comment:
+            "Application reviewed and approved by Upper Manyame Sub Catchment Council Chairman. Forwarding to Catchment Manager for technical assessment.",
+          stage: 2,
+          isRejectionReason: false,
+        })
+
+        // Add activity log
+        await db.addLog({
+          userId: user.id,
+          userType: user.userType,
+          action: "Application Submitted to Next Stage",
+          details: `Application ${app.applicationId} submitted to Catchment Manager for technical review`,
+          applicationId: app.id,
+        })
+      }
+
+      // Reset states
+      setReviewedApplications(new Set())
+      setSelectAllUnsubmitted(false)
+
+      // Reload data
+      await loadDashboardData()
+
+      alert(`Successfully submitted ${pendingApps.length} application(s) to Catchment Manager for technical review.`)
+    } catch (error) {
+      console.error("Error submitting applications:", error)
+      alert("Error submitting applications. Please try again.")
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
   const StatCard = ({
     title,
     value,
@@ -129,6 +219,153 @@ export function ChairpersonDashboard({ user }: ChairpersonDashboardProps) {
       </Card>
     )
   }
+
+  const ApplicationDetailDialog = ({ application }: { application: PermitApplication }) => {
+    const [isReviewed, setIsReviewed] = useState(reviewedApplications.has(application.id))
+
+    const handleSave = async () => {
+      await handleApplicationReviewed(application.id, isReviewed)
+      alert("Application review status saved successfully!")
+    }
+
+    return (
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Application Details - {application.applicationId}</DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-6">
+          {/* Application Details */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-3">
+              <div>
+                <label className="text-sm font-medium text-gray-600">Account Number</label>
+                <p className="text-sm font-semibold">{application.customerAccountNumber}</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-600">Applicant Name</label>
+                <p className="text-sm font-semibold">{application.applicantName}</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-600">Physical Address</label>
+                <p className="text-sm">{application.physicalAddress}</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-600">Postal Address</label>
+                <p className="text-sm">{application.postalAddress}</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-600">Cellular Number</label>
+                <p className="text-sm">{application.cellularNumber}</p>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <label className="text-sm font-medium text-gray-600">Permit Type</label>
+                <p className="text-sm font-semibold capitalize">{application.permitType.replace("_", " ")}</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-600">Water Source</label>
+                <p className="text-sm capitalize">{application.waterSource}</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-600">Intended Use</label>
+                <p className="text-sm">{application.intendedUse}</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-600">Number of Boreholes</label>
+                <p className="text-sm">{application.numberOfBoreholes}</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-600">Land Size (hectares)</label>
+                <p className="text-sm">{application.landSize}</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-600">Water Allocation (m³/annum)</label>
+                <p className="text-sm font-semibold">{application.waterAllocation.toLocaleString()}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* GPS Coordinates */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="text-sm font-medium text-gray-600">GPS Latitude</label>
+              <p className="text-sm">{application.gpsLatitude}</p>
+            </div>
+            <div>
+              <label className="text-sm font-medium text-gray-600">GPS Longitude</label>
+              <p className="text-sm">{application.gpsLongitude}</p>
+            </div>
+          </div>
+
+          {/* Application Status */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="text-sm font-medium text-gray-600">Current Status</label>
+              <Badge className="mt-1 bg-blue-100 text-blue-800 capitalize">
+                {application.status.replace("_", " ")}
+              </Badge>
+            </div>
+            <div>
+              <label className="text-sm font-medium text-gray-600">Current Stage</label>
+              <p className="text-sm font-semibold">Stage {application.currentStage}</p>
+            </div>
+            <div>
+              <label className="text-sm font-medium text-gray-600">Submitted Date</label>
+              <p className="text-sm">{application.submittedAt?.toLocaleDateString()}</p>
+            </div>
+          </div>
+
+          {/* Workflow Comments */}
+          {application.workflowComments && application.workflowComments.length > 0 && (
+            <div>
+              <label className="text-sm font-medium text-gray-600 mb-2 block">Workflow Comments</label>
+              <div className="space-y-2 max-h-40 overflow-y-auto">
+                {application.workflowComments.map((comment) => (
+                  <div key={comment.id} className="p-3 bg-gray-50 rounded-lg">
+                    <div className="flex justify-between items-start mb-1">
+                      <span className="text-xs font-medium text-gray-600 capitalize">
+                        {comment.userType.replace("_", " ")} - Stage {comment.stage}
+                      </span>
+                      <span className="text-xs text-gray-500">{comment.createdAt.toLocaleDateString()}</span>
+                    </div>
+                    <p className="text-sm">{comment.comment}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Review Checkbox and Save Button */}
+          <div className="border-t pt-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="application-reviewed"
+                  checked={isReviewed}
+                  onCheckedChange={(checked) => setIsReviewed(checked as boolean)}
+                />
+                <label htmlFor="application-reviewed" className="text-sm font-medium">
+                  Application Reviewed
+                </label>
+              </div>
+              <Button onClick={handleSave} className="flex items-center space-x-2">
+                <Save className="h-4 w-4" />
+                <span>Save</span>
+              </Button>
+            </div>
+          </div>
+        </div>
+      </DialogContent>
+    )
+  }
+
+  const pendingApplications = applications.filter((app) => app.currentStage === 2 && app.status === "submitted")
+
+  const allPendingReviewed =
+    pendingApplications.length > 0 && pendingApplications.every((app) => reviewedApplications.has(app.id))
 
   return (
     <div className="space-y-6">
@@ -182,40 +419,97 @@ export function ChairpersonDashboard({ user }: ChairpersonDashboardProps) {
             <StatCard title="Approval Rate" value={`${stats.approvalRate}%`} icon={AlertTriangle} color="purple" />
           </div>
 
-          {/* Recent Applications */}
+          {/* Recent Applications Requiring Review */}
           <Card>
             <CardHeader>
               <CardTitle>Recent Applications Requiring Review</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-3">
-                {applications
-                  .filter((app) => app.currentStage === 2 && app.status === "submitted")
-                  .slice(0, 5)
-                  .map((application) => (
+              <div className="space-y-4">
+                {/* Bulk Submit Section */}
+                {pendingApplications.length > 0 && (
+                  <div className="border-b pb-4 mb-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="select-all-unsubmitted"
+                          checked={selectAllUnsubmitted}
+                          onCheckedChange={handleSelectAllUnsubmitted}
+                        />
+                        <label htmlFor="select-all-unsubmitted" className="text-sm font-medium">
+                          Select All Unsubmitted Permits ({pendingApplications.length})
+                        </label>
+                      </div>
+                      {selectAllUnsubmitted && allPendingReviewed && (
+                        <Button
+                          onClick={handleSubmitPermits}
+                          disabled={isSubmitting}
+                          className="bg-green-600 hover:bg-green-700"
+                        >
+                          {isSubmitting ? "Submitting..." : "Submit Permits"}
+                        </Button>
+                      )}
+                    </div>
+                    {selectAllUnsubmitted && !allPendingReviewed && (
+                      <p className="text-sm text-orange-600 mt-2">
+                        Please review all applications before submitting permits.
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* Applications List */}
+                <div className="space-y-3">
+                  {pendingApplications.map((application) => (
                     <div
                       key={application.id}
-                      className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer"
-                      onClick={() => setSelectedApplication(application)}
+                      className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100"
                     >
-                      <div className="flex items-center space-x-3">
-                        <FileText className="h-5 w-5 text-gray-500" />
+                      <div className="flex-1 grid grid-cols-1 md:grid-cols-4 gap-4">
                         <div>
-                          <p className="font-medium">{application.applicationId}</p>
-                          <p className="text-sm text-gray-600">{application.applicantName}</p>
+                          <p className="text-sm font-medium text-gray-600">Account Number</p>
+                          <p className="font-semibold">{application.customerAccountNumber}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-600">Applicant Name</p>
+                          <p className="font-semibold">{application.applicantName}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-600">Address</p>
+                          <p className="text-sm">{application.physicalAddress}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-600">Permit Type</p>
+                          <Badge variant="outline" className="capitalize">
+                            {application.permitType.replace("_", " ")}
+                          </Badge>
                         </div>
                       </div>
-                      <div className="text-right">
-                        <Badge variant="outline" className="mb-1">
-                          {application.permitType.replace("_", " ").toUpperCase()}
-                        </Badge>
-                        <p className="text-xs text-gray-500">{application.createdAt.toLocaleDateString()}</p>
+
+                      <div className="flex items-center space-x-3 ml-4">
+                        {reviewedApplications.has(application.id) && (
+                          <Badge className="bg-green-100 text-green-800">
+                            <CheckCircle className="h-3 w-3 mr-1" />
+                            Reviewed
+                          </Badge>
+                        )}
+                        <Dialog>
+                          <DialogTrigger asChild>
+                            <Button size="sm" variant="outline" className="flex items-center space-x-1 bg-transparent">
+                              <Eye className="h-4 w-4" />
+                              <span>View</span>
+                            </Button>
+                          </DialogTrigger>
+                          <ApplicationDetailDialog application={application} />
+                        </Dialog>
                       </div>
                     </div>
                   ))}
-                {applications.filter((app) => app.currentStage === 2 && app.status === "submitted").length === 0 && (
-                  <p className="text-center text-gray-500 py-8">No applications pending review</p>
-                )}
+
+                  {pendingApplications.length === 0 && (
+                    <p className="text-center text-gray-500 py-8">No applications pending review</p>
+                  )}
+                </div>
               </div>
             </CardContent>
           </Card>
