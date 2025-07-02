@@ -23,6 +23,14 @@ export function PermitTemplate({ permitData, id = "permit-template" }: PermitTem
         boxSizing: "border-box",
       }}
     >
+      {/* Responsive wrapper for screen viewing */}
+      <div className="print:hidden mb-4 p-2 bg-blue-50 border border-blue-200 rounded text-sm text-blue-800">
+        <p className="font-medium">📄 Print Preview Mode</p>
+        <p className="text-xs">
+          This document is optimized for A4 printing. Use browser print function for best results.
+        </p>
+      </div>
+
       {/* Form Number - Top Right */}
       <div className="text-right mb-2">
         <p className="text-sm font-normal">Form GW7B</p>
@@ -36,8 +44,8 @@ export function PermitTemplate({ permitData, id = "permit-template" }: PermitTem
         <p className="text-xs italic mb-4">(Section 15 (3) (a) of Water (Permits) Regulations, 2001)</p>
       </div>
 
-      {/* Official Stamp Area - Simplified */}
-      <div className="flex justify-between items-center mb-4">
+      {/* Official Stamp Area - Responsive */}
+      <div className="flex flex-col sm:flex-row justify-between items-center mb-4 gap-2">
         <div className="border border-black px-2 py-1 text-xs">OFFICIAL STAMP</div>
         <div className="w-16 h-12 border border-gray-300 flex items-center justify-center text-xs">LOGO</div>
       </div>
@@ -58,7 +66,7 @@ export function PermitTemplate({ permitData, id = "permit-template" }: PermitTem
         </p>
       </div>
 
-      {/* Applicant Details */}
+      {/* Applicant Details - Responsive Layout */}
       <div className="space-y-2 mb-3">
         <div>
           <p className="text-sm">
@@ -66,26 +74,26 @@ export function PermitTemplate({ permitData, id = "permit-template" }: PermitTem
           </p>
         </div>
 
-        <div className="flex justify-between">
+        <div className="flex flex-col lg:flex-row lg:justify-between gap-2">
           <div className="flex-1">
             <p className="text-sm">
               2. Physical address: <strong>{permitData.physicalAddress}</strong>
             </p>
           </div>
-          <div className="flex-1 ml-4">
+          <div className="flex-1 lg:ml-4">
             <p className="text-sm">
               3. Postal address: <strong>{permitData.postalAddress || "N/A"}</strong>
             </p>
           </div>
         </div>
 
-        <div className="flex justify-between">
+        <div className="flex flex-col lg:flex-row lg:justify-between gap-2">
           <div className="flex-1">
             <p className="text-sm">
               4. Number of drilled boreholes: <strong>{permitData.numberOfBoreholes}</strong>
             </p>
           </div>
-          <div className="flex-1 ml-4">
+          <div className="flex-1 lg:ml-4">
             <p className="text-sm">
               5. Size of land or property: <strong>{permitData.landSize} (ha)</strong>
             </p>
@@ -100,93 +108,97 @@ export function PermitTemplate({ permitData, id = "permit-template" }: PermitTem
         </div>
       </div>
 
-      {/* Borehole Details Table - Compact */}
+      {/* Borehole Details Table - Responsive with horizontal scroll on mobile */}
       <div className="mb-3">
-        <table className="w-full border-collapse text-xs" style={{ border: "2px solid black" }}>
-          <thead>
-            <tr>
-              <th
-                rowSpan={2}
-                className="border border-black p-1 text-center w-8"
-                style={{ borderLeft: "2px solid black" }}
-              >
-                <strong>Borehole (BH)-No.</strong>
-              </th>
-              <th rowSpan={2} className="border border-black p-1 text-center w-16">
-                <strong>BH-No. Allocated</strong>
-              </th>
-              <th rowSpan={2} className="border border-black p-1 text-center w-16">
-                <strong>Grid Reference</strong>
-              </th>
-              <th colSpan={2} className="border border-black p-1 text-center w-20">
-                <strong>GPS reading</strong>
-              </th>
-              <th rowSpan={2} className="border border-black p-1 text-center w-20">
-                <strong>
-                  Intended use<sup>a</sup>
-                </strong>
-              </th>
-              <th rowSpan={2} className="border border-black p-1 text-center w-16">
-                <strong>
-                  Maximum abstraction rate (m<sup>3</sup>/annum)
-                </strong>
-              </th>
-              <th
-                rowSpan={2}
-                className="border border-black p-1 text-center w-16"
-                style={{ borderRight: "2px solid black" }}
-              >
-                <strong>Water sample analysis every _______ months/years</strong>
-              </th>
-            </tr>
-            <tr>
-              <th className="border border-black p-1 text-center w-10">
-                <strong>X</strong>
-              </th>
-              <th className="border border-black p-1 text-center w-10">
-                <strong>Y</strong>
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {permitData.boreholeDetails.map((borehole, index) => (
-              <tr key={index}>
-                <td
-                  className="border border-black p-1 text-center"
-                  style={{ borderLeft: index === 0 ? "2px solid black" : "1px solid black" }}
+        <div className="overflow-x-auto print:overflow-visible">
+          <table className="w-full border-collapse text-xs min-w-full" style={{ border: "2px solid black" }}>
+            <thead>
+              <tr>
+                <th
+                  rowSpan={2}
+                  className="border border-black p-1 text-center w-8 min-w-[2rem]"
+                  style={{ borderLeft: "2px solid black" }}
                 >
-                  <strong>{index + 1}</strong>
-                </td>
-                <td className="border border-black p-1 text-center">{borehole.allocatedAmount.toLocaleString()}</td>
-                <td className="border border-black p-1 text-center">&nbsp;</td>
-                <td className="border border-black p-1 text-center">{borehole.gpsX}</td>
-                <td className="border border-black p-1 text-center">{borehole.gpsY}</td>
-                <td className="border border-black p-1 text-center">{borehole.intendedUse}</td>
-                <td className="border border-black p-1 text-center">{borehole.maxAbstractionRate.toLocaleString()}</td>
-                <td className="border border-black p-1 text-center" style={{ borderRight: "2px solid black" }}>
-                  {borehole.waterSampleFrequency}
-                </td>
+                  <strong>Borehole (BH)-No.</strong>
+                </th>
+                <th rowSpan={2} className="border border-black p-1 text-center w-16 min-w-[4rem]">
+                  <strong>BH-No. Allocated</strong>
+                </th>
+                <th rowSpan={2} className="border border-black p-1 text-center w-16 min-w-[4rem]">
+                  <strong>Grid Reference</strong>
+                </th>
+                <th colSpan={2} className="border border-black p-1 text-center w-20 min-w-[5rem]">
+                  <strong>GPS reading</strong>
+                </th>
+                <th rowSpan={2} className="border border-black p-1 text-center w-20 min-w-[5rem]">
+                  <strong>
+                    Intended use<sup>a</sup>
+                  </strong>
+                </th>
+                <th rowSpan={2} className="border border-black p-1 text-center w-16 min-w-[4rem]">
+                  <strong>
+                    Maximum abstraction rate (m<sup>3</sup>/annum)
+                  </strong>
+                </th>
+                <th
+                  rowSpan={2}
+                  className="border border-black p-1 text-center w-16 min-w-[4rem]"
+                  style={{ borderRight: "2px solid black" }}
+                >
+                  <strong>Water sample analysis every _______ months/years</strong>
+                </th>
               </tr>
-            ))}
-            {/* Fill remaining rows to make 5 total */}
-            {Array.from({ length: Math.max(0, 5 - permitData.boreholeDetails.length) }).map((_, index) => (
-              <tr key={`empty-${index}`}>
-                <td className="border border-black p-1 text-center" style={{ borderLeft: "2px solid black" }}>
-                  <strong>{permitData.boreholeDetails.length + index + 1}</strong>
-                </td>
-                <td className="border border-black p-1">&nbsp;</td>
-                <td className="border border-black p-1">&nbsp;</td>
-                <td className="border border-black p-1">&nbsp;</td>
-                <td className="border border-black p-1">&nbsp;</td>
-                <td className="border border-black p-1">&nbsp;</td>
-                <td className="border border-black p-1">&nbsp;</td>
-                <td className="border border-black p-1" style={{ borderRight: "2px solid black" }}>
-                  &nbsp;
-                </td>
+              <tr>
+                <th className="border border-black p-1 text-center w-10 min-w-[2.5rem]">
+                  <strong>X</strong>
+                </th>
+                <th className="border border-black p-1 text-center w-10 min-w-[2.5rem]">
+                  <strong>Y</strong>
+                </th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {permitData.boreholeDetails.map((borehole, index) => (
+                <tr key={index}>
+                  <td
+                    className="border border-black p-1 text-center"
+                    style={{ borderLeft: index === 0 ? "2px solid black" : "1px solid black" }}
+                  >
+                    <strong>{index + 1}</strong>
+                  </td>
+                  <td className="border border-black p-1 text-center">{borehole.allocatedAmount.toLocaleString()}</td>
+                  <td className="border border-black p-1 text-center">&nbsp;</td>
+                  <td className="border border-black p-1 text-center">{borehole.gpsX}</td>
+                  <td className="border border-black p-1 text-center">{borehole.gpsY}</td>
+                  <td className="border border-black p-1 text-center">{borehole.intendedUse}</td>
+                  <td className="border border-black p-1 text-center">
+                    {borehole.maxAbstractionRate.toLocaleString()}
+                  </td>
+                  <td className="border border-black p-1 text-center" style={{ borderRight: "2px solid black" }}>
+                    {borehole.waterSampleFrequency}
+                  </td>
+                </tr>
+              ))}
+              {/* Fill remaining rows to make 5 total */}
+              {Array.from({ length: Math.max(0, 5 - permitData.boreholeDetails.length) }).map((_, index) => (
+                <tr key={`empty-${index}`}>
+                  <td className="border border-black p-1 text-center" style={{ borderLeft: "2px solid black" }}>
+                    <strong>{permitData.boreholeDetails.length + index + 1}</strong>
+                  </td>
+                  <td className="border border-black p-1">&nbsp;</td>
+                  <td className="border border-black p-1">&nbsp;</td>
+                  <td className="border border-black p-1">&nbsp;</td>
+                  <td className="border border-black p-1">&nbsp;</td>
+                  <td className="border border-black p-1">&nbsp;</td>
+                  <td className="border border-black p-1">&nbsp;</td>
+                  <td className="border border-black p-1" style={{ borderRight: "2px solid black" }}>
+                    &nbsp;
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
         <p className="text-xs mt-1">
           <sup>a</sup> Intended use: irrigation, livestock farming, industrial, mining, urban, national parks, other
           (specify): <strong>{permitData.intendedUse.toUpperCase()}</strong>
@@ -198,11 +210,14 @@ export function PermitTemplate({ permitData, id = "permit-template" }: PermitTem
         <p className="text-sm mb-2">
           This Temporary/Provisional<sup>*</sup> Specific Abstraction Permit has been recorded in the register as:
         </p>
-        <p className="text-sm">
-          Permit No: <strong>{permitData.permitNumber}</strong>{" "}
-          &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Valid until:{" "}
-          <strong>{permitData.validUntil}</strong>
-        </p>
+        <div className="flex flex-col sm:flex-row sm:justify-between gap-2">
+          <p className="text-sm">
+            Permit No: <strong>{permitData.permitNumber}</strong>
+          </p>
+          <p className="text-sm">
+            Valid until: <strong>{permitData.validUntil}</strong>
+          </p>
+        </div>
       </div>
 
       {/* CONDITIONS */}
@@ -251,21 +266,21 @@ export function PermitTemplate({ permitData, id = "permit-template" }: PermitTem
         </ol>
       </div>
 
-      {/* Signature Section - Compact */}
+      {/* Signature Section - Responsive */}
       <div className="mt-4">
-        <div className="flex justify-between items-end text-xs">
-          <div className="text-center">
-            <div className="border-b border-black w-32 h-8 mb-1"></div>
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-end gap-4 text-xs">
+          <div className="text-center flex-1">
+            <div className="border-b border-black w-full sm:w-32 h-8 mb-1 mx-auto"></div>
             <p>
               Name (<em>print</em>)
             </p>
           </div>
-          <div className="text-center">
-            <div className="border-b border-black w-32 h-8 mb-1"></div>
+          <div className="text-center flex-1">
+            <div className="border-b border-black w-full sm:w-32 h-8 mb-1 mx-auto"></div>
             <p>Signature</p>
           </div>
-          <div className="text-center">
-            <div className="border-b border-black w-24 h-8 mb-1"></div>
+          <div className="text-center flex-1">
+            <div className="border-b border-black w-full sm:w-24 h-8 mb-1 mx-auto"></div>
             <p>Official Date Stamp</p>
           </div>
         </div>
@@ -275,6 +290,15 @@ export function PermitTemplate({ permitData, id = "permit-template" }: PermitTem
       {/* Footer - Minimal */}
       <div className="mt-2 text-center text-xs text-gray-600">
         <p>Generated: {new Date().toLocaleDateString("en-ZA")} | UMSCC Permit System</p>
+      </div>
+
+      {/* Mobile viewing notice */}
+      <div className="print:hidden mt-4 p-3 bg-amber-50 border border-amber-200 rounded text-sm text-amber-800 sm:hidden">
+        <p className="font-medium">📱 Mobile View Notice</p>
+        <p className="text-xs">
+          This permit is optimized for desktop viewing and A4 printing. Some elements may appear compressed on mobile
+          devices. For best results, view on desktop or use landscape orientation.
+        </p>
       </div>
     </div>
   )

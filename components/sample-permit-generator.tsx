@@ -4,7 +4,7 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { PermitTemplate } from "./permit-template"
-import { FileText, Printer, Download } from "lucide-react"
+import { FileText, Printer, Download, Monitor, Smartphone, Tablet } from "lucide-react"
 import { toast } from "sonner"
 import type { PermitData } from "@/types"
 
@@ -60,6 +60,7 @@ const samplePermitData: PermitData = {
 
 export default function SamplePermitGenerator() {
   const [showPreview, setShowPreview] = useState(false)
+  const [viewMode, setViewMode] = useState<"desktop" | "tablet" | "mobile">("desktop")
 
   const handlePrint = () => {
     window.print()
@@ -96,6 +97,18 @@ export default function SamplePermitGenerator() {
     toast.success("Permit download prepared")
   }
 
+  const getViewModeStyles = () => {
+    switch (viewMode) {
+      case "mobile":
+        return "max-w-sm mx-auto"
+      case "tablet":
+        return "max-w-2xl mx-auto"
+      case "desktop":
+      default:
+        return "max-w-full"
+    }
+  }
+
   return (
     <div className="space-y-6">
       {/* Control Panel */}
@@ -106,7 +119,8 @@ export default function SamplePermitGenerator() {
             Sample Permit Generator
           </CardTitle>
           <CardDescription>
-            Generate and preview a sample permit to verify template formatting and data display
+            Generate and preview a sample permit to verify template formatting and data display across different screen
+            sizes
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -135,8 +149,42 @@ export default function SamplePermitGenerator() {
             )}
           </div>
 
+          {/* Responsive View Mode Selector */}
+          {showPreview && (
+            <div className="flex gap-2 p-3 bg-gray-50 rounded-lg">
+              <p className="text-sm font-medium mr-2">View Mode:</p>
+              <Button
+                size="sm"
+                variant={viewMode === "desktop" ? "default" : "outline"}
+                onClick={() => setViewMode("desktop")}
+                className="gap-1"
+              >
+                <Monitor className="h-3 w-3" />
+                Desktop
+              </Button>
+              <Button
+                size="sm"
+                variant={viewMode === "tablet" ? "default" : "outline"}
+                onClick={() => setViewMode("tablet")}
+                className="gap-1"
+              >
+                <Tablet className="h-3 w-3" />
+                Tablet
+              </Button>
+              <Button
+                size="sm"
+                variant={viewMode === "mobile" ? "default" : "outline"}
+                onClick={() => setViewMode("mobile")}
+                className="gap-1"
+              >
+                <Smartphone className="h-3 w-3" />
+                Mobile
+              </Button>
+            </div>
+          )}
+
           {/* Sample Data Summary */}
-          <div className="grid grid-cols-2 gap-4 text-sm bg-gray-50 p-4 rounded-lg">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm bg-gray-50 p-4 rounded-lg">
             <div>
               <p className="font-medium">Permit Number</p>
               <p className="text-muted-foreground">{samplePermitData.permitNumber}</p>
@@ -163,64 +211,95 @@ export default function SamplePermitGenerator() {
       {showPreview && (
         <Card>
           <CardHeader>
-            <CardTitle>Permit Preview</CardTitle>
+            <CardTitle>Permit Preview - {viewMode.charAt(0).toUpperCase() + viewMode.slice(1)} View</CardTitle>
             <CardDescription>
-              This is how the permit will appear when printed. Verify all data displays correctly.
+              This is how the permit will appear when printed. Verify all data displays correctly across different
+              screen sizes.
             </CardDescription>
           </CardHeader>
           <CardContent className="p-0">
-            <div className="border rounded-lg overflow-hidden">
+            <div className={`border rounded-lg overflow-hidden ${getViewModeStyles()}`}>
               <PermitTemplate permitData={samplePermitData} id="sample-permit-template" />
             </div>
           </CardContent>
         </Card>
       )}
 
-      {/* Verification Checklist */}
+      {/* Responsive Design Checklist */}
       <Card>
         <CardHeader>
-          <CardTitle>Verification Checklist</CardTitle>
-          <CardDescription>Use this checklist to verify the permit template is working correctly</CardDescription>
+          <CardTitle>Responsive Design Verification</CardTitle>
+          <CardDescription>
+            Use this checklist to verify the permit template works across different screen sizes
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
             <div className="flex items-center gap-2">
-              <input type="checkbox" id="header-check" className="rounded" />
-              <label htmlFor="header-check" className="text-sm">
-                Header displays "Form GW7B" and permit title correctly
+              <input type="checkbox" id="desktop-check" className="rounded" />
+              <label htmlFor="desktop-check" className="text-sm">
+                <strong>Desktop (1024px+):</strong> Full layout with side-by-side elements displays correctly
               </label>
             </div>
             <div className="flex items-center gap-2">
-              <input type="checkbox" id="applicant-check" className="rounded" />
-              <label htmlFor="applicant-check" className="text-sm">
-                Applicant details (name, addresses, land size) display correctly
+              <input type="checkbox" id="tablet-check" className="rounded" />
+              <label htmlFor="tablet-check" className="text-sm">
+                <strong>Tablet (768px-1023px):</strong> Elements stack appropriately, table remains readable
               </label>
             </div>
             <div className="flex items-center gap-2">
-              <input type="checkbox" id="borehole-check" className="rounded" />
-              <label htmlFor="borehole-check" className="text-sm">
-                Borehole table shows all 3 boreholes with correct allocations
+              <input type="checkbox" id="mobile-check" className="rounded" />
+              <label htmlFor="mobile-check" className="text-sm">
+                <strong>Mobile (320px-767px):</strong> All content is accessible with horizontal scroll for table
               </label>
             </div>
             <div className="flex items-center gap-2">
-              <input type="checkbox" id="conditions-check" className="rounded" />
-              <label htmlFor="conditions-check" className="text-sm">
-                Standard conditions and additional conditions are readable
+              <input type="checkbox" id="table-responsive" className="rounded" />
+              <label htmlFor="table-responsive" className="text-sm">
+                Borehole table scrolls horizontally on small screens without breaking layout
               </label>
             </div>
             <div className="flex items-center gap-2">
-              <input type="checkbox" id="signature-check" className="rounded" />
-              <label htmlFor="signature-check" className="text-sm">
-                Signature section has proper spacing for manual signatures
+              <input type="checkbox" id="signature-responsive" className="rounded" />
+              <label htmlFor="signature-responsive" className="text-sm">
+                Signature section adapts from horizontal to vertical layout on mobile
               </label>
             </div>
             <div className="flex items-center gap-2">
-              <input type="checkbox" id="a4-check" className="rounded" />
-              <label htmlFor="a4-check" className="text-sm">
-                Entire permit fits on single A4 page when printed
+              <input type="checkbox" id="print-optimized" className="rounded" />
+              <label htmlFor="print-optimized" className="text-sm">
+                Print styles maintain A4 formatting regardless of screen size
               </label>
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Print Optimization Notes */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Print Optimization Notes</CardTitle>
+        </CardHeader>
+        <CardContent className="text-sm space-y-2">
+          <p>
+            <strong>✅ Responsive Features Added:</strong>
+          </p>
+          <ul className="list-disc list-inside space-y-1 ml-4">
+            <li>Flexible layouts that adapt to screen width</li>
+            <li>Horizontal scroll for table on mobile devices</li>
+            <li>Stacked signature fields on small screens</li>
+            <li>Mobile viewing notice for user guidance</li>
+            <li>Print preview notice for desktop users</li>
+          </ul>
+          <p className="mt-4">
+            <strong>📱 Mobile Considerations:</strong>
+          </p>
+          <ul className="list-disc list-inside space-y-1 ml-4">
+            <li>Table maintains minimum column widths for readability</li>
+            <li>Text remains legible at small sizes</li>
+            <li>Print functionality works from any device</li>
+            <li>Landscape orientation recommended for mobile viewing</li>
+          </ul>
         </CardContent>
       </Card>
     </div>
