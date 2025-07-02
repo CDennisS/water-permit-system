@@ -1,30 +1,33 @@
 /**
- * Guarantees that `process.env.NEXTAUTH_URL` is a valid absolute URL
- * before NextAuth is ever imported.  This prevents the
- * `Failed to construct 'URL': Invalid URL` runtime error.
+ * Ensures NEXTAUTH_URL is defined with an absolute URL **before** any
+ * `next-auth` code is evaluated. Import this module at the very top of every
+ * file that (directly or indirectly) imports `next-auth`.
  *
- * • In the browser preview (Next.js), we fall back to `window.location.origin`.
- * • On the server, we fall back to "http://localhost:3000".
+ * 1. Uses `NEXTAUTH_URL` if already set.
+ * 2. Falls back to `VERCEL_URL` when running on Vercel.
+ * 3. Defaults to `http://localhost:3000` for local development/preview.
  */
-declare global {
-  // Allow adding to NodeJS.ProcessEnv
-  // eslint-disable-next-line no-var, @typescript-eslint/no-namespace
-  namespace NodeJS {
-    interface ProcessEnv {
-      NEXTAUTH_URL?: string
+const ensureNextAuthUrl = () => {
+  if (typeof process === "undefined") return // In the browser, nothing to do.
+
+  if (!process.env.NEXTAUTH_URL || process.env.NEXTAUTH_URL.trim() === "") {
+    const { VERCEL_URL } = process.env
+
+    // Prefer the deployment URL if available (Vercel preview/prod).
+    if (VERCEL_URL && VERCEL_URL.trim() !== "") {
+      // Ensure it has a scheme.
+      const prefixed = VERCEL_URL.startsWith("http") ? VERCEL_URL : `https://${VERCEL_URL}`
+
+      process.env.NEXTAUTH_URL = prefixed
+    } else {
+      // Local fallback.
+      process.env.NEXTAUTH_URL = "http://localhost:3000"
     }
   }
-}
-;(function ensureNextAuthUrl() {
-  if (process.env.NEXTAUTH_URL && process.env.NEXTAUTH_URL.startsWith("http")) {
-    return
-  }
 
-  if (typeof window !== "undefined") {
-    // Running in the browser (Next.js preview)
-    process.env.NEXTAUTH_URL = window.location.origin
-  } else {
-    // Running on the server (Node)
-    process.env.NEXTAUTH_URL = "http://localhost:3000"
-  }
-})()
+  // At this point NEXTAUTH_URL is guaranteed to be a valid absolute URL.
+}
+
+ensureNextAuthUrl()
+
+export {}
