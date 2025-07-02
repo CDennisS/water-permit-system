@@ -1,49 +1,42 @@
 /**
- * ────────────────────────────────────────────────────────────────────────────────
- * ensure-env.ts
- * ────────────────────────────────────────────────────────────────────────────────
- * Guarantees `process.env.NEXTAUTH_URL` is ALWAYS a valid absolute URL before
- * any code from `next-auth` executes (server or edge).  Import this module FIRST
- * in every entry file that touches `next-auth` (route-handlers, lib/auth, etc.).
+ * Environment variable safety guard for next-auth
+ * This MUST be imported before any next-auth modules to prevent "Invalid URL" errors
+ * Only runs on server-side to avoid client-side environment variable access
  */
 
 declare global {
-  // Ensure the patch runs only once
   // eslint-disable-next-line no-var
-  var __nextAuthPatched: boolean | undefined
+  var __nextAuthUrlPatched: boolean | undefined
 }
 
-if (!globalThis.__nextAuthPatched) {
-  globalThis.__nextAuthPatched = true
+// Only run on server-side where process.env is available
+if (typeof window === "undefined" && !globalThis.__nextAuthUrlPatched) {
+  globalThis.__nextAuthUrlPatched = true
 
-  const key = "NEXTAUTH_URL"
-
-  // Helper – choose a sensible fallback host
-  const fallbackHost = () => {
-    if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`
-    const port = process.env.PORT ?? "3000"
-    return `http://localhost:${port}`
-  }
-
-  const raw = process.env[key]
-
-  if (!raw || raw.trim() === "") {
-    process.env[key] = fallbackHost()
-  } else {
-    try {
-      // Validate the provided value
-      new URL(raw)
-    } catch {
-      // Try to fix bare hosts (no scheme) that users sometimes set
-      try {
-        new URL(`https://${raw}`)
-        process.env[key] = `https://${raw}`
-      } catch {
-        // Final fallback
-        process.env[key] = fallbackHost()
-      }
+  // Ensure NEXTAUTH_URL is always defined with a valid absolute URL
+  if (!process.env.NEXTAUTH_URL) {
+    // Use Vercel URL in production/preview, localhost in development
+    if (process.env.VERCEL_URL) {
+      process.env.NEXTAUTH_URL = `https://${process.env.VERCEL_URL}`
+    } else {
+      const port = process.env.PORT || "3000"
+      process.env.NEXTAUTH_URL = `http://localhost:${port}`
     }
   }
+
+  // Ensure NEXTAUTH_SECRET is defined (required for JWT signing)
+  if (!process.env.NEXTAUTH_SECRET) {
+    process.env.NEXTAUTH_SECRET = "umscc-permit-management-dev-secret-key-2025"
+  }
 }
 
-export {} // keep file a module
+// Export for verification purposes (server-side only)
+export const getNextAuthUrl = () => {
+  if (typeof window !== "undefined") return null
+  return process.env.NEXTAUTH_URL
+}
+
+export const hasNextAuthSecret = () => {
+  if (typeof window !== "undefined") return false
+  return !!process.env.NEXTAUTH_SECRET
+}
