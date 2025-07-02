@@ -59,8 +59,13 @@ export function ChairpersonDashboard({ user }: ChairpersonDashboardProps) {
       // Load documents for each application
       const documentsMap: { [key: string]: Document[] } = {}
       for (const app of relevantApplications) {
-        const docs = await db.getDocumentsByApplication(app.id)
-        documentsMap[app.id] = docs
+        try {
+          const docs = await db.getDocumentsByApplication(app.id)
+          documentsMap[app.id] = docs
+        } catch (error) {
+          console.error(`Failed to load documents for application ${app.id}:`, error)
+          documentsMap[app.id] = []
+        }
       }
       setApplicationDocuments(documentsMap)
 
