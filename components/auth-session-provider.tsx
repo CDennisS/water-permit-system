@@ -1,18 +1,23 @@
 "use client"
 
+/**
+ * Patch environment BEFORE importing anything from next-auth/react
+ */
+import "@/lib/init-env"
+
 import { SessionProvider } from "next-auth/react"
 import type { Session } from "next-auth"
-import type React from "react"
+import type { ReactNode } from "react"
 
 interface AuthSessionProviderProps {
-  children: React.ReactNode
-  session?: Session | null
+  children: ReactNode
+  session: Session | null
 }
 
 /**
- * Wraps the app with NextAuth’s SessionProvider so that
- * `useSession` and other auth hooks work everywhere.
+ * Wraps the NextAuth SessionProvider so all nested components
+ * have access to `useSession()`.
  */
-export default function AuthSessionProvider({ children, session = null }: AuthSessionProviderProps) {
+export default function AuthSessionProvider({ children, session }: AuthSessionProviderProps) {
   return <SessionProvider session={session}>{children}</SessionProvider>
 }
