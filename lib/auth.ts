@@ -6,7 +6,7 @@ import type { NextAuthOptions, User } from "next-auth"
 import type { UserType } from "@/types"
 
 // Import existing authentication functions
-import { authenticateUser, getUserTypeLabel } from "@/lib/auth"
+import { authenticateUser, getUserTypeLabel } from "@/lib/auth-helpers"
 
 // Extend NextAuth User type to include our custom fields
 declare module "next-auth" {
