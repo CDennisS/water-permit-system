@@ -9,16 +9,17 @@ interface AuthSessionProviderProps {
   session?: Session | null
 }
 
+/**
+ * Wraps the application with `next-auth`'s `SessionProvider`.
+ * We do **not** pass `baseUrl` unless we're certain it’s valid.
+ * This prevents “Invalid URL” runtime errors.
+ */
 export function AuthSessionProvider({ children, session }: AuthSessionProviderProps) {
-  // This check is always true in the browser / false on the server
-  const baseUrl = process.env.NEXTAUTH_URL
-
   return (
-    <SessionProvider session={session} baseUrl={baseUrl} refetchOnWindowFocus={false}>
+    <SessionProvider session={session} refetchOnWindowFocus={false}>
       {children}
     </SessionProvider>
   )
 }
 
-// Export as default for backward compatibility
 export default AuthSessionProvider
