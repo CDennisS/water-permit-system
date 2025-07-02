@@ -1,53 +1,38 @@
 /**
- * Guarantee NEXTAUTH_URL is a valid absolute URL on **all** environments
- * (local dev, Vercel preview, CI, production).
+ * ensure-env.ts
+ * --------------
+ * Guarantees `process.env.NEXTAUTH_URL` is **always** a valid absolute URL
+ * before any code from `next-auth` executes.  This prevents the
+ * “Failed to construct 'URL': Invalid URL” runtime error during local
+ * development, Vercel preview deployments, and production.
  *
- * ‼️  Must be imported BEFORE anything from `next-auth`.
+ * How it works:
+ *  • On the server  – sets `process.env.NEXTAUTH_URL` if it is missing.
+ *  • On the client  – nothing to do; `next-auth` uses `window.location.origin`.
+ *
+ * IMPORTANT: place `import "@/lib/ensure-env"` **above** every `next-auth`
+ *            import in your entry files (e.g. lib/auth.ts, providers, etc.).
  */
-declare global {
-  // helps us run the patch only once, even if the module is re-evaluated
-  // eslint-disable-next-line no-var
-  var __nextAuthUrlPatched: boolean | undefined
-}
 
-if (!globalThis.__nextAuthUrlPatched) {
-  const ENV_KEY = "NEXTAUTH_URL"
-  const raw = process.env[ENV_KEY]
+;(() => {
+  // Only run the patch once.
+  if ((globalThis as any).__nextAuthEnvPatched) return
+  ;(globalThis as any).__nextAuthEnvPatched = true
 
-  // Helper that returns a safe fallback host (localhost or Vercel host)
-  const fallbackHost = () => {
-    if (process.env.VERCEL_URL) return process.env.VERCEL_URL
-    if (process.env.HOST) return process.env.HOST
-    const port = process.env.PORT ?? "3000"
-    return `localhost:${port}`
-  }
+  // Run this part only on the server where process.env is mutable.
+  if (typeof window === "undefined") {
+    if (!process.env.NEXTAUTH_URL || process.env.NEXTAUTH_URL.trim() === "") {
+      // Prefer the Vercel-provided URL in preview/production.
+      const fallback =
+        process.env.VERCEL_URL && process.env.VERCEL_URL !== ""
+          ? `https://${process.env.VERCEL_URL}`
+          : "http://localhost:3000"
 
-  const makeAbsolute = (val: string) => (val.startsWith("http") ? val : `http://${val}`)
-
-  let finalUrl: string
-
-  if (!raw || raw.trim() === "") {
-    finalUrl = `http://${fallbackHost()}`
-  } else {
-    try {
-      // Will throw if `raw` is not a valid absolute URL
-      new URL(raw)
-      finalUrl = raw
-    } catch {
-      // Try to fix relative / malformed values
-      try {
-        const patched = makeAbsolute(raw)
-        new URL(patched) // validate
-        finalUrl = patched
-      } catch {
-        // Last-resort fallback
-        finalUrl = `http://${fallbackHost()}`
-      }
+      process.env.NEXTAUTH_URL = fallback
+      // eslint-disable-next-line no-console
+      console.info(`[ensure-env] NEXTAUTH_URL was missing – set to "${process.env.NEXTAUTH_URL}".`)
     }
   }
+})()
 
-  process.env[ENV_KEY] = finalUrl
-  globalThis.__nextAuthUrlPatched = true
-}
-
-export {} // makes this a module
+export {} // makes this an ES module
