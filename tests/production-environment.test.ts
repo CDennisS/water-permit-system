@@ -1,360 +1,334 @@
-import { describe, it, expect, beforeEach, vi } from "vitest"
-import { render, screen, waitFor } from "@testing-library/react"
-import { EnhancedReportsAnalytics } from "@/components/enhanced-reports-analytics"
+import { describe, it, expect, beforeAll, afterAll } from "vitest"
 import { db } from "@/lib/database"
 
-// Mock the database
-vi.mock("@/lib/database", () => ({
-  db: {
-    getApplications: vi.fn(),
-  },
-}))
-
-// Mock recharts
-vi.mock("recharts", () => ({
-  ResponsiveContainer: ({ children }: any) => <div data-testid="chart-container">{children}</div>,
-  BarChart: ({ children }: any) => <div data-testid="bar-chart">{children}</div>,
-  PieChart: ({ children }: any) => <div data-testid="pie-chart">{children}</div>,
-  LineChart: ({ children }: any) => <div data-testid="line-chart">{children}</div>,
-  AreaChart: ({ children }: any) => <div data-testid="area-chart">{children}</div>,
-  Bar: () => <div data-testid="bar" />,
-  Pie: () => <div data-testid="pie" />,
-  Line: () => <div data-testid="line" />,
-  Area: () => <div data-testid="area" />,
-  XAxis: () => <div data-testid="x-axis" />,
-  YAxis: () => <div data-testid="y-axis" />,
-  CartesianGrid: () => <div data-testid="grid" />,
-  Tooltip: () => <div data-testid="tooltip" />,
-  Cell: () => <div data-testid="cell" />,
-}))
-
 describe("Production Environment Tests", () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-    // Set production environment
+  beforeAll(async () => {
+    // Setup production-like environment
     process.env.NODE_ENV = "production"
   })
 
-  afterEach(() => {
-    // Reset environment
+  afterAll(async () => {
+    // Cleanup
     process.env.NODE_ENV = "test"
   })
 
-  describe("Production Build Compatibility", () => {
-    it("should work in production mode", async () => {
-      vi.mocked(db.getApplications).mockResolvedValue([])
+  describe("System Configuration", () => {
+    it("should have all required user types configured", async () => {
+      const users = await db.getUsers()
+      const userTypes = new Set(users.map((u) => u.userType))
 
-      render(<EnhancedReportsAnalytics />)
-
-      await waitFor(() => {
-        expect(screen.getByText("Reports & Analytics")).toBeInTheDocument()
-      })
-
-      expect(screen.getByText("0 applications")).toBeInTheDocument()
-    })
-
-    it("should handle minified code correctly", async () => {
-      // Simulate minified environment where function names might be mangled
-      const originalConsoleError = console.error
-      console.error = vi.fn()
-
-      vi.mocked(db.getApplications).mockResolvedValue([])
-
-      render(<EnhancedReportsAnalytics />)
-
-      await waitFor(() => {
-        expect(screen.getByText("Reports & Analytics")).toBeInTheDocument()
-      })
-
-      // Should not have any console errors in production
-      expect(console.error).not.toHaveBeenCalled()
-
-      console.error = originalConsoleError
-    })
-
-    it("should handle CSP (Content Security Policy) restrictions", async () => {
-      // Mock CSP restrictions
-      const originalCreateElement = document.createElement
-      document.createElement = vi.fn((tagName) => {
-        const element = originalCreateElement.call(document, tagName)
-        if (tagName === "style") {
-          // Simulate CSP blocking inline styles
-          Object.defineProperty(element, "innerHTML", {
-            set: () => {
-              throw new Error("CSP violation: inline styles not allowed")
-            },
-          })
-        }
-        return element
-      })
-
-      vi.mocked(db.getApplications).mockResolvedValue([])
-
-      render(<EnhancedReportsAnalytics />)
-
-      await waitFor(() => {
-        expect(screen.getByText("Reports & Analytics")).toBeInTheDocument()
-      })
-
-      // Should still render without inline styles
-      expect(screen.getByText("0 applications")).toBeInTheDocument()
-
-      document.createElement = originalCreateElement
-    })
-  })
-
-  describe("Memory Management", () => {
-    it("should not have memory leaks", async () => {
-      const initialMemory = (performance as any).memory?.usedJSHeapSize || 0
-
-      // Render and unmount multiple times
-      for (let i = 0; i < 10; i++) {
-        vi.mocked(db.getApplications).mockResolvedValue([])
-        const { unmount } = render(<EnhancedReportsAnalytics />)
-
-        await waitFor(() => {
-          expect(screen.getByText("Reports & Analytics")).toBeInTheDocument()
-        })
-
-        unmount()
-      }
-
-      const finalMemory = (performance as any).memory?.usedJSHeapSize || 0
-      const memoryIncrease = finalMemory - initialMemory
-
-      // Memory increase should be reasonable (less than 10MB)
-      expect(memoryIncrease).toBeLessThan(10 * 1024 * 1024)
-    })
-
-    it("should cleanup event listeners properly", async () => {
-      const addEventListenerSpy = vi.spyOn(window, "addEventListener")
-      const removeEventListenerSpy = vi.spyOn(window, "removeEventListener")
-
-      vi.mocked(db.getApplications).mockResolvedValue([])
-
-      const { unmount } = render(<EnhancedReportsAnalytics />)
-
-      await waitFor(() => {
-        expect(screen.getByText("Reports & Analytics")).toBeInTheDocument()
-      })
-
-      const addedListeners = addEventListenerSpy.mock.calls.length
-
-      unmount()
-
-      const removedListeners = removeEventListenerSpy.mock.calls.length
-
-      // Should remove as many listeners as were added
-      expect(removedListeners).toBeGreaterThanOrEqual(addedListeners)
-
-      addEventListenerSpy.mockRestore()
-      removeEventListenerSpy.mockRestore()
-    })
-  })
-
-  describe("Network Resilience", () => {
-    it("should handle slow network connections", async () => {
-      // Simulate slow network
-      vi.mocked(db.getApplications).mockImplementation(
-        () =>
-          new Promise((resolve) => {
-            setTimeout(() => resolve([]), 3000) // 3 second delay
-          }),
-      )
-
-      render(<EnhancedReportsAnalytics />)
-
-      // Should show loading state
-      expect(screen.getByText("Loading analytics data...")).toBeInTheDocument()
-
-      await waitFor(
-        () => {
-          expect(screen.getByText("Reports & Analytics")).toBeInTheDocument()
-        },
-        { timeout: 5000 },
-      )
-
-      expect(screen.getByText("0 applications")).toBeInTheDocument()
-    })
-
-    it("should handle intermittent network failures", async () => {
-      let callCount = 0
-      vi.mocked(db.getApplications).mockImplementation(() => {
-        callCount++
-        if (callCount === 1) {
-          return Promise.reject(new Error("Network timeout"))
-        }
-        return Promise.resolve([])
-      })
-
-      render(<EnhancedReportsAnalytics />)
-
-      await waitFor(() => {
-        expect(screen.getByText("Error Loading Analytics Data")).toBeInTheDocument()
-      })
-
-      // Click retry
-      const retryButton = screen.getByText("Retry Loading")
-      retryButton.click()
-
-      await waitFor(() => {
-        expect(screen.getByText("Reports & Analytics")).toBeInTheDocument()
-      })
-
-      expect(screen.getByText("0 applications")).toBeInTheDocument()
-    })
-  })
-
-  describe("Security", () => {
-    it("should sanitize user input", async () => {
-      vi.mocked(db.getApplications).mockResolvedValue([])
-
-      render(<EnhancedReportsAnalytics />)
-
-      await waitFor(() => {
-        expect(screen.getByText("Reports & Analytics")).toBeInTheDocument()
-      })
-
-      const searchInput = screen.getByPlaceholderText("Search by name, ID, type...")
-
-      // Try to inject malicious script
-      const maliciousInput = '<script>alert("XSS")</script>'
-      searchInput.focus()
-
-      // Should not execute script
-      expect(() => {
-        ;(searchInput as HTMLInputElement).value = maliciousInput
-      }).not.toThrow()
-    })
-
-    it("should handle malicious data gracefully", async () => {
-      const maliciousData = [
-        {
-          id: '<script>alert("XSS")</script>',
-          applicationId: 'javascript:alert("XSS")',
-          applicantName: '<img src=x onerror=alert("XSS")>',
-          permitType: "urban",
-          status: "approved" as const,
-          createdAt: new Date(),
-          waterAllocation: 100,
-          landSize: 50,
-        },
+      const requiredTypes = [
+        "permitting_officer",
+        "chairperson",
+        "catchment_manager",
+        "catchment_chairperson",
+        "permit_supervisor",
+        "ict",
       ]
 
-      vi.mocked(db.getApplications).mockResolvedValue(maliciousData as any)
+      for (const type of requiredTypes) {
+        expect(userTypes.has(type)).toBe(true)
+      }
+    })
 
-      render(<EnhancedReportsAnalytics />)
+    it("should have ICT admin accounts configured", async () => {
+      const users = await db.getUsers()
+      const ictUsers = users.filter((u) => u.userType === "ict")
 
-      await waitFor(() => {
-        expect(screen.getByText("Reports & Analytics")).toBeInTheDocument()
-      })
+      expect(ictUsers.length).toBeGreaterThanOrEqual(1)
 
-      // Should render without executing malicious code
-      expect(screen.getByText("1 applications")).toBeInTheDocument()
+      // Check for main ICT account
+      const mainIctUser = ictUsers.find((u) => u.username === "umsccict2025")
+      expect(mainIctUser).toBeTruthy()
+      expect(mainIctUser?.password).toBe("umsccict2025")
+    })
+
+    it("should have proper application workflow stages", async () => {
+      const applications = await db.getApplications()
+      const stages = new Set(applications.map((a) => a.currentStage))
+
+      // Should have applications at various stages
+      expect(stages.size).toBeGreaterThan(1)
+      expect(Array.from(stages).every((stage) => stage >= 0 && stage <= 4)).toBe(true)
     })
   })
 
-  describe("Internationalization Readiness", () => {
-    it("should handle different locales", async () => {
-      // Mock different locale
-      const originalToLocaleDateString = Date.prototype.toLocaleDateString
-      Date.prototype.toLocaleDateString = vi.fn(() => "01/15/2024")
+  describe("Data Validation", () => {
+    it("should have valid application statuses", async () => {
+      const applications = await db.getApplications()
+      const validStatuses = [
+        "draft",
+        "pending",
+        "submitted",
+        "under_review",
+        "technical_review",
+        "approved",
+        "rejected",
+        "permit_issued",
+      ]
 
-      vi.mocked(db.getApplications).mockResolvedValue([
-        {
-          id: "1",
-          applicationId: "APP-2024-001",
-          applicantName: "Test User",
-          permitType: "urban",
-          status: "approved" as const,
-          createdAt: new Date("2024-01-15"),
-          waterAllocation: 100,
-          landSize: 50,
-        } as any,
-      ])
-
-      render(<EnhancedReportsAnalytics />)
-
-      await waitFor(() => {
-        expect(screen.getByText("Reports & Analytics")).toBeInTheDocument()
-      })
-
-      expect(screen.getByText("1 applications")).toBeInTheDocument()
-
-      Date.prototype.toLocaleDateString = originalToLocaleDateString
+      for (const app of applications) {
+        expect(validStatuses).toContain(app.status)
+      }
     })
 
-    it("should handle RTL languages", async () => {
-      // Mock RTL direction
-      document.dir = "rtl"
+    it("should have valid permit types", async () => {
+      const applications = await db.getApplications()
+      const validPermitTypes = ["water_abstraction", "irrigation", "domestic_use", "commercial_use", "industrial_use"]
 
-      vi.mocked(db.getApplications).mockResolvedValue([])
+      for (const app of applications) {
+        expect(validPermitTypes).toContain(app.permitType)
+      }
+    })
 
-      render(<EnhancedReportsAnalytics />)
+    it("should have valid water sources", async () => {
+      const applications = await db.getApplications()
+      const validWaterSources = ["borehole", "river", "dam", "spring", "well"]
 
-      await waitFor(() => {
-        expect(screen.getByText("Reports & Analytics")).toBeInTheDocument()
-      })
+      for (const app of applications) {
+        expect(validWaterSources).toContain(app.waterSource)
+      }
+    })
 
-      expect(screen.getByText("0 applications")).toBeInTheDocument()
+    it("should have valid Zimbabwe phone numbers", async () => {
+      const applications = await db.getApplications()
+      const phoneRegex = /^\+263[0-9]{9}$/
 
-      // Reset direction
-      document.dir = "ltr"
+      for (const app of applications) {
+        expect(phoneRegex.test(app.cellularNumber)).toBe(true)
+      }
+    })
+
+    it("should have valid GPS coordinates for Zimbabwe", async () => {
+      const applications = await db.getApplications()
+
+      for (const app of applications) {
+        // Zimbabwe latitude range: approximately -22.4 to -15.6
+        expect(app.gpsLatitude).toBeGreaterThanOrEqual(-22.5)
+        expect(app.gpsLatitude).toBeLessThanOrEqual(-15.5)
+
+        // Zimbabwe longitude range: approximately 25.2 to 33.1
+        expect(app.gpsLongitude).toBeGreaterThanOrEqual(25.0)
+        expect(app.gpsLongitude).toBeLessThanOrEqual(33.5)
+      }
     })
   })
 
-  describe("Performance Monitoring", () => {
-    it("should track render performance", async () => {
-      const performanceEntries: PerformanceEntry[] = []
-      const originalGetEntriesByType = performance.getEntriesByType
-      performance.getEntriesByType = vi.fn(() => performanceEntries)
+  describe("Business Logic Validation", () => {
+    it("should enforce proper workflow progression", async () => {
+      const applications = await db.getApplications()
 
-      vi.mocked(db.getApplications).mockResolvedValue([])
-
-      const startTime = performance.now()
-      render(<EnhancedReportsAnalytics />)
-
-      await waitFor(() => {
-        expect(screen.getByText("Reports & Analytics")).toBeInTheDocument()
-      })
-
-      const endTime = performance.now()
-      const renderTime = endTime - startTime
-
-      // Should render within performance budget (2 seconds)
-      expect(renderTime).toBeLessThan(2000)
-
-      performance.getEntriesByType = originalGetEntriesByType
-    })
-
-    it("should handle high CPU load gracefully", async () => {
-      // Simulate high CPU load
-      const heavyComputation = () => {
-        let result = 0
-        for (let i = 0; i < 1000000; i++) {
-          result += Math.random()
+      for (const app of applications) {
+        // Draft applications should be at stage 0
+        if (app.status === "draft") {
+          expect(app.currentStage).toBe(0)
         }
-        return result
+
+        // Submitted applications should be at stage 2 (Chairman review)
+        if (app.status === "submitted") {
+          expect(app.currentStage).toBe(2)
+        }
+
+        // Under review should be at stage 3 (Catchment Manager)
+        if (app.status === "under_review") {
+          expect(app.currentStage).toBe(3)
+        }
+
+        // Technical review should be at stage 4 (Catchment Chairperson)
+        if (app.status === "technical_review") {
+          expect(app.currentStage).toBe(4)
+        }
+
+        // Approved applications should be back at stage 1 for permit printing
+        if (app.status === "approved") {
+          expect(app.currentStage).toBe(1)
+          expect(app.approvedAt).toBeTruthy()
+        }
+
+        // Rejected applications should have rejection comments
+        if (app.status === "rejected") {
+          const comments = await db.getCommentsByApplication(app.id)
+          const rejectionComments = comments.filter((c) => c.isRejectionReason)
+          expect(rejectionComments.length).toBeGreaterThan(0)
+        }
+      }
+    })
+
+    it("should have realistic water allocation amounts", async () => {
+      const applications = await db.getApplications()
+
+      for (const app of applications) {
+        // Water allocation should be reasonable (between 100 and 50000 cubic meters per year)
+        expect(app.waterAllocation).toBeGreaterThan(100)
+        expect(app.waterAllocation).toBeLessThan(50000)
+
+        // Land size should be reasonable (between 1 and 1000 hectares)
+        expect(app.landSize).toBeGreaterThan(0)
+        expect(app.landSize).toBeLessThan(1000)
+
+        // Number of boreholes should be reasonable
+        expect(app.numberOfBoreholes).toBeGreaterThanOrEqual(0)
+        expect(app.numberOfBoreholes).toBeLessThan(10)
+      }
+    })
+
+    it("should have proper comment workflow", async () => {
+      const applications = await db.getApplications()
+
+      for (const app of applications) {
+        const comments = await db.getCommentsByApplication(app.id)
+
+        // Comments should be ordered by stage
+        for (let i = 1; i < comments.length; i++) {
+          expect(comments[i].stage).toBeGreaterThanOrEqual(comments[i - 1].stage)
+        }
+
+        // Each comment should have valid user type for its stage
+        for (const comment of comments) {
+          expect(comment.userId).toBeTruthy()
+          expect(comment.userType).toBeTruthy()
+          expect(comment.comment).toBeTruthy()
+          expect(comment.stage).toBeGreaterThanOrEqual(1)
+          expect(comment.stage).toBeLessThanOrEqual(4)
+        }
+      }
+    })
+  })
+
+  describe("System Performance", () => {
+    it("should handle typical load efficiently", async () => {
+      const startTime = Date.now()
+
+      // Simulate typical user operations
+      const operations = []
+
+      // Multiple users checking applications
+      for (let i = 0; i < 10; i++) {
+        operations.push(db.getApplications())
       }
 
-      vi.mocked(db.getApplications).mockImplementation(async () => {
-        heavyComputation()
-        return []
+      // Users checking messages
+      for (let i = 0; i < 5; i++) {
+        operations.push(db.getMessages("test_user", true))
+      }
+
+      // Activity log queries
+      for (let i = 0; i < 5; i++) {
+        operations.push(db.getLogs())
+      }
+
+      await Promise.all(operations)
+      const endTime = Date.now()
+
+      // Should complete within 3 seconds under typical load
+      expect(endTime - startTime).toBeLessThan(3000)
+    })
+
+    it("should maintain data consistency under concurrent access", async () => {
+      // Simulate concurrent application updates
+      const app = await db.createApplication({
+        applicantName: "Concurrent Test",
+        physicalAddress: "123 Concurrent St",
+        postalAddress: "P.O. Box 123",
+        customerAccountNumber: "CONC001",
+        cellularNumber: "+263771234567",
+        emailAddress: "concurrent@test.com",
+        permitType: "water_abstraction",
+        waterSource: "borehole",
+        intendedUse: "Testing concurrency",
+        numberOfBoreholes: 1,
+        landSize: 10,
+        waterAllocation: 1000,
+        gpsLatitude: -17.8252,
+        gpsLongitude: 31.0335,
+        status: "draft",
+        currentStage: 0,
+        workflowComments: [],
+        documents: [],
       })
 
-      const startTime = performance.now()
-      render(<EnhancedReportsAnalytics />)
+      // Multiple concurrent updates
+      const updates = [
+        db.updateApplication(app.id, { status: "submitted" }),
+        db.addComment({
+          applicationId: app.id,
+          userId: "user1",
+          userType: "permitting_officer",
+          comment: "Comment 1",
+          stage: 1,
+          isRejectionReason: false,
+        }),
+        db.addComment({
+          applicationId: app.id,
+          userId: "user2",
+          userType: "chairperson",
+          comment: "Comment 2",
+          stage: 2,
+          isRejectionReason: false,
+        }),
+      ]
 
-      await waitFor(() => {
-        expect(screen.getByText("Reports & Analytics")).toBeInTheDocument()
-      })
+      const results = await Promise.all(updates)
 
-      const endTime = performance.now()
-      const totalTime = endTime - startTime
+      // All operations should succeed
+      expect(results.every((result) => result !== null)).toBe(true)
 
-      // Should still complete within reasonable time
-      expect(totalTime).toBeLessThan(5000)
-      expect(screen.getByText("0 applications")).toBeInTheDocument()
+      // Final state should be consistent
+      const finalApp = await db.getApplicationById(app.id)
+      const comments = await db.getCommentsByApplication(app.id)
+
+      expect(finalApp).toBeTruthy()
+      expect(comments.length).toBe(2)
+    })
+  })
+
+  describe("Deployment Checklist", () => {
+    it("should have all required system users", async () => {
+      const requiredUsers = [
+        { username: "john.officer", userType: "permitting_officer" },
+        { username: "peter.chair", userType: "chairperson" },
+        { username: "james.catchment", userType: "catchment_manager" },
+        { username: "robert.catchchair", userType: "catchment_chairperson" },
+        { username: "sarah.supervisor", userType: "permit_supervisor" },
+        { username: "umsccict2025", userType: "ict" },
+      ]
+
+      const users = await db.getUsers()
+
+      for (const requiredUser of requiredUsers) {
+        const user = users.find((u) => u.username === requiredUser.username)
+        expect(user).toBeTruthy()
+        expect(user?.userType).toBe(requiredUser.userType)
+      }
+    })
+
+    it("should have sample data for testing", async () => {
+      const applications = await db.getApplications()
+      expect(applications.length).toBeGreaterThan(5)
+
+      // Should have applications at different stages
+      const stages = new Set(applications.map((a) => a.currentStage))
+      expect(stages.size).toBeGreaterThan(2)
+
+      // Should have different statuses
+      const statuses = new Set(applications.map((a) => a.status))
+      expect(statuses.size).toBeGreaterThan(2)
+    })
+
+    it("should have proper error handling", async () => {
+      // Test various error conditions
+      const errorTests = [
+        () => db.getUserByCredentials("", ""),
+        () => db.getApplicationById(""),
+        () => db.updateApplication("invalid_id", {}),
+        () => db.deleteApplication("invalid_id"),
+        () => db.updateComment("invalid_id", {}, "invalid_user_type"),
+      ]
+
+      for (const test of errorTests) {
+        const result = await test()
+        expect(result).toBeFalsy() // Should return null, false, or empty result
+      }
     })
   })
 })
