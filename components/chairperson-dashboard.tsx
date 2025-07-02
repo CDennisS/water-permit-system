@@ -7,8 +7,8 @@ import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { FileText, Users, CheckCircle, Clock, AlertTriangle, Eye, Save } from "lucide-react"
-import type { User, PermitApplication } from "@/types"
+import { FileText, Users, CheckCircle, Clock, AlertTriangle, Eye, Save, ExternalLink, AlertCircle } from "lucide-react"
+import type { User, PermitApplication, Document } from "@/types"
 import { db } from "@/lib/database"
 import { StrictViewOnlyApplicationDetails } from "./strict-view-only-application-details"
 import { MessagingSystem } from "./messaging-system"
@@ -28,6 +28,7 @@ export function ChairpersonDashboard({ user }: ChairpersonDashboardProps) {
   const [reviewedApplications, setReviewedApplications] = useState<Set<string>>(new Set())
   const [selectAllUnsubmitted, setSelectAllUnsubmitted] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [applicationDocuments, setApplicationDocuments] = useState<{ [key: string]: Document[] }>({})
   const [stats, setStats] = useState({
     totalApplications: 0,
     pendingReview: 0,
@@ -54,6 +55,14 @@ export function ChairpersonDashboard({ user }: ChairpersonDashboardProps) {
       )
 
       setApplications(relevantApplications)
+
+      // Load documents for each application
+      const documentsMap: { [key: string]: Document[] } = {}
+      for (const app of relevantApplications) {
+        const docs = await db.getDocumentsByApplication(app.id)
+        documentsMap[app.id] = docs
+      }
+      setApplicationDocuments(documentsMap)
 
       // Calculate statistics
       const pendingReview = relevantApplications.filter(
@@ -186,6 +195,12 @@ export function ChairpersonDashboard({ user }: ChairpersonDashboardProps) {
     }
   }
 
+  const handleViewDocument = (document: Document) => {
+    // Create a blob URL for the document and open it in a new tab
+    const documentUrl = `/placeholder-document.pdf?name=${encodeURIComponent(document.fileName)}`
+    window.open(documentUrl, "_blank")
+  }
+
   const StatCard = ({
     title,
     value,
@@ -221,143 +236,243 @@ export function ChairpersonDashboard({ user }: ChairpersonDashboardProps) {
     )
   }
 
-  const ApplicationDetailDialog = ({ application }: { application: PermitApplication }) => {
+  const ApplicationDetailDialog = ({
+    application,
+    onClose,
+  }: { application: PermitApplication; onClose: () => void }) => {
     const [isReviewed, setIsReviewed] = useState(reviewedApplications.has(application.id))
+    const [isSaving, setIsSaving] = useState(false)
+    const documents = applicationDocuments[application.id] || []
 
     const handleSave = async () => {
-      await handleApplicationReviewed(application.id, isReviewed)
-      alert("Application review status saved successfully!")
+      setIsSaving(true)
+      try {
+        await handleApplicationReviewed(application.id, isReviewed)
+        alert("Application review status saved successfully!")
+        onClose() // Return to overview
+      } catch (error) {
+        console.error("Error saving review status:", error)
+        alert("Error saving review status. Please try again.")
+      } finally {
+        setIsSaving(false)
+      }
     }
 
     return (
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Application Details - {application.applicationId}</DialogTitle>
+          <DialogTitle className="flex items-center justify-between">
+            <span>Application Details - {application.applicationId}</span>
+            <Button variant="outline" size="sm" onClick={onClose}>
+              ← Back to Overview
+            </Button>
+          </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-6">
           {/* Application Details */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-3">
-              <div>
-                <label className="text-sm font-medium text-gray-600">Account Number</label>
-                <p className="text-sm font-semibold">{application.customerAccountNumber}</p>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-600">Applicant Name</label>
-                <p className="text-sm font-semibold">{application.applicantName}</p>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-600">Physical Address</label>
-                <p className="text-sm">{application.physicalAddress}</p>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-600">Postal Address</label>
-                <p className="text-sm">{application.postalAddress}</p>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-600">Cellular Number</label>
-                <p className="text-sm">{application.cellularNumber}</p>
-              </div>
-            </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Applicant Information</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div>
+                  <label className="text-sm font-medium text-gray-600">Account Number</label>
+                  <p className="text-sm font-semibold">{application.customerAccountNumber}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-600">Applicant Name</label>
+                  <p className="text-sm font-semibold">{application.applicantName}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-600">Physical Address</label>
+                  <p className="text-sm">{application.physicalAddress}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-600">Postal Address</label>
+                  <p className="text-sm">{application.postalAddress}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-600">Cellular Number</label>
+                  <p className="text-sm">{application.cellularNumber}</p>
+                </div>
+              </CardContent>
+            </Card>
 
-            <div className="space-y-3">
-              <div>
-                <label className="text-sm font-medium text-gray-600">Permit Type</label>
-                <p className="text-sm font-semibold capitalize">{application.permitType.replace("_", " ")}</p>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-600">Water Source</label>
-                <p className="text-sm capitalize">{application.waterSource}</p>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-600">Intended Use</label>
-                <p className="text-sm">{application.intendedUse}</p>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-600">Number of Boreholes</label>
-                <p className="text-sm">{application.numberOfBoreholes}</p>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-600">Land Size (hectares)</label>
-                <p className="text-sm">{application.landSize}</p>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-600">Water Allocation (m³/annum)</label>
-                <p className="text-sm font-semibold">{application.waterAllocation.toLocaleString()}</p>
-              </div>
-            </div>
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Permit Details</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div>
+                  <label className="text-sm font-medium text-gray-600">Permit Type</label>
+                  <p className="text-sm font-semibold capitalize">{application.permitType.replace("_", " ")}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-600">Water Source</label>
+                  <p className="text-sm capitalize">{application.waterSource}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-600">Intended Use</label>
+                  <p className="text-sm">{application.intendedUse}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-600">Number of Boreholes</label>
+                  <p className="text-sm">{application.numberOfBoreholes}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-600">Land Size (hectares)</label>
+                  <p className="text-sm">{application.landSize}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-600">Water Allocation (m³/annum)</label>
+                  <p className="text-sm font-semibold">{application.waterAllocation.toLocaleString()}</p>
+                </div>
+              </CardContent>
+            </Card>
           </div>
 
           {/* GPS Coordinates */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="text-sm font-medium text-gray-600">GPS Latitude</label>
-              <p className="text-sm">{application.gpsLatitude}</p>
-            </div>
-            <div>
-              <label className="text-sm font-medium text-gray-600">GPS Longitude</label>
-              <p className="text-sm">{application.gpsLongitude}</p>
-            </div>
-          </div>
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">GPS Coordinates</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium text-gray-600">GPS Latitude</label>
+                  <p className="text-sm font-mono">{application.gpsLatitude}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-600">GPS Longitude</label>
+                  <p className="text-sm font-mono">{application.gpsLongitude}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Documents Section */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center">
+                <FileText className="h-5 w-5 mr-2" />
+                Uploaded Documents ({documents.length})
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {documents.length > 0 ? (
+                <div className="space-y-3">
+                  {documents.map((document) => (
+                    <div key={document.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                      <div className="flex items-center space-x-3">
+                        <FileText className="h-5 w-5 text-blue-600" />
+                        <div>
+                          <p className="font-medium text-sm">{document.fileName}</p>
+                          <p className="text-xs text-gray-500">
+                            {document.fileType} • {(document.fileSize / 1024).toFixed(1)} KB • Uploaded{" "}
+                            {document.uploadedAt.toLocaleDateString()}
+                          </p>
+                        </div>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleViewDocument(document)}
+                        className="flex items-center space-x-1"
+                      >
+                        <ExternalLink className="h-4 w-4" />
+                        <span>View</span>
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  <FileText className="h-12 w-12 mx-auto mb-2 text-gray-300" />
+                  <p>No documents uploaded for this application</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
           {/* Application Status */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label className="text-sm font-medium text-gray-600">Current Status</label>
-              <Badge className="mt-1 bg-blue-100 text-blue-800 capitalize">
-                {application.status.replace("_", " ")}
-              </Badge>
-            </div>
-            <div>
-              <label className="text-sm font-medium text-gray-600">Current Stage</label>
-              <p className="text-sm font-semibold">Stage {application.currentStage}</p>
-            </div>
-            <div>
-              <label className="text-sm font-medium text-gray-600">Submitted Date</label>
-              <p className="text-sm">{application.submittedAt?.toLocaleDateString()}</p>
-            </div>
-          </div>
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Application Status</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="text-sm font-medium text-gray-600">Current Status</label>
+                  <Badge className="mt-1 bg-blue-100 text-blue-800 capitalize">
+                    {application.status.replace("_", " ")}
+                  </Badge>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-600">Current Stage</label>
+                  <p className="text-sm font-semibold">Stage {application.currentStage}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-600">Submitted Date</label>
+                  <p className="text-sm">{application.submittedAt?.toLocaleDateString()}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
           {/* Workflow Comments */}
           {application.workflowComments && application.workflowComments.length > 0 && (
-            <div>
-              <label className="text-sm font-medium text-gray-600 mb-2 block">Workflow Comments</label>
-              <div className="space-y-2 max-h-40 overflow-y-auto">
-                {application.workflowComments.map((comment) => (
-                  <div key={comment.id} className="p-3 bg-gray-50 rounded-lg">
-                    <div className="flex justify-between items-start mb-1">
-                      <span className="text-xs font-medium text-gray-600 capitalize">
-                        {comment.userType.replace("_", " ")} - Stage {comment.stage}
-                      </span>
-                      <span className="text-xs text-gray-500">{comment.createdAt.toLocaleDateString()}</span>
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Workflow Comments</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3 max-h-60 overflow-y-auto">
+                  {application.workflowComments.map((comment) => (
+                    <div key={comment.id} className="p-3 bg-gray-50 rounded-lg">
+                      <div className="flex justify-between items-start mb-2">
+                        <span className="text-xs font-medium text-gray-600 capitalize">
+                          {comment.userType.replace("_", " ")} - Stage {comment.stage}
+                        </span>
+                        <span className="text-xs text-gray-500">{comment.createdAt.toLocaleDateString()}</span>
+                      </div>
+                      <p className="text-sm">{comment.comment}</p>
                     </div>
-                    <p className="text-sm">{comment.comment}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
           )}
 
-          {/* Review Checkbox and Save Button */}
-          <div className="border-t pt-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="application-reviewed"
-                  checked={isReviewed}
-                  onCheckedChange={(checked) => setIsReviewed(checked as boolean)}
-                />
-                <label htmlFor="application-reviewed" className="text-sm font-medium">
-                  Application Reviewed
-                </label>
+          {/* Review Section */}
+          <Card className="border-2 border-blue-200 bg-blue-50">
+            <CardHeader>
+              <CardTitle className="text-lg text-blue-800">Chairperson Review</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <Checkbox
+                    id="application-reviewed"
+                    checked={isReviewed}
+                    onCheckedChange={(checked) => setIsReviewed(checked as boolean)}
+                  />
+                  <label htmlFor="application-reviewed" className="text-sm font-medium text-blue-800">
+                    I have reviewed this application
+                  </label>
+                </div>
+                <Button
+                  onClick={handleSave}
+                  disabled={isSaving}
+                  className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700"
+                >
+                  <Save className="h-4 w-4" />
+                  <span>{isSaving ? "Saving..." : "Save"}</span>
+                </Button>
               </div>
-              <Button onClick={handleSave} className="flex items-center space-x-2">
-                <Save className="h-4 w-4" />
-                <span>Save</span>
-              </Button>
-            </div>
-          </div>
+            </CardContent>
+          </Card>
         </div>
       </DialogContent>
     )
@@ -461,51 +576,83 @@ export function ChairpersonDashboard({ user }: ChairpersonDashboardProps) {
 
                 {/* Applications List */}
                 <div className="space-y-3">
-                  {pendingApplications.map((application) => (
-                    <div
-                      key={application.id}
-                      className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100"
-                    >
-                      <div className="flex-1 grid grid-cols-1 md:grid-cols-4 gap-4">
-                        <div>
-                          <p className="text-sm font-medium text-gray-600">Account Number</p>
-                          <p className="font-semibold">{application.customerAccountNumber}</p>
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-gray-600">Applicant Name</p>
-                          <p className="font-semibold">{application.applicantName}</p>
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-gray-600">Address</p>
-                          <p className="text-sm">{application.physicalAddress}</p>
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-gray-600">Permit Type</p>
-                          <Badge variant="outline" className="capitalize">
-                            {application.permitType.replace("_", " ")}
-                          </Badge>
-                        </div>
-                      </div>
+                  {pendingApplications.map((application) => {
+                    const isReviewed = reviewedApplications.has(application.id)
+                    const isUnsubmitted = application.currentStage === 2 && application.status === "submitted"
 
-                      <div className="flex items-center space-x-3 ml-4">
-                        {reviewedApplications.has(application.id) && (
-                          <Badge className="bg-green-100 text-green-800">
-                            <CheckCircle className="h-3 w-3 mr-1" />
-                            Reviewed
-                          </Badge>
-                        )}
-                        <Dialog>
-                          <DialogTrigger asChild>
-                            <Button size="sm" variant="outline" className="flex items-center space-x-1 bg-transparent">
-                              <Eye className="h-4 w-4" />
-                              <span>View</span>
-                            </Button>
-                          </DialogTrigger>
-                          <ApplicationDetailDialog application={application} />
-                        </Dialog>
+                    return (
+                      <div
+                        key={application.id}
+                        className={`flex items-center justify-between p-4 rounded-lg hover:shadow-md transition-shadow ${
+                          isUnsubmitted ? "bg-orange-50 border border-orange-200" : "bg-gray-50"
+                        }`}
+                      >
+                        <div className="flex-1 grid grid-cols-1 md:grid-cols-4 gap-4">
+                          <div>
+                            <p className="text-sm font-medium text-gray-600">Account Number</p>
+                            <p className="font-semibold">{application.customerAccountNumber}</p>
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-gray-600">Applicant Name</p>
+                            <p className="font-semibold">{application.applicantName}</p>
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-gray-600">Address</p>
+                            <p className="text-sm">{application.physicalAddress}</p>
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-gray-600">Permit Type</p>
+                            <Badge variant="outline" className="capitalize">
+                              {application.permitType.replace("_", " ")}
+                            </Badge>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center space-x-3 ml-4">
+                          {/* Review Status Indicator */}
+                          {isReviewed ? (
+                            <Badge className="bg-green-100 text-green-800">
+                              <CheckCircle className="h-3 w-3 mr-1" />
+                              Reviewed
+                            </Badge>
+                          ) : (
+                            <Badge className="bg-orange-100 text-orange-800">
+                              <AlertCircle className="h-3 w-3 mr-1" />
+                              Unreviewed
+                            </Badge>
+                          )}
+
+                          {/* Unsubmitted Indicator */}
+                          {isUnsubmitted && (
+                            <Badge className="bg-orange-200 text-orange-900">
+                              <Clock className="h-3 w-3 mr-1" />
+                              Unsubmitted
+                            </Badge>
+                          )}
+
+                          <Dialog>
+                            <DialogTrigger asChild>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="flex items-center space-x-1 bg-transparent"
+                              >
+                                <Eye className="h-4 w-4" />
+                                <span>View</span>
+                              </Button>
+                            </DialogTrigger>
+                            <ApplicationDetailDialog
+                              application={application}
+                              onClose={() => {
+                                // Force re-render to show updated review status
+                                loadDashboardData()
+                              }}
+                            />
+                          </Dialog>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    )
+                  })}
 
                   {pendingApplications.length === 0 && (
                     <p className="text-center text-gray-500 py-8">No applications pending review</p>
