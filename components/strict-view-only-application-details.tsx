@@ -103,11 +103,11 @@ export function StrictViewOnlyApplicationDetails({ user, application }: StrictVi
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="flex items-center text-sm">
               <span className="font-medium">Latitude (X):</span>
-              <span className="ml-2 font-mono">{application.gpsCoordinates.latitude}</span>
+              <span className="ml-2 font-mono">{application.gpsLatitude}</span>
             </div>
             <div className="flex items-center text-sm">
               <span className="font-medium">Longitude (Y):</span>
-              <span className="ml-2 font-mono">{application.gpsCoordinates.longitude}</span>
+              <span className="ml-2 font-mono">{application.gpsLongitude}</span>
             </div>
           </div>
         </CardContent>
