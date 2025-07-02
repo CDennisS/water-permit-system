@@ -1,26 +1,49 @@
 /**
- * Environment variable safety guard for next-auth
- * This MUST be imported before any next-auth modules to prevent "Invalid URL" errors
+ * ────────────────────────────────────────────────────────────────────────────────
+ * ensure-env.ts
+ * ────────────────────────────────────────────────────────────────────────────────
+ * Guarantees `process.env.NEXTAUTH_URL` is ALWAYS a valid absolute URL before
+ * any code from `next-auth` executes (server or edge).  Import this module FIRST
+ * in every entry file that touches `next-auth` (route-handlers, lib/auth, etc.).
  */
 
-// Ensure NEXTAUTH_URL is always defined with a valid absolute URL
-if (!process.env.NEXTAUTH_URL) {
-  if (typeof window === "undefined") {
-    // Server-side: use localhost for development, or construct from HOST/PORT
-    const host = process.env.HOST || "localhost"
-    const port = process.env.PORT || "3000"
-    process.env.NEXTAUTH_URL = `http://${host}:${port}`
+declare global {
+  // Ensure the patch runs only once
+  // eslint-disable-next-line no-var
+  var __nextAuthPatched: boolean | undefined
+}
+
+if (!globalThis.__nextAuthPatched) {
+  globalThis.__nextAuthPatched = true
+
+  const key = "NEXTAUTH_URL"
+
+  // Helper – choose a sensible fallback host
+  const fallbackHost = () => {
+    if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`
+    const port = process.env.PORT ?? "3000"
+    return `http://localhost:${port}`
+  }
+
+  const raw = process.env[key]
+
+  if (!raw || raw.trim() === "") {
+    process.env[key] = fallbackHost()
   } else {
-    // Client-side: use current origin
-    process.env.NEXTAUTH_URL = window.location.origin
+    try {
+      // Validate the provided value
+      new URL(raw)
+    } catch {
+      // Try to fix bare hosts (no scheme) that users sometimes set
+      try {
+        new URL(`https://${raw}`)
+        process.env[key] = `https://${raw}`
+      } catch {
+        // Final fallback
+        process.env[key] = fallbackHost()
+      }
+    }
   }
 }
 
-// Ensure NEXTAUTH_SECRET is defined (required for JWT signing)
-if (!process.env.NEXTAUTH_SECRET) {
-  process.env.NEXTAUTH_SECRET = "umscc-permit-management-dev-secret-key-2025"
-}
-
-// Export for verification purposes
-export const getNextAuthUrl = () => process.env.NEXTAUTH_URL
-export const hasNextAuthSecret = () => !!process.env.NEXTAUTH_SECRET
+export {} // keep file a module
