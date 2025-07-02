@@ -441,6 +441,57 @@ class MockDatabase {
         updatedAt: new Date("2024-02-05"),
         submittedAt: new Date("2024-01-15"),
       },
+      // APPLICATIONS FOR CHAIRPERSON REVIEW (Stage 2 - Not Yet Reviewed) - 2 applications
+      {
+        id: "app_chairperson_review_001",
+        applicationId: "MC2024-0011",
+        applicantName: "Robert Chinyoka",
+        physicalAddress: "67 Borrowdale Road, Harare",
+        postalAddress: "P.O. Box 567, Harare",
+        customerAccountNumber: "ACC567",
+        cellularNumber: "+263771567890",
+        emailAddress: "robert.chinyoka@email.com",
+        permitType: "water_abstraction",
+        waterSource: "borehole",
+        intendedUse: "Commercial horticulture farming",
+        numberOfBoreholes: 2,
+        landSize: 45,
+        waterAllocation: 4500,
+        gpsLatitude: -17.7806,
+        gpsLongitude: 31.0472,
+        status: "submitted",
+        currentStage: 2,
+        workflowComments: [],
+        documents: [],
+        createdAt: new Date("2024-03-12"),
+        updatedAt: new Date("2024-03-13"),
+        submittedAt: new Date("2024-03-12"),
+      },
+      {
+        id: "app_chairperson_review_002",
+        applicationId: "MC2024-0012",
+        applicantName: "Elizabeth Mubvumbi",
+        physicalAddress: "89 Msasa Industrial Area, Harare",
+        postalAddress: "P.O. Box 889, Harare",
+        customerAccountNumber: "ACC889",
+        cellularNumber: "+263772889456",
+        emailAddress: "elizabeth.mubvumbi@email.com",
+        permitType: "industrial_use",
+        waterSource: "borehole",
+        intendedUse: "Food processing plant",
+        numberOfBoreholes: 3,
+        landSize: 25,
+        waterAllocation: 8500,
+        gpsLatitude: -17.8167,
+        gpsLongitude: 31.0833,
+        status: "submitted",
+        currentStage: 2,
+        workflowComments: [],
+        documents: [],
+        createdAt: new Date("2024-03-11"),
+        updatedAt: new Date("2024-03-13"),
+        submittedAt: new Date("2024-03-11"),
+      },
     ]
 
     // Mock comments for the applications
@@ -634,6 +685,29 @@ class MockDatabase {
         createdAt: new Date("2024-02-05"),
         isRejectionReason: true,
       },
+      // Comments for new chairperson review applications
+      {
+        id: "comment_chairperson_review_001",
+        applicationId: "app_chairperson_review_001",
+        userId: "1",
+        userType: "permitting_officer",
+        comment:
+          "Commercial horticulture application reviewed and approved. All required documentation submitted including water management plan and environmental impact assessment. Water allocation of 4,500 m³/annum is reasonable for 45 hectares of horticultural production. Forwarding to chairperson for technical review and approval.",
+        stage: 1,
+        createdAt: new Date("2024-03-13"),
+        isRejectionReason: false,
+      },
+      {
+        id: "comment_chairperson_review_002",
+        applicationId: "app_chairperson_review_002",
+        userId: "1",
+        userType: "permitting_officer",
+        comment:
+          "Industrial food processing application thoroughly reviewed. All permits and licenses verified. Water treatment and discharge plans approved. High water allocation of 8,500 m³/annum justified for food processing operations. Environmental compliance certificates submitted. Ready for chairperson technical assessment.",
+        stage: 1,
+        createdAt: new Date("2024-03-13"),
+        isRejectionReason: false,
+      },
     ]
 
     // Mock activity logs
@@ -683,13 +757,32 @@ class MockDatabase {
         details: "Technical review initiated for industrial water extraction - James Sibanda",
         timestamp: new Date("2024-02-15"),
       },
+      {
+        id: "log_chairperson_001",
+        userId: "1",
+        userType: "permitting_officer",
+        action: "Application submitted for chairperson review",
+        applicationId: "app_chairperson_review_001",
+        details: "Commercial horticulture application by Robert Chinyoka forwarded to chairperson for technical review",
+        timestamp: new Date("2024-03-13"),
+      },
+      {
+        id: "log_chairperson_002",
+        userId: "1",
+        userType: "permitting_officer",
+        action: "Application submitted for chairperson review",
+        applicationId: "app_chairperson_review_002",
+        details:
+          "Industrial food processing application by Elizabeth Mubvumbi forwarded to chairperson for technical review",
+        timestamp: new Date("2024-03-13"),
+      },
     ]
 
     // Add all mock data to arrays
     this.applications.push(...mockApplications)
     this.comments.push(...mockComments)
     this.logs.push(...mockLogs)
-    this.applicationCounter = 11 // Update counter to avoid conflicts
+    this.applicationCounter = 13 // Update counter to avoid conflicts
 
     // Link comments to applications
     this.applications.forEach((app) => {
