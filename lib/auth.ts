@@ -3,26 +3,24 @@ import "@/lib/ensure-env" // 🛡️ Must be first import to prevent Invalid URL
 import { getServerSession } from "next-auth/next"
 import CredentialsProvider from "next-auth/providers/credentials"
 import type { NextAuthOptions, User } from "next-auth"
-import type { UserType } from "@/types"
+import type { AuthUser } from "@/types"
 
 // Import existing authentication functions
-import { authenticateUser, getUserTypeLabel } from "@/lib/auth-helpers"
+import { authenticateUser } from "@/lib/auth-helpers"
 
 // Extend NextAuth User type to include our custom fields
 declare module "next-auth" {
   interface User {
     id: string
     username: string
-    userType: UserType
-    userTypeLabel: string
+    userType: string
   }
 
   interface Session {
     user: {
       id: string
       username: string
-      userType: UserType
-      userTypeLabel: string
+      userType: string
     }
   }
 }
@@ -31,12 +29,15 @@ declare module "next-auth/jwt" {
   interface JWT {
     id: string
     username: string
-    userType: UserType
-    userTypeLabel: string
+    userType: string
   }
 }
 
+/**
+ * Centralised NextAuth configuration
+ */
 export const authOptions: NextAuthOptions = {
+  theme: { colorScheme: "light" },
   providers: [
     CredentialsProvider({
       id: "credentials",
@@ -68,7 +69,7 @@ export const authOptions: NextAuthOptions = {
           const user = await authenticateUser(
             credentials.username,
             credentials.password,
-            credentials.userType as UserType,
+            credentials.userType as string,
           )
 
           if (!user) {
@@ -80,7 +81,6 @@ export const authOptions: NextAuthOptions = {
             id: user.id,
             username: user.username,
             userType: user.userType,
-            userTypeLabel: getUserTypeLabel(user.userType),
           }
         } catch (error) {
           console.error("Authentication error:", error)
@@ -101,25 +101,26 @@ export const authOptions: NextAuthOptions = {
   },
 
   callbacks: {
+    /**
+     * Place a minimal subset of the user in the JWT.
+     */
     async jwt({ token, user }) {
-      // Persist user data in JWT token
       if (user) {
-        token.id = user.id
-        token.username = user.username
-        token.userType = user.userType
-        token.userTypeLabel = user.userTypeLabel
+        token.id = (user as AuthUser).id
+        token.role = (user as AuthUser).userType
+        token.username = (user as AuthUser).username
       }
       return token
     },
-
+    /**
+     * Expose that subset to the client session.
+     */
     async session({ session, token }) {
-      // Send properties to the client
       if (token) {
         session.user = {
           id: token.id,
           username: token.username,
-          userType: token.userType,
-          userTypeLabel: token.userTypeLabel,
+          userType: token.role,
         }
       }
       return session
@@ -128,7 +129,7 @@ export const authOptions: NextAuthOptions = {
 
   events: {
     async signIn({ user, account, profile }) {
-      console.log(`User ${user.username} (${user.userTypeLabel}) signed in`)
+      console.log(`User ${user.username} (${user.userType}) signed in`)
     },
     async signOut({ session, token }) {
       console.log(`User signed out`)
@@ -154,7 +155,7 @@ export async function isAuthenticated() {
 }
 
 // Helper function to check user permissions
-export async function hasPermission(requiredUserType: UserType | UserType[]) {
+export async function hasPermission(requiredUserType: string | string[]) {
   const user = await getCurrentUser()
   if (!user) return false
 
@@ -175,7 +176,7 @@ export async function requireAuth() {
 }
 
 // Helper function to require specific user type
-export async function requireUserType(requiredUserType: UserType | UserType[]) {
+export async function requireUserType(requiredUserType: string | string[]) {
   const user = await requireAuth()
   const hasAccess = await hasPermission(requiredUserType)
 
