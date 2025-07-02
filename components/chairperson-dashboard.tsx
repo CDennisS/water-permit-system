@@ -7,31 +7,14 @@ import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { Separator } from "@/components/ui/separator"
-import {
-  FileText,
-  Users,
-  CheckCircle,
-  Clock,
-  AlertTriangle,
-  Eye,
-  Save,
-  ExternalLink,
-  FileIcon,
-  MapPin,
-  Phone,
-  Mail,
-  Droplets,
-  Calendar,
-  UserIcon,
-} from "lucide-react"
-import type { User, PermitApplication, Document } from "@/types"
+import { FileText, Users, CheckCircle, Clock, AlertTriangle, Eye, Save } from "lucide-react"
+import type { User, PermitApplication } from "@/types"
 import { db } from "@/lib/database"
 import { StrictViewOnlyApplicationDetails } from "./strict-view-only-application-details"
 import { MessagingSystem } from "./messaging-system"
 import { ActivityLogs } from "./activity-logs"
 import { UnreadMessageNotification } from "./unread-message-notification"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 
 interface ChairpersonDashboardProps {
   user: User
@@ -203,42 +186,6 @@ export function ChairpersonDashboard({ user }: ChairpersonDashboardProps) {
     }
   }
 
-  const handleViewDocument = (document: Document) => {
-    // Open document in new tab/window
-    if (document.fileUrl) {
-      window.open(document.fileUrl, "_blank")
-    }
-  }
-
-  const formatFileSize = (bytes: number) => {
-    if (bytes === 0) return "0 Bytes"
-    const k = 1024
-    const sizes = ["Bytes", "KB", "MB", "GB"]
-    const i = Math.floor(Math.log(bytes) / Math.log(k))
-    return Number.parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i]
-  }
-
-  const getPermitTypeDisplay = (permitType: string) => {
-    const types: Record<string, string> = {
-      water_abstraction: "Water Abstraction",
-      irrigation: "Irrigation",
-      domestic_use: "Domestic Use",
-      commercial_use: "Commercial Use",
-      industrial_use: "Industrial Use",
-    }
-    return types[permitType] || permitType
-  }
-
-  const getWaterSourceDisplay = (waterSource: string) => {
-    const sources: Record<string, string> = {
-      borehole: "Borehole",
-      river: "River",
-      dam: "Dam",
-      spring: "Spring",
-    }
-    return sources[waterSource] || waterSource
-  }
-
   const StatCard = ({
     title,
     value,
@@ -283,548 +230,424 @@ export function ChairpersonDashboard({ user }: ChairpersonDashboardProps) {
     }
 
     return (
-      <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="text-xl font-bold">Application Details - {application.applicationId}</DialogTitle>
+          <DialogTitle>Application Details - {application.applicationId}</DialogTitle>
         </DialogHeader>
 
-        <ScrollArea className="max-h-[75vh] pr-4">
-          <div className="space-y-6">
-            {/* Applicant Information */}
-            <div>
-              <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
-                <UserIcon className="h-5 w-5" />
-                Applicant Information
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-gray-50 p-4 rounded-lg">
-                <div>
-                  <p className="text-sm font-medium text-gray-500">Account Number</p>
-                  <p className="font-semibold">{application.customerAccountNumber}</p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-500">Full Name</p>
-                  <p className="font-semibold">{application.applicantName}</p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-500">Physical Address</p>
-                  <p>{application.physicalAddress}</p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-500">Postal Address</p>
-                  <p>{application.postalAddress}</p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-500">Phone Number</p>
-                  <p className="flex items-center gap-1">
-                    <Phone className="h-4 w-4" />
-                    {application.cellularNumber}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-500">Email Address</p>
-                  <p className="flex items-center gap-1">
-                    <Mail className="h-4 w-4" />
-                    {application.emailAddress}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Permit Details */}
-            <div>
-              <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
-                <Droplets className="h-5 w-5" />
-                Permit Details
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-blue-50 p-4 rounded-lg">
-                <div>
-                  <p className="text-sm font-medium text-gray-500">Permit Type</p>
-                  <p className="font-semibold">{getPermitTypeDisplay(application.permitType)}</p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-500">Water Source</p>
-                  <p className="font-semibold">{getWaterSourceDisplay(application.waterSource)}</p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-500">Intended Use</p>
-                  <p>{application.intendedUse}</p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-500">Number of Boreholes</p>
-                  <p className="font-semibold">{application.numberOfBoreholes}</p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-500">Land Size</p>
-                  <p className="font-semibold">{application.landSize} hectares</p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-500">Water Allocation</p>
-                  <p className="font-semibold">{application.waterAllocation.toLocaleString()} m³/annum</p>
-                </div>
-              </div>
-            </div>
-
-            {/* GPS Coordinates */}
-            <div>
-              <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
-                <MapPin className="h-5 w-5" />
-                GPS Coordinates
-              </h3>
-              <div className="bg-green-50 p-4 rounded-lg">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm font-medium text-gray-500">Latitude</p>
-                    <p className="font-semibold">{application.gpsLatitude}°</p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-500">Longitude</p>
-                    <p className="font-semibold">{application.gpsLongitude}°</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Application Status */}
-            <div>
-              <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
-                <Calendar className="h-5 w-5" />
-                Application Status
-              </h3>
-              <div className="bg-yellow-50 p-4 rounded-lg">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <p className="text-sm font-medium text-gray-500">Current Status</p>
-                    <Badge variant={application.status === "submitted" ? "default" : "secondary"}>
-                      {application.status.replace("_", " ").toUpperCase()}
-                    </Badge>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-500">Submitted Date</p>
-                    <p className="font-semibold">
-                      {application.submittedAt ? application.submittedAt.toLocaleDateString() : "Not submitted"}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-500">Last Updated</p>
-                    <p className="font-semibold">{application.updatedAt.toLocaleDateString()}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Documents */}
-            {application.documents && application.documents.length > 0 && (
+        <div className="space-y-6">
+          {/* Application Details */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-3">
               <div>
-                <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
-                  <FileText className="h-5 w-5" />
-                  Uploaded Documents ({application.documents.length})
-                </h3>
-                <div className="space-y-3">
-                  {application.documents.map((doc) => (
-                    <div key={doc.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border">
-                      <div className="flex items-center gap-3">
-                        <FileIcon className="h-5 w-5 text-blue-600" />
-                        <div>
-                          <p className="font-medium">{doc.fileName}</p>
-                          <p className="text-sm text-gray-500">
-                            {formatFileSize(doc.fileSize)} • Uploaded {doc.uploadedAt.toLocaleDateString()}
-                          </p>
-                        </div>
-                      </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleViewDocument(doc)}
-                        className="flex items-center gap-2"
-                      >
-                        <Eye className="h-4 w-4" />
-                        View
-                        <ExternalLink className="h-3 w-3" />
-                      </Button>
+                <label className="text-sm font-medium text-gray-600">Account Number</label>
+                <p className="text-sm font-semibold">{application.customerAccountNumber}</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-600">Applicant Name</label>
+                <p className="text-sm font-semibold">{application.applicantName}</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-600">Physical Address</label>
+                <p className="text-sm">{application.physicalAddress}</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-600">Postal Address</label>
+                <p className="text-sm">{application.postalAddress}</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-600">Cellular Number</label>
+                <p className="text-sm">{application.cellularNumber}</p>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <label className="text-sm font-medium text-gray-600">Permit Type</label>
+                <p className="text-sm font-semibold capitalize">{application.permitType.replace("_", " ")}</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-600">Water Source</label>
+                <p className="text-sm capitalize">{application.waterSource}</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-600">Intended Use</label>
+                <p className="text-sm">{application.intendedUse}</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-600">Number of Boreholes</label>
+                <p className="text-sm">{application.numberOfBoreholes}</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-600">Land Size (hectares)</label>
+                <p className="text-sm">{application.landSize}</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-600">Water Allocation (m³/annum)</label>
+                <p className="text-sm font-semibold">{application.waterAllocation.toLocaleString()}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* GPS Coordinates */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="text-sm font-medium text-gray-600">GPS Latitude</label>
+              <p className="text-sm">{application.gpsLatitude}</p>
+            </div>
+            <div>
+              <label className="text-sm font-medium text-gray-600">GPS Longitude</label>
+              <p className="text-sm">{application.gpsLongitude}</p>
+            </div>
+          </div>
+
+          {/* Application Status */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="text-sm font-medium text-gray-600">Current Status</label>
+              <Badge className="mt-1 bg-blue-100 text-blue-800 capitalize">
+                {application.status.replace("_", " ")}
+              </Badge>
+            </div>
+            <div>
+              <label className="text-sm font-medium text-gray-600">Current Stage</label>
+              <p className="text-sm font-semibold">Stage {application.currentStage}</p>
+            </div>
+            <div>
+              <label className="text-sm font-medium text-gray-600">Submitted Date</label>
+              <p className="text-sm">{application.submittedAt?.toLocaleDateString()}</p>
+            </div>
+          </div>
+
+          {/* Workflow Comments */}
+          {application.workflowComments && application.workflowComments.length > 0 && (
+            <div>
+              <label className="text-sm font-medium text-gray-600 mb-2 block">Workflow Comments</label>
+              <div className="space-y-2 max-h-40 overflow-y-auto">
+                {application.workflowComments.map((comment) => (
+                  <div key={comment.id} className="p-3 bg-gray-50 rounded-lg">
+                    <div className="flex justify-between items-start mb-1">
+                      <span className="text-xs font-medium text-gray-600 capitalize">
+                        {comment.userType.replace("_", " ")} - Stage {comment.stage}
+                      </span>
+                      <span className="text-xs text-gray-500">{comment.createdAt.toLocaleDateString()}</span>
                     </div>
-                  ))}
-                </div>
+                    <p className="text-sm">{comment.comment}</p>
+                  </div>
+                ))}
               </div>
-            )}
+            </div>
+          )}
 
-            {/* Workflow Comments */}
-            {application.workflowComments && application.workflowComments.length > 0 && (
-              <div>
-                <h3 className="text-lg font-semibold mb-3">Workflow Comments</h3>
-                <div className="space-y-3">
-                  {application.workflowComments
-                    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
-                    .map((comment) => (
-                      <div key={comment.id} className="p-4 bg-gray-50 rounded-lg border-l-4 border-blue-500">
-                        <div className="flex justify-between items-start mb-2">
-                          <Badge variant="outline">{comment.userType.replace("_", " ").toUpperCase()}</Badge>
-                          <span className="text-sm text-gray-500">{comment.createdAt.toLocaleDateString()}</span>
-                        </div>
-                        <p className="text-gray-700">{comment.comment}</p>
-                      </div>
-                    ))}
-                </div>
-              </div>
-            )}
-
-            {/* Review Checkbox */}
-            <Separator />
-            <div className="bg-blue-50 p-4 rounded-lg">
+          {/* Review Checkbox and Save Button */}
+          <div className="border-t pt-4">
+            <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
                 <Checkbox
-                  id={`review-${application.id}`}
+                  id="application-reviewed"
                   checked={isReviewed}
                   onCheckedChange={(checked) => setIsReviewed(checked as boolean)}
                 />
-                <label
-                  htmlFor={`review-${application.id}`}
-                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                >
-                  I have reviewed this application and all supporting documents
+                <label htmlFor="application-reviewed" className="text-sm font-medium">
+                  Application Reviewed
                 </label>
               </div>
-              <Button onClick={handleSave} className="mt-3 flex items-center gap-2">
+              <Button onClick={handleSave} className="flex items-center space-x-2">
                 <Save className="h-4 w-4" />
-                Save Review Status
+                <span>Save</span>
               </Button>
             </div>
           </div>
-        </ScrollArea>
+        </div>
       </DialogContent>
     )
   }
 
-  if (activeView === "messages") {
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold">Messages</h1>
-          <Button variant="outline" onClick={() => setActiveView("overview")}>
-            Back to Dashboard
-          </Button>
-        </div>
-        <MessagingSystem user={user} />
-      </div>
-    )
-  }
+  const pendingApplications = applications.filter((app) => app.currentStage === 2 && app.status === "submitted")
 
-  if (activeView === "activity") {
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold">Activity Logs</h1>
-          <Button variant="outline" onClick={() => setActiveView("overview")}>
-            Back to Dashboard
-          </Button>
-        </div>
-        <ActivityLogs user={user} />
-      </div>
-    )
-  }
-
-  if (activeView === "application-details" && selectedApplication) {
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold">Application Details</h1>
-          <Button variant="outline" onClick={() => setActiveView("overview")}>
-            Back to Dashboard
-          </Button>
-        </div>
-        <StrictViewOnlyApplicationDetails application={selectedApplication} user={user} />
-      </div>
-    )
-  }
+  const allPendingReviewed =
+    pendingApplications.length > 0 && pendingApplications.every((app) => reviewedApplications.has(app.id))
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Upper Manyame Sub Catchment Council</h1>
-          <p className="text-gray-600">Chairman Dashboard - {user.username}</p>
+          <h1 className="text-3xl font-bold text-gray-900">Chairperson Dashboard</h1>
+          <p className="text-gray-600 mt-1">Upper Manyame Sub Catchment Council</p>
         </div>
-        <div className="flex items-center gap-4">
-          <UnreadMessageNotification count={unreadMessageCount} onClick={handleViewMessages} />
-          <Button variant="outline" onClick={() => setActiveView("activity")}>
-            Activity Logs
-          </Button>
-        </div>
+        <Badge variant="secondary" className="px-3 py-1">
+          <Users className="h-4 w-4 mr-1" />
+          Chairperson Access
+        </Badge>
       </div>
 
-      {/* Statistics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard title="Total Applications" value={stats.totalApplications} icon={FileText} color="blue" />
-        <StatCard title="Pending Review" value={stats.pendingReview} icon={Clock} color="yellow" />
-        <StatCard title="Reviewed This Month" value={stats.reviewedThisMonth} icon={CheckCircle} color="green" />
-        <StatCard title="Approval Rate" value={`${stats.approvalRate}%`} icon={Users} color="purple" />
-      </div>
+      {/* Unread Messages Notification */}
+      {unreadMessageCount > 0 && (
+        <UnreadMessageNotification
+          unreadCount={unreadMessageCount}
+          onViewMessages={handleViewMessages}
+          className="mb-6"
+        />
+      )}
 
-      {/* Main Content */}
-      <Tabs defaultValue="overview" className="space-y-6">
-        <TabsList>
+      {/* Navigation Tabs */}
+      <Tabs value={activeView} onValueChange={setActiveView} className="w-full">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="pending">Pending Review ({stats.pendingReview})</TabsTrigger>
-          <TabsTrigger value="reviewed">Reviewed Applications</TabsTrigger>
+          <TabsTrigger value="applications">Applications</TabsTrigger>
+          <TabsTrigger value="messages" className="relative">
+            Messages
+            {unreadMessageCount > 0 && (
+              <Badge
+                variant="destructive"
+                className="ml-2 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs"
+              >
+                {unreadMessageCount > 99 ? "99+" : unreadMessageCount}
+              </Badge>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="activity">Activity</TabsTrigger>
         </TabsList>
 
+        {/* Overview Tab */}
         <TabsContent value="overview" className="space-y-6">
+          {/* Statistics Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <StatCard title="Total Applications" value={stats.totalApplications} icon={FileText} color="blue" />
+            <StatCard title="Pending Review" value={stats.pendingReview} icon={Clock} color="yellow" />
+            <StatCard title="Reviewed This Month" value={stats.reviewedThisMonth} icon={CheckCircle} color="green" />
+            <StatCard title="Approval Rate" value={`${stats.approvalRate}%`} icon={AlertTriangle} color="purple" />
+          </div>
+
           {/* Recent Applications Requiring Review */}
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="flex items-center gap-2">
-                <AlertTriangle className="h-5 w-5 text-orange-500" />
-                Recent Applications Requiring Review
-              </CardTitle>
-              {applications.filter((app) => app.currentStage === 2 && app.status === "submitted").length > 0 && (
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center space-x-2">
-                    <Checkbox
-                      id="select-all-unsubmitted"
-                      checked={selectAllUnsubmitted}
-                      onCheckedChange={handleSelectAllUnsubmitted}
-                    />
-                    <label htmlFor="select-all-unsubmitted" className="text-sm font-medium">
-                      Select all for submission
-                    </label>
+            <CardHeader>
+              <CardTitle>Recent Applications Requiring Review</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {/* Bulk Submit Section */}
+                {pendingApplications.length > 0 && (
+                  <div className="border-b pb-4 mb-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="select-all-unsubmitted"
+                          checked={selectAllUnsubmitted}
+                          onCheckedChange={handleSelectAllUnsubmitted}
+                        />
+                        <label htmlFor="select-all-unsubmitted" className="text-sm font-medium">
+                          Select All Unsubmitted Permits ({pendingApplications.length})
+                        </label>
+                      </div>
+                      {selectAllUnsubmitted && allPendingReviewed && (
+                        <Button
+                          onClick={handleSubmitPermits}
+                          disabled={isSubmitting}
+                          className="bg-green-600 hover:bg-green-700"
+                        >
+                          {isSubmitting ? "Submitting..." : "Submit Permits"}
+                        </Button>
+                      )}
+                    </div>
+                    {selectAllUnsubmitted && !allPendingReviewed && (
+                      <p className="text-sm text-orange-600 mt-2">
+                        Please review all applications before submitting permits.
+                      </p>
+                    )}
                   </div>
-                  <Button
-                    onClick={handleSubmitPermits}
-                    disabled={!selectAllUnsubmitted || isSubmitting}
-                    className="bg-green-600 hover:bg-green-700"
-                  >
-                    {isSubmitting ? "Submitting..." : "Submit to Next Stage"}
-                  </Button>
+                )}
+
+                {/* Applications List */}
+                <div className="space-y-3">
+                  {pendingApplications.map((application) => (
+                    <div
+                      key={application.id}
+                      className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100"
+                    >
+                      <div className="flex-1 grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div>
+                          <p className="text-sm font-medium text-gray-600">Account Number</p>
+                          <p className="font-semibold">{application.customerAccountNumber}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-600">Applicant Name</p>
+                          <p className="font-semibold">{application.applicantName}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-600">Address</p>
+                          <p className="text-sm">{application.physicalAddress}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-600">Permit Type</p>
+                          <Badge variant="outline" className="capitalize">
+                            {application.permitType.replace("_", " ")}
+                          </Badge>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center space-x-3 ml-4">
+                        {reviewedApplications.has(application.id) && (
+                          <Badge className="bg-green-100 text-green-800">
+                            <CheckCircle className="h-3 w-3 mr-1" />
+                            Reviewed
+                          </Badge>
+                        )}
+                        <Dialog>
+                          <DialogTrigger asChild>
+                            <Button size="sm" variant="outline" className="flex items-center space-x-1 bg-transparent">
+                              <Eye className="h-4 w-4" />
+                              <span>View</span>
+                            </Button>
+                          </DialogTrigger>
+                          <ApplicationDetailDialog application={application} />
+                        </Dialog>
+                      </div>
+                    </div>
+                  ))}
+
+                  {pendingApplications.length === 0 && (
+                    <p className="text-center text-gray-500 py-8">No applications pending review</p>
+                  )}
                 </div>
-              )}
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {applications
-                  .filter((app) => app.currentStage === 2 && app.status === "submitted")
-                  .slice(0, 5)
-                  .map((app) => (
-                    <div
-                      key={app.id}
-                      className={`p-4 border rounded-lg ${
-                        reviewedApplications.has(app.id)
-                          ? "bg-green-50 border-green-200"
-                          : "bg-orange-50 border-orange-200"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-3 mb-2">
-                            <h3 className="font-semibold">{app.applicationId}</h3>
-                            <Badge
-                              variant={reviewedApplications.has(app.id) ? "default" : "secondary"}
-                              className={
-                                reviewedApplications.has(app.id)
-                                  ? "bg-green-100 text-green-800"
-                                  : "bg-orange-100 text-orange-800"
-                              }
-                            >
-                              {reviewedApplications.has(app.id) ? "Reviewed" : "Unreviewed"}
-                            </Badge>
-                          </div>
-                          <p className="text-gray-600">{app.applicantName}</p>
-                          <p className="text-sm text-gray-500">
-                            {getPermitTypeDisplay(app.permitType)} • {app.waterAllocation.toLocaleString()} m³/annum
-                          </p>
-                          <p className="text-sm text-gray-500">Submitted: {app.submittedAt?.toLocaleDateString()}</p>
-                        </div>
-                        <Dialog>
-                          <DialogTrigger asChild>
-                            <Button variant="outline" size="sm" className="flex items-center gap-2 bg-transparent">
-                              <Eye className="h-4 w-4" />
-                              View
-                            </Button>
-                          </DialogTrigger>
-                          <ApplicationDetailDialog application={app} />
-                        </Dialog>
-                      </div>
-                    </div>
-                  ))}
-
-                {applications.filter((app) => app.currentStage === 2 && app.status === "submitted").length === 0 && (
-                  <div className="text-center py-8 text-gray-500">
-                    <CheckCircle className="h-12 w-12 mx-auto mb-4 text-green-500" />
-                    <p>No applications currently pending review</p>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Recently Reviewed Applications */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <CheckCircle className="h-5 w-5 text-green-500" />
-                Recently Reviewed Applications
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {applications
-                  .filter((app) => app.currentStage > 2)
-                  .slice(0, 3)
-                  .map((app) => (
-                    <div key={app.id} className="p-4 border rounded-lg bg-green-50 border-green-200">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <div className="flex items-center gap-3 mb-2">
-                            <h3 className="font-semibold">{app.applicationId}</h3>
-                            <Badge variant="default" className="bg-green-100 text-green-800">
-                              {app.status.replace("_", " ").toUpperCase()}
-                            </Badge>
-                          </div>
-                          <p className="text-gray-600">{app.applicantName}</p>
-                          <p className="text-sm text-gray-500">
-                            {getPermitTypeDisplay(app.permitType)} • {app.waterAllocation.toLocaleString()} m³/annum
-                          </p>
-                          <p className="text-sm text-gray-500">Last Updated: {app.updatedAt.toLocaleDateString()}</p>
-                        </div>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            setSelectedApplication(app)
-                            setActiveView("application-details")
-                          }}
-                          className="flex items-center gap-2"
-                        >
-                          <Eye className="h-4 w-4" />
-                          View Details
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-
-                {applications.filter((app) => app.currentStage > 2).length === 0 && (
-                  <div className="text-center py-8 text-gray-500">
-                    <FileText className="h-12 w-12 mx-auto mb-4" />
-                    <p>No reviewed applications yet</p>
-                  </div>
-                )}
               </div>
             </CardContent>
           </Card>
         </TabsContent>
 
-        <TabsContent value="pending" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Applications Pending Review</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {applications
-                  .filter((app) => app.currentStage === 2 && app.status === "submitted")
-                  .map((app) => (
-                    <div
-                      key={app.id}
-                      className={`p-4 border rounded-lg ${
-                        reviewedApplications.has(app.id)
-                          ? "bg-green-50 border-green-200"
-                          : "bg-orange-50 border-orange-200"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-3 mb-2">
-                            <h3 className="font-semibold">{app.applicationId}</h3>
-                            <Badge
-                              variant={reviewedApplications.has(app.id) ? "default" : "secondary"}
-                              className={
-                                reviewedApplications.has(app.id)
-                                  ? "bg-green-100 text-green-800"
-                                  : "bg-orange-100 text-orange-800"
-                              }
-                            >
-                              {reviewedApplications.has(app.id) ? "Reviewed" : "Unreviewed"}
-                            </Badge>
-                          </div>
-                          <p className="text-gray-600">{app.applicantName}</p>
-                          <p className="text-sm text-gray-500">
-                            {getPermitTypeDisplay(app.permitType)} • {app.waterAllocation.toLocaleString()} m³/annum
-                          </p>
-                          <p className="text-sm text-gray-500">Submitted: {app.submittedAt?.toLocaleDateString()}</p>
-                        </div>
-                        <Dialog>
-                          <DialogTrigger asChild>
-                            <Button variant="outline" size="sm" className="flex items-center gap-2 bg-transparent">
-                              <Eye className="h-4 w-4" />
-                              View
-                            </Button>
-                          </DialogTrigger>
-                          <ApplicationDetailDialog application={app} />
-                        </Dialog>
-                      </div>
-                    </div>
-                  ))}
-
-                {applications.filter((app) => app.currentStage === 2 && app.status === "submitted").length === 0 && (
-                  <div className="text-center py-8 text-gray-500">
-                    <CheckCircle className="h-12 w-12 mx-auto mb-4 text-green-500" />
-                    <p>No applications currently pending review</p>
-                  </div>
-                )}
+        {/* Applications Tab */}
+        <TabsContent value="applications" className="space-y-6">
+          {selectedApplication ? (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-semibold">Application Details</h2>
+                <Button variant="outline" onClick={() => setSelectedApplication(null)}>
+                  ← Back to List
+                </Button>
               </div>
-            </CardContent>
-          </Card>
+              <StrictViewOnlyApplicationDetails user={user} application={selectedApplication} />
+            </div>
+          ) : (
+            <Card>
+              <CardHeader>
+                <CardTitle>All Applications</CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader className="bg-muted/50">
+                      <TableRow>
+                        <TableHead className="w-[120px]">Tracking Number</TableHead>
+                        <TableHead className="w-[140px]">Account Number</TableHead>
+                        <TableHead>Applicant Name</TableHead>
+                        <TableHead>Address</TableHead>
+                        <TableHead className="w-[120px]">Permit Type</TableHead>
+                        <TableHead className="w-[100px]">Status</TableHead>
+                        <TableHead className="w-[80px]">Stage</TableHead>
+                        <TableHead className="w-[100px]">Submitted</TableHead>
+                        <TableHead className="w-[100px]">Expiry Date</TableHead>
+                        <TableHead className="w-[80px]">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {applications.length > 0 ? (
+                        applications.map((application) => {
+                          // Calculate expiry date (assuming 5 years from approval date or current date if not approved)
+                          const expiryDate = application.approvedAt
+                            ? new Date(application.approvedAt.getTime() + 5 * 365 * 24 * 60 * 60 * 1000)
+                            : new Date(Date.now() + 5 * 365 * 24 * 60 * 60 * 1000)
+
+                          return (
+                            <TableRow key={application.id} className="hover:bg-gray-50">
+                              <TableCell className="font-medium">{application.applicationId}</TableCell>
+                              <TableCell className="font-medium">{application.customerAccountNumber}</TableCell>
+                              <TableCell className="font-semibold">{application.applicantName}</TableCell>
+                              <TableCell className="max-w-[200px] truncate" title={application.physicalAddress}>
+                                {application.physicalAddress}
+                              </TableCell>
+                              <TableCell>
+                                <Badge variant="outline" className="capitalize text-xs">
+                                  {application.permitType.replace("_", " ")}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>
+                                <Badge
+                                  className={
+                                    application.status === "approved"
+                                      ? "bg-green-100 text-green-800"
+                                      : application.status === "rejected"
+                                        ? "bg-red-100 text-red-800"
+                                        : application.status === "submitted"
+                                          ? "bg-blue-100 text-blue-800"
+                                          : application.status === "under_review"
+                                            ? "bg-yellow-100 text-yellow-800"
+                                            : "bg-gray-100 text-gray-800"
+                                  }
+                                >
+                                  {application.status.replace("_", " ").toUpperCase()}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="text-center">
+                                <Badge variant="secondary" className="text-xs">
+                                  {application.currentStage}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="text-sm">
+                                {application.submittedAt
+                                  ? application.submittedAt.toLocaleDateString("en-ZA", {
+                                      year: "numeric",
+                                      month: "short",
+                                      day: "2-digit",
+                                    })
+                                  : "Not submitted"}
+                              </TableCell>
+                              <TableCell className="text-sm">
+                                {application.status === "approved"
+                                  ? expiryDate.toLocaleDateString("en-ZA", {
+                                      year: "numeric",
+                                      month: "short",
+                                      day: "2-digit",
+                                    })
+                                  : "N/A"}
+                              </TableCell>
+                              <TableCell>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => setSelectedApplication(application)}
+                                  className="text-xs"
+                                >
+                                  <Eye className="h-3 w-3 mr-1" />
+                                  View
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          )
+                        })
+                      ) : (
+                        <TableRow>
+                          <TableCell colSpan={10} className="py-8 text-center text-muted-foreground">
+                            No applications found
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
 
-        <TabsContent value="reviewed" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Reviewed Applications</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {applications
-                  .filter((app) => app.currentStage > 2)
-                  .map((app) => (
-                    <div key={app.id} className="p-4 border rounded-lg bg-green-50 border-green-200">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <div className="flex items-center gap-3 mb-2">
-                            <h3 className="font-semibold">{app.applicationId}</h3>
-                            <Badge variant="default" className="bg-green-100 text-green-800">
-                              {app.status.replace("_", " ").toUpperCase()}
-                            </Badge>
-                          </div>
-                          <p className="text-gray-600">{app.applicantName}</p>
-                          <p className="text-sm text-gray-500">
-                            {getPermitTypeDisplay(app.permitType)} • {app.waterAllocation.toLocaleString()} m³/annum
-                          </p>
-                          <p className="text-sm text-gray-500">Last Updated: {app.updatedAt.toLocaleDateString()}</p>
-                        </div>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            setSelectedApplication(app)
-                            setActiveView("application-details")
-                          }}
-                          className="flex items-center gap-2"
-                        >
-                          <Eye className="h-4 w-4" />
-                          View Details
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
+        {/* Messages Tab */}
+        <TabsContent value="messages">
+          <MessagingSystem user={user} />
+        </TabsContent>
 
-                {applications.filter((app) => app.currentStage > 2).length === 0 && (
-                  <div className="text-center py-8 text-gray-500">
-                    <FileText className="h-12 w-12 mx-auto mb-4" />
-                    <p>No reviewed applications yet</p>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+        {/* Activity Tab */}
+        <TabsContent value="activity">
+          <ActivityLogs user={user} />
         </TabsContent>
       </Tabs>
     </div>

@@ -24,7 +24,6 @@ export interface PermitApplication {
   postalAddress?: string
   customerAccountNumber: string
   cellularNumber: string
-  emailAddress?: string
   permitType: string
   waterSource: string
   intendedUse: string
@@ -72,7 +71,6 @@ export interface Document {
   fileType: string
   fileSize: number
   uploadedAt: Date
-  fileUrl?: string
 }
 
 export interface ActivityLog {
