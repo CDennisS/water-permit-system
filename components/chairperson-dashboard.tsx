@@ -36,7 +36,7 @@ interface ChairpersonDashboardProps {
   user: User
 }
 
-export default function ChairpersonDashboard({ user }: ChairpersonDashboardProps) {
+export function ChairpersonDashboard({ user }: ChairpersonDashboardProps) {
   const [applications, setApplications] = useState<PermitApplication[]>([])
   const [reviewedApplications, setReviewedApplications] = useState<Set<string>>(new Set())
   const [selectedApplications, setSelectedApplications] = useState<Set<string>>(new Set())
