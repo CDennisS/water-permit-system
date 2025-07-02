@@ -14,185 +14,202 @@ export function PermitTemplate({ permitData, id = "permit-template" }: PermitTem
       className="bg-white text-black w-full max-w-none print:shadow-none"
       style={{
         fontFamily: "Times New Roman, serif",
-        fontSize: "12pt",
-        lineHeight: "1.4",
+        fontSize: "10pt",
+        lineHeight: "1.2",
         minHeight: "297mm", // A4 height
         width: "210mm", // A4 width
         margin: "0 auto",
-        padding: "20mm",
+        padding: "7.5mm 19mm 10mm 19mm", // Reduced padding for more space
         boxSizing: "border-box",
       }}
     >
-      {/* Header - Exact Form GW7B Format */}
-      <div className="text-center mb-8">
-        <div className="flex justify-between items-start mb-4">
-          <div className="text-left">
-            <img src="/placeholder-logo.png" alt="Zimbabwe Coat of Arms" className="h-16 w-16" />
-          </div>
-          <div className="flex-1 text-center">
-            <h1 className="text-xl font-bold mb-2">REPUBLIC OF ZIMBABWE</h1>
-            <h2 className="text-lg font-bold mb-2">
-              MINISTRY OF LANDS, AGRICULTURE, FISHERIES, WATER AND RURAL DEVELOPMENT
-            </h2>
-            <h3 className="text-base font-bold mb-4">UPPER MANYAME SUB CATCHMENT COUNCIL</h3>
-          </div>
-          <div className="text-right">
-            <img src="/placeholder-logo.png" alt="UMSCC Logo" className="h-16 w-16" />
-          </div>
-        </div>
+      {/* Form Number - Top Right */}
+      <div className="text-right mb-2">
+        <p className="text-sm font-normal">Form GW7B</p>
+      </div>
 
-        <div className="border-2 border-black p-4 mb-6">
-          <h1 className="text-xl font-bold mb-2">Form GW7B</h1>
-          <h2 className="text-lg font-bold mb-4">
-            {permitData.permitType?.toUpperCase() || "TEMPORARY"}/PROVISIONAL* SPECIFIC GROUNDWATER ABSTRACTION PERMIT
-          </h2>
-          <p className="text-sm mb-4">(Section 15 (3) (a) of Water (Permits) Regulations, 2001)</p>
-        </div>
+      {/* Title Section */}
+      <div className="text-center mb-4">
+        <h1 className="text-sm font-bold mb-2 underline">
+          TEMPORARY/PROVISIONAL<sup>*</sup> SPECIFIC GROUNDWATER ABSTRACTION PERMIT
+        </h1>
+        <p className="text-xs italic mb-4">(Section 15 (3) (a) of Water (Permits) Regulations, 2001)</p>
+      </div>
+
+      {/* Official Stamp Area - Simplified */}
+      <div className="flex justify-between items-center mb-4">
+        <div className="border border-black px-2 py-1 text-xs">OFFICIAL STAMP</div>
+        <div className="w-16 h-12 border border-gray-300 flex items-center justify-center text-xs">LOGO</div>
       </div>
 
       {/* Grant Statement */}
-      <div className="mb-6">
-        <p className="mb-4">
-          The <strong>{permitData.catchment || "MANYAME"}</strong> Catchment Council hereby grants a
-          *Temporary/Provisional General Abstraction Permit to:
+      <div className="mb-3">
+        <p className="text-sm mb-2">
+          The <strong>MANYAME</strong> Catchment Council hereby grants a <sup>*</sup>Temporary/Provisional General
         </p>
-        <p className="mb-4">
-          <strong>Catchment: {permitData.catchment || "MANYAME"}</strong> &nbsp;&nbsp;&nbsp;&nbsp;
-          <strong>Sub-Catchment: {permitData.subCatchment || "UPPER MANYAME"}</strong>
+        <p className="text-sm mb-2">Abstraction Permit to:</p>
+      </div>
+
+      {/* Catchment Info */}
+      <div className="mb-3">
+        <p className="text-sm">
+          Catchment: <strong>MANYAME</strong> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+          Sub-Catchment: <strong>UPPER MANYAME</strong>
         </p>
       </div>
 
       {/* Applicant Details */}
-      <div className="grid grid-cols-2 gap-4 mb-6">
+      <div className="space-y-2 mb-3">
         <div>
-          <p className="mb-2">
-            <strong>1. Name of Applicant:</strong> {permitData.applicantName}
+          <p className="text-sm">
+            1. Name of Applicant: <strong>{permitData.applicantName}</strong>
           </p>
         </div>
+
+        <div className="flex justify-between">
+          <div className="flex-1">
+            <p className="text-sm">
+              2. Physical address: <strong>{permitData.physicalAddress}</strong>
+            </p>
+          </div>
+          <div className="flex-1 ml-4">
+            <p className="text-sm">
+              3. Postal address: <strong>{permitData.postalAddress || "N/A"}</strong>
+            </p>
+          </div>
+        </div>
+
+        <div className="flex justify-between">
+          <div className="flex-1">
+            <p className="text-sm">
+              4. Number of drilled boreholes: <strong>{permitData.numberOfBoreholes}</strong>
+            </p>
+          </div>
+          <div className="flex-1 ml-4">
+            <p className="text-sm">
+              5. Size of land or property: <strong>{permitData.landSize} (ha)</strong>
+            </p>
+          </div>
+        </div>
+
         <div>
-          <p className="mb-2">
-            <strong>3. Postal address:</strong> {permitData.postalAddress || "N/A"}
+          <p className="text-sm">
+            Total allocated abstraction (m<sup>3</sup>/annum):{" "}
+            <strong>{permitData.totalAllocatedAbstraction.toLocaleString()}</strong>
           </p>
         </div>
       </div>
 
-      <div className="mb-6">
-        <p className="mb-2">
-          <strong>2. Physical address:</strong> {permitData.physicalAddress}
-        </p>
-      </div>
-
-      <div className="grid grid-cols-2 gap-4 mb-6">
-        <div>
-          <p className="mb-2">
-            <strong>4. Number of drilled boreholes:</strong> {permitData.numberOfBoreholes}
-          </p>
-        </div>
-        <div>
-          <p className="mb-2">
-            <strong>5. Size of land or property:</strong> {permitData.landSize} (ha)
-          </p>
-        </div>
-      </div>
-
-      <div className="mb-6">
-        <p className="mb-4">
-          <strong>Total allocated abstraction (m³/annum):</strong>{" "}
-          {permitData.totalAllocatedAbstraction.toLocaleString()}
-        </p>
-      </div>
-
-      {/* Borehole Details Table */}
-      <div className="mb-6">
-        <table className="w-full border-collapse border-2 border-black text-sm">
+      {/* Borehole Details Table - Compact */}
+      <div className="mb-3">
+        <table className="w-full border-collapse text-xs" style={{ border: "2px solid black" }}>
           <thead>
             <tr>
-              <th className="border border-black p-2 text-center">Borehole (BH)-No.</th>
-              <th className="border border-black p-2 text-center">BH-No. Allocated</th>
-              <th className="border border-black p-2 text-center" colSpan={2}>
-                Grid Reference
+              <th
+                rowSpan={2}
+                className="border border-black p-1 text-center w-8"
+                style={{ borderLeft: "2px solid black" }}
+              >
+                <strong>Borehole (BH)-No.</strong>
               </th>
-              <th className="border border-black p-2 text-center">GPS reading</th>
-              <th className="border border-black p-2 text-center">Intended use</th>
-              <th className="border border-black p-2 text-center">Maximum abstraction rate (m³/annum)</th>
-              <th className="border border-black p-2 text-center">Water sample analysis every . months/years</th>
+              <th rowSpan={2} className="border border-black p-1 text-center w-16">
+                <strong>BH-No. Allocated</strong>
+              </th>
+              <th rowSpan={2} className="border border-black p-1 text-center w-16">
+                <strong>Grid Reference</strong>
+              </th>
+              <th colSpan={2} className="border border-black p-1 text-center w-20">
+                <strong>GPS reading</strong>
+              </th>
+              <th rowSpan={2} className="border border-black p-1 text-center w-20">
+                <strong>
+                  Intended use<sup>a</sup>
+                </strong>
+              </th>
+              <th rowSpan={2} className="border border-black p-1 text-center w-16">
+                <strong>
+                  Maximum abstraction rate (m<sup>3</sup>/annum)
+                </strong>
+              </th>
+              <th
+                rowSpan={2}
+                className="border border-black p-1 text-center w-16"
+                style={{ borderRight: "2px solid black" }}
+              >
+                <strong>Water sample analysis every _______ months/years</strong>
+              </th>
             </tr>
             <tr>
-              <th className="border border-black p-1 text-center"></th>
-              <th className="border border-black p-1 text-center"></th>
-              <th className="border border-black p-1 text-center">X</th>
-              <th className="border border-black p-1 text-center">Y</th>
-              <th className="border border-black p-1 text-center"></th>
-              <th className="border border-black p-1 text-center"></th>
-              <th className="border border-black p-1 text-center"></th>
-              <th className="border border-black p-1 text-center"></th>
+              <th className="border border-black p-1 text-center w-10">
+                <strong>X</strong>
+              </th>
+              <th className="border border-black p-1 text-center w-10">
+                <strong>Y</strong>
+              </th>
             </tr>
           </thead>
           <tbody>
             {permitData.boreholeDetails.map((borehole, index) => (
               <tr key={index}>
-                <td className="border border-black p-2 text-center">{borehole.boreholeNumber}</td>
-                <td className="border border-black p-2 text-center">{borehole.allocatedAmount.toLocaleString()}</td>
-                <td className="border border-black p-2 text-center">{borehole.gpsX}</td>
-                <td className="border border-black p-2 text-center">{borehole.gpsY}</td>
-                <td className="border border-black p-2 text-center">
-                  {permitData.gpsCoordinates.latitude.toFixed(6)}, {permitData.gpsCoordinates.longitude.toFixed(6)}
+                <td
+                  className="border border-black p-1 text-center"
+                  style={{ borderLeft: index === 0 ? "2px solid black" : "1px solid black" }}
+                >
+                  <strong>{index + 1}</strong>
                 </td>
-                <td className="border border-black p-2">{borehole.intendedUse}</td>
-                <td className="border border-black p-2 text-center">{borehole.maxAbstractionRate.toLocaleString()}</td>
-                <td className="border border-black p-2 text-center">{borehole.waterSampleFrequency}</td>
+                <td className="border border-black p-1 text-center">{borehole.allocatedAmount.toLocaleString()}</td>
+                <td className="border border-black p-1 text-center">&nbsp;</td>
+                <td className="border border-black p-1 text-center">{borehole.gpsX}</td>
+                <td className="border border-black p-1 text-center">{borehole.gpsY}</td>
+                <td className="border border-black p-1 text-center">{borehole.intendedUse}</td>
+                <td className="border border-black p-1 text-center">{borehole.maxAbstractionRate.toLocaleString()}</td>
+                <td className="border border-black p-1 text-center" style={{ borderRight: "2px solid black" }}>
+                  {borehole.waterSampleFrequency}
+                </td>
               </tr>
             ))}
-            {/* Fill empty rows if less than 5 boreholes */}
+            {/* Fill remaining rows to make 5 total */}
             {Array.from({ length: Math.max(0, 5 - permitData.boreholeDetails.length) }).map((_, index) => (
               <tr key={`empty-${index}`}>
-                <td className="border border-black p-2">&nbsp;</td>
-                <td className="border border-black p-2">&nbsp;</td>
-                <td className="border border-black p-2">&nbsp;</td>
-                <td className="border border-black p-2">&nbsp;</td>
-                <td className="border border-black p-2">&nbsp;</td>
-                <td className="border border-black p-2">&nbsp;</td>
-                <td className="border border-black p-2">&nbsp;</td>
-                <td className="border border-black p-2">&nbsp;</td>
+                <td className="border border-black p-1 text-center" style={{ borderLeft: "2px solid black" }}>
+                  <strong>{permitData.boreholeDetails.length + index + 1}</strong>
+                </td>
+                <td className="border border-black p-1">&nbsp;</td>
+                <td className="border border-black p-1">&nbsp;</td>
+                <td className="border border-black p-1">&nbsp;</td>
+                <td className="border border-black p-1">&nbsp;</td>
+                <td className="border border-black p-1">&nbsp;</td>
+                <td className="border border-black p-1">&nbsp;</td>
+                <td className="border border-black p-1" style={{ borderRight: "2px solid black" }}>
+                  &nbsp;
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
-        <p className="text-xs mt-2">
+        <p className="text-xs mt-1">
           <sup>a</sup> Intended use: irrigation, livestock farming, industrial, mining, urban, national parks, other
           (specify): <strong>{permitData.intendedUse.toUpperCase()}</strong>
         </p>
       </div>
 
       {/* Permit Registration */}
-      <div className="mb-6">
-        <p className="mb-4">
-          This Temporary/Provisional* Specific Abstraction Permit has been recorded in the register as:
+      <div className="mb-3">
+        <p className="text-sm mb-2">
+          This Temporary/Provisional<sup>*</sup> Specific Abstraction Permit has been recorded in the register as:
         </p>
-        <div className="grid grid-cols-2 gap-4">
-          <p>
-            <strong>Permit No:</strong> {permitData.permitNumber}
-          </p>
-          <p>
-            <strong>Valid until:</strong> {permitData.validUntil}
-          </p>
-        </div>
-        <div className="grid grid-cols-2 gap-4 mt-4">
-          <p>
-            <strong>Issue Date:</strong> {permitData.issueDate}
-          </p>
-          <p>
-            <strong>Permit Type:</strong>{" "}
-            {permitData.permitType?.charAt(0).toUpperCase() + permitData.permitType?.slice(1) || "Temporary"}
-          </p>
-        </div>
+        <p className="text-sm">
+          Permit No: <strong>{permitData.permitNumber}</strong>{" "}
+          &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Valid until:{" "}
+          <strong>{permitData.validUntil}</strong>
+        </p>
       </div>
 
       {/* CONDITIONS */}
-      <div className="mb-6">
-        <h3 className="text-lg font-bold mb-4">CONDITIONS</h3>
+      <div className="mb-3">
+        <h3 className="text-sm font-bold text-center mb-2">CONDITIONS</h3>
 
-        <div className="space-y-4 text-sm">
+        <div className="space-y-2 text-xs">
           <p>
             It is illegal to abstract groundwater for any other purpose other than primary purposes without an
             abstraction permit. The owner of the property who wishes to abstract water in terms of this permit must
@@ -202,82 +219,62 @@ export function PermitTemplate({ permitData, id = "permit-template" }: PermitTem
 
           <p>
             All forms on which to record information as required by the permit are provided by the relevant Catchment
-            Council. The owner of the property shall submit the borehole monitoring data recorded every month, or as
-            specified by the Catchment Council, on Form GW 8 to the relevant Catchment Council (Catchment Manager's
-            office) every three months or as specified by the Catchment Council.
+            Council. The owner of the property shall submit the borehole monitoring data recorded every{" "}
+            <strong>month</strong>, or as specified by the Catchment Council, on Form GW 8 to the relevant Catchment
+            Council (Catchment Manager's office) every <strong>three</strong> months or as specified by the Catchment
+            Council.
           </p>
 
           <p>
             The Catchment Council reserves the right to review the conditions of this permit in accordance with the
-            Water Act, [Chapter 20:24].
+            Water Act, [<em>Chapter 20:24</em>].
           </p>
 
           <p>
             In the event that the Minister declares part of or the whole Catchment area a groundwater development
-            restriction area, the Catchment Council has the right in terms of the Water Act, [Chapter 20:24], to suspend
-            or amend any permit, restrict the abstractions, limit the validity period of the permit and determine the
-            priority use of the water by re-issuing the permit.
+            restriction area, the Catchment Council has the right in terms of the Water Act, [<em>Chapter 20:24</em>],
+            to suspend or amend any permit, restrict the abstractions, limit the validity period of the permit and
+            determine the priority use of the water by re-issuing the permit.
           </p>
         </div>
       </div>
 
       {/* ADDITIONAL CONDITIONS */}
-      <div className="mb-8">
-        <h3 className="text-lg font-bold mb-4">ADDITIONAL CONDITIONS</h3>
-        <ol className="list-decimal list-inside space-y-2 text-sm">
+      <div className="mb-4">
+        <h3 className="text-sm font-bold text-center mb-2">ADDITIONAL CONDITIONS</h3>
+        <ol className="list-decimal list-inside space-y-1 text-xs ml-4">
           <li>To install flow meters on all boreholes and keep records of water used</li>
           <li>Water Quality Analysis is to be carried out at most after every 3 months</li>
           <li>To submit abstraction and water quality records to catchment offices every six (6) months</li>
           <li>To allow unlimited access to ZINWA and SUB-CATCHMENT COUNCIL staff</li>
           <li>No cost shall be demanded from the Catchment Council in the event of permit cancellation</li>
-          <li>This permit is non-transferable and is valid only for the specified property</li>
-          <li>Any changes to the abstraction details must be reported to the Catchment Council immediately</li>
-          <li>The permit holder must comply with all environmental regulations and guidelines</li>
         </ol>
       </div>
 
-      {/* Signature Section */}
-      <div className="mt-12">
-        <div className="grid grid-cols-3 gap-8 text-center">
-          <div>
-            <div className="border-b border-black mb-2 h-12"></div>
-            <p className="text-sm">Name (print)</p>
+      {/* Signature Section - Compact */}
+      <div className="mt-4">
+        <div className="flex justify-between items-end text-xs">
+          <div className="text-center">
+            <div className="border-b border-black w-32 h-8 mb-1"></div>
+            <p>
+              Name (<em>print</em>)
+            </p>
           </div>
-          <div>
-            <div className="border-b border-black mb-2 h-12"></div>
-            <p className="text-sm">Signature</p>
+          <div className="text-center">
+            <div className="border-b border-black w-32 h-8 mb-1"></div>
+            <p>Signature</p>
           </div>
-          <div>
-            <div className="border-b border-black mb-2 h-12"></div>
-            <p className="text-sm">Official Date Stamp</p>
+          <div className="text-center">
+            <div className="border-b border-black w-24 h-8 mb-1"></div>
+            <p>Official Date Stamp</p>
           </div>
         </div>
-        <p className="text-center text-sm mt-4">(Catchment Council Chairperson)</p>
-
-        <div className="mt-8 text-center">
-          <p className="text-xs text-gray-600">
-            This permit is issued under the authority of the Upper Manyame Sub Catchment Council
-            <br />
-            in accordance with the Water Act [Chapter 20:24] and Water (Permits) Regulations, 2001
-          </p>
-        </div>
+        <p className="text-center text-xs mt-2">(Catchment Council Chairperson)</p>
       </div>
 
-      {/* Footer */}
-      <div className="mt-8 pt-4 border-t border-gray-300 text-center text-xs text-gray-500">
-        <p>
-          Upper Manyame Sub Catchment Council | P.O. Box 1378, Harare | Tel: +263-4-123456 | Email: info@umscc.co.zw
-        </p>
-        <p>
-          Generated on:{" "}
-          {new Date().toLocaleDateString("en-ZA", {
-            year: "numeric",
-            month: "long",
-            day: "2-digit",
-            hour: "2-digit",
-            minute: "2-digit",
-          })}
-        </p>
+      {/* Footer - Minimal */}
+      <div className="mt-2 text-center text-xs text-gray-600">
+        <p>Generated: {new Date().toLocaleDateString("en-ZA")} | UMSCC Permit System</p>
       </div>
     </div>
   )

@@ -2,464 +2,351 @@
 
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Send, MessageSquare, Users, User, Bell, Search, Filter } from "lucide-react"
-import type { Message, User as UserType } from "@/types"
-import { db } from "@/lib/database"
-import { getUserTypeLabel } from "@/lib/auth"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { MessageSquare, Send, Search, Users, Clock, CheckCircle2 } from "lucide-react"
+import { toast } from "sonner"
+import { loadUsers, loadMessages, saveMessage, markMessageAsRead } from "@/lib/database"
+import type { Message } from "@/types"
 
 interface EnhancedMessagingSystemProps {
-  user: UserType
+  currentUser: any
 }
 
-export function EnhancedMessagingSystem({ user }: EnhancedMessagingSystemProps) {
-  const [publicMessages, setPublicMessages] = useState<Message[]>([])
-  const [privateMessages, setPrivateMessages] = useState<Message[]>([])
-  const [users, setUsers] = useState<UserType[]>([])
-  const [newPublicMessage, setNewPublicMessage] = useState("")
-  const [newPrivateMessage, setNewPrivateMessage] = useState("")
-  const [selectedRecipient, setSelectedRecipient] = useState("")
+export default function EnhancedMessagingSystem({ currentUser }: EnhancedMessagingSystemProps) {
+  const [messages, setMessages] = useState<Message[]>([])
+  const [users, setUsers] = useState<any[]>([])
+  const [selectedRecipient, setSelectedRecipient] = useState<string>("")
+  const [messageContent, setMessageContent] = useState("")
   const [searchTerm, setSearchTerm] = useState("")
-  const [filterType, setFilterType] = useState("all")
-  const [isLoading, setIsLoading] = useState(true)
+  const [isLoading, setIsLoading] = useState(false)
 
   useEffect(() => {
-    loadMessages()
-    loadUsers()
+    loadData()
+  }, [])
 
-    // Auto-refresh messages every 30 seconds
-    const interval = setInterval(() => {
-      loadMessages()
-    }, 30000)
-
-    return () => clearInterval(interval)
-  }, [user])
-
-  const loadMessages = async () => {
+  const loadData = async () => {
     try {
-      const publicMsgs = await db.getMessages(user.id, true)
-      const privateMsgs = await db.getMessages(user.id, false)
-      setPublicMessages(publicMsgs)
-      setPrivateMessages(privateMsgs)
+      const [allUsers, allMessages] = await Promise.all([loadUsers(), loadMessages()])
+
+      // Remove duplicates using Map for better deduplication
+      const uniqueUsersMap = new Map()
+      allUsers
+        .filter((u) => u.id !== currentUser.id) // Remove current user
+        .forEach((user) => {
+          uniqueUsersMap.set(user.id, user)
+        })
+
+      const uniqueUsers = Array.from(uniqueUsersMap.values())
+      console.log(
+        "Loaded unique users:",
+        uniqueUsers.map((u) => ({ id: u.id, username: u.username, userType: u.userType })),
+      )
+
+      setUsers(uniqueUsers)
+      setMessages(allMessages)
     } catch (error) {
-      console.error("Failed to load messages:", error)
+      console.error("Failed to load data:", error)
+      toast.error("Failed to load messaging data")
+    }
+  }
+
+  const handleSendMessage = async (isPublic: boolean) => {
+    if (!messageContent.trim()) {
+      toast.error("Please enter a message")
+      return
+    }
+
+    if (!isPublic && !selectedRecipient) {
+      toast.error("Please select a recipient for private messages")
+      return
+    }
+
+    setIsLoading(true)
+    try {
+      const newMessage: Omit<Message, "id"> = {
+        senderId: currentUser.id,
+        receiverId: isPublic ? undefined : selectedRecipient,
+        content: messageContent,
+        isPublic,
+        createdAt: new Date(),
+        readAt: undefined,
+        applicationId: undefined,
+        subject: undefined,
+      }
+
+      await saveMessage(newMessage)
+
+      // Reload messages to show the new one
+      await loadData()
+
+      // Clear form
+      setMessageContent("")
+      setSelectedRecipient("")
+
+      toast.success(isPublic ? "Public message sent successfully" : "Private message sent successfully")
+    } catch (error) {
+      console.error("Failed to send message:", error)
+      toast.error("Failed to send message")
     } finally {
       setIsLoading(false)
     }
   }
 
-  const loadUsers = async () => {
+  const handleMarkAsRead = async (messageId: string) => {
     try {
-      const allUsers = await db.getUsers()
-      console.log("All users from database:", allUsers)
-
-      // Remove current user and deduplicate by user ID using Map
-      const filteredUsers = allUsers.filter((u) => u.id !== user.id)
-      console.log("After filtering current user:", filteredUsers)
-
-      // Create a Map to ensure unique users by ID
-      const uniqueUsersMap = new Map()
-      filteredUsers.forEach((u) => {
-        if (!uniqueUsersMap.has(u.id)) {
-          uniqueUsersMap.set(u.id, u)
-        }
-      })
-
-      const uniqueUsers = Array.from(uniqueUsersMap.values())
-      console.log("Final unique users:", uniqueUsers)
-
-      setUsers(uniqueUsers)
+      await markMessageAsRead(messageId)
+      await loadData() // Reload to update read status
     } catch (error) {
-      console.error("Failed to load users:", error)
-    }
-  }
-
-  const getUnreadCount = () => {
-    const unreadPublic = publicMessages.filter((msg) => msg.senderId !== user.id && !msg.readAt).length
-    const unreadPrivate = privateMessages.filter((msg) => msg.senderId !== user.id && !msg.readAt).length
-    return { public: unreadPublic, private: unreadPrivate, total: unreadPublic + unreadPrivate }
-  }
-
-  const markMessagesAsRead = async (isPublic: boolean) => {
-    const messages = isPublic ? publicMessages : privateMessages
-    const unreadMessages = messages.filter((msg) => msg.senderId !== user.id && !msg.readAt)
-
-    for (const message of unreadMessages) {
-      await db.markMessageAsRead(message.id)
-    }
-
-    loadMessages()
-  }
-
-  const sendPublicMessage = async () => {
-    if (!newPublicMessage.trim()) return
-
-    try {
-      await db.sendMessage({
-        senderId: user.id,
-        content: newPublicMessage,
-        isPublic: true,
-      })
-
-      await db.addLog({
-        userId: user.id,
-        userType: user.userType,
-        action: "Sent Public Message",
-        details: "Posted a public message to the dashboard",
-      })
-
-      setNewPublicMessage("")
-      await loadMessages()
-    } catch (error) {
-      console.error("Failed to send public message:", error)
-    }
-  }
-
-  const sendPrivateMessage = async () => {
-    if (!newPrivateMessage.trim() || !selectedRecipient) return
-
-    try {
-      const recipient = users.find((u) => u.id === selectedRecipient)
-
-      await db.sendMessage({
-        senderId: user.id,
-        receiverId: selectedRecipient,
-        content: newPrivateMessage,
-        isPublic: false,
-      })
-
-      await db.addLog({
-        userId: user.id,
-        userType: user.userType,
-        action: "Sent Private Message",
-        details: `Sent private message to ${recipient ? getUserTypeLabel(recipient.userType) : "user"}`,
-      })
-
-      setNewPrivateMessage("")
-      setSelectedRecipient("")
-      await loadMessages()
-    } catch (error) {
-      console.error("Failed to send private message:", error)
+      console.error("Failed to mark message as read:", error)
     }
   }
 
   const formatMessageTime = (date: Date) => {
-    const now = new Date()
-    const messageDate = new Date(date)
-    const diff = now.getTime() - messageDate.getTime()
-    const hours = Math.floor(diff / (1000 * 60 * 60))
-
-    if (hours < 1) {
-      const minutes = Math.floor(diff / (1000 * 60))
-      return `${minutes}m ago`
-    } else if (hours < 24) {
-      return `${hours}h ago`
-    } else {
-      const days = Math.floor(hours / 24)
-      if (days === 1) return "Yesterday"
-      if (days < 7) return `${days} days ago`
-      return messageDate.toLocaleDateString()
+    if (!(date instanceof Date)) {
+      date = new Date(date)
     }
+    return date.toLocaleString("en-ZA", {
+      year: "numeric",
+      month: "short",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    })
   }
 
-  const getUserInitials = (userType: string) => {
-    const labels = getUserTypeLabel(userType as any)
-    return labels
-      .split(" ")
-      .map((word) => word[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 2)
+  const getSenderName = (senderId: string) => {
+    const sender = users.find((u) => u.id === senderId)
+    return sender ? `${sender.username} (${sender.userType.replace("_", " ")})` : "Unknown User"
   }
 
-  const filterMessages = (messages: Message[]) => {
-    let filtered = messages
+  const filteredMessages = messages.filter((message) => {
+    const matchesSearch =
+      message.content.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      getSenderName(message.senderId).toLowerCase().includes(searchTerm.toLowerCase())
+    return matchesSearch
+  })
 
-    if (searchTerm) {
-      filtered = filtered.filter((msg) => msg.content.toLowerCase().includes(searchTerm.toLowerCase()))
-    }
+  const publicMessages = filteredMessages.filter((m) => m.isPublic)
+  const privateMessages = filteredMessages.filter(
+    (m) => !m.isPublic && (m.senderId === currentUser.id || m.receiverId === currentUser.id),
+  )
 
-    if (filterType !== "all") {
-      filtered = filtered.filter((msg) => {
-        const sender = users.find((u) => u.id === msg.senderId) || user
-        return sender.userType === filterType
-      })
-    }
-
-    return filtered
-  }
-
-  const unreadCounts = getUnreadCount()
-
-  if (isLoading) {
-    return <div className="flex justify-center p-8">Loading messaging system...</div>
-  }
+  const unreadCount = privateMessages.filter((m) => m.receiverId === currentUser.id && !m.readAt).length
 
   return (
-    <div className="max-w-6xl mx-auto p-6">
+    <div className="space-y-6">
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center">
-              <MessageSquare className="h-5 w-5 mr-2" />
-              UMSCC Messaging System
-              {unreadCounts.total > 0 && (
-                <Badge variant="destructive" className="ml-2">
-                  {unreadCounts.total} unread
-                </Badge>
-              )}
-            </CardTitle>
-            <div className="flex items-center space-x-2">
-              <Search className="h-4 w-4 text-gray-500" />
-              <input
-                type="text"
-                placeholder="Search messages..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="px-3 py-1 border rounded-md text-sm"
-              />
-              <Select value={filterType} onValueChange={setFilterType}>
-                <SelectTrigger className="w-40">
-                  <Filter className="h-4 w-4 mr-2" />
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Users</SelectItem>
-                  <SelectItem value="permitting_officer">Officers</SelectItem>
-                  <SelectItem value="chairperson">Chairpersons</SelectItem>
-                  <SelectItem value="catchment_manager">Managers</SelectItem>
-                  <SelectItem value="permit_supervisor">Supervisors</SelectItem>
-                  <SelectItem value="ict">ICT</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+          <CardTitle className="flex items-center gap-2">
+            <MessageSquare className="h-5 w-5" />
+            Messaging System
+          </CardTitle>
+          <CardDescription>
+            Communicate with team members through public announcements or private messages
+          </CardDescription>
         </CardHeader>
-        <CardContent>
-          <Tabs defaultValue="public" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger
-                value="public"
-                className="flex items-center relative"
-                onClick={() => markMessagesAsRead(true)}
-              >
-                <Users className="h-4 w-4 mr-2" />
-                Public Dashboard
-                {unreadCounts.public > 0 && (
-                  <Badge
-                    variant="destructive"
-                    className="ml-2 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs"
-                  >
-                    {unreadCounts.public}
-                  </Badge>
-                )}
-              </TabsTrigger>
-              <TabsTrigger
-                value="private"
-                className="flex items-center relative"
-                onClick={() => markMessagesAsRead(false)}
-              >
-                <User className="h-4 w-4 mr-2" />
-                Private Messages
-                {unreadCounts.private > 0 && (
-                  <Badge
-                    variant="destructive"
-                    className="ml-2 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs"
-                  >
-                    {unreadCounts.private}
-                  </Badge>
-                )}
-              </TabsTrigger>
-            </TabsList>
+      </Card>
 
-            {/* Public Messages Dashboard */}
-            <TabsContent value="public" className="space-y-4">
-              <Card className="border-blue-200 bg-blue-50">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-lg text-blue-800 flex items-center">
-                    <Bell className="h-5 w-5 mr-2" />
-                    Public Message Dashboard
-                  </CardTitle>
-                  <p className="text-sm text-blue-600">
-                    All users can view and post messages here. Messages are visible to everyone in the system.
-                  </p>
-                </CardHeader>
-              </Card>
+      <Tabs defaultValue="public" className="space-y-4">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="public" className="flex items-center gap-2">
+            <Users className="h-4 w-4" />
+            Public Messages
+          </TabsTrigger>
+          <TabsTrigger value="private" className="flex items-center gap-2">
+            <Clock className="h-4 w-4" />
+            Private Messages
+            {unreadCount > 0 && (
+              <Badge variant="destructive" className="ml-1 h-5 w-5 rounded-full p-0 text-xs">
+                {unreadCount}
+              </Badge>
+            )}
+          </TabsTrigger>
+        </TabsList>
 
-              <ScrollArea className="h-96 border rounded-lg p-4 bg-gray-50">
-                <div className="space-y-4">
-                  {filterMessages(publicMessages).map((message) => {
-                    const sender =
-                      users.find((u) => u.id === message.senderId) || (message.senderId === user.id ? user : null)
-                    const isUnread = message.senderId !== user.id && !message.readAt
-
-                    return (
-                      <div
-                        key={message.id}
-                        className={`p-4 rounded-lg border ${isUnread ? "bg-blue-50 border-blue-200" : "bg-white border-gray-200"}`}
-                      >
-                        <div className="flex items-start space-x-3">
-                          <Avatar className="h-8 w-8">
-                            <AvatarFallback className="text-xs bg-blue-100 text-blue-800">
-                              {getUserInitials(sender?.userType || "permitting_officer")}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between mb-1">
-                              <div className="flex items-center space-x-2">
-                                <Badge variant="outline" className="text-xs">
-                                  {sender ? getUserTypeLabel(sender.userType) : "Unknown User"}
-                                </Badge>
-                                {isUnread && (
-                                  <Badge variant="destructive" className="text-xs">
-                                    New
-                                  </Badge>
-                                )}
-                              </div>
-                              <span className="text-xs text-gray-500">{formatMessageTime(message.createdAt)}</span>
-                            </div>
-                            <p className="text-sm text-gray-900 whitespace-pre-wrap">{message.content}</p>
-                          </div>
-                        </div>
-                      </div>
-                    )
-                  })}
-                  {filterMessages(publicMessages).length === 0 && (
-                    <div className="text-center text-gray-500 py-8">
-                      {searchTerm || filterType !== "all"
-                        ? "No messages found matching your criteria."
-                        : "No public messages yet. Start the conversation!"}
-                    </div>
-                  )}
-                </div>
-              </ScrollArea>
-
-              <div className="flex space-x-2">
+        <TabsContent value="public" className="space-y-4">
+          {/* Send Public Message */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Send Public Announcement</CardTitle>
+              <CardDescription>This message will be visible to all users</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <Label htmlFor="public-message">Message</Label>
                 <Textarea
-                  value={newPublicMessage}
-                  onChange={(e) => setNewPublicMessage(e.target.value)}
-                  placeholder="Type your public message for all users to see..."
+                  id="public-message"
+                  placeholder="Type your public announcement here..."
+                  value={messageContent}
+                  onChange={(e) => setMessageContent(e.target.value)}
                   rows={3}
-                  className="flex-1"
                 />
-                <Button onClick={sendPublicMessage} disabled={!newPublicMessage.trim()} className="self-end">
-                  <Send className="h-4 w-4" />
-                </Button>
               </div>
-            </TabsContent>
+              <Button onClick={() => handleSendMessage(true)} disabled={isLoading} className="gap-2">
+                <Send className="h-4 w-4" />
+                {isLoading ? "Sending..." : "Send Public Message"}
+              </Button>
+            </CardContent>
+          </Card>
 
-            {/* Private Messages */}
-            <TabsContent value="private" className="space-y-4">
-              <Card className="border-green-200 bg-green-50">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-lg text-green-800 flex items-center">
-                    <User className="h-5 w-5 mr-2" />
-                    Private Messaging
-                  </CardTitle>
-                  <p className="text-sm text-green-600">
-                    Send direct messages to specific users. Only you and the recipient can see these messages.
-                  </p>
-                </CardHeader>
-              </Card>
-
-              <ScrollArea className="h-96 border rounded-lg p-4 bg-gray-50">
+          {/* Public Messages List */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <span>Public Messages</span>
+                <div className="flex items-center gap-2">
+                  <Search className="h-4 w-4" />
+                  <Input
+                    placeholder="Search messages..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-64"
+                  />
+                </div>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ScrollArea className="h-96">
                 <div className="space-y-4">
-                  {filterMessages(privateMessages).map((message) => {
-                    const sender =
-                      users.find((u) => u.id === message.senderId) || (message.senderId === user.id ? user : null)
-                    const isFromMe = message.senderId === user.id
-                    const isUnread = !isFromMe && !message.readAt
-
-                    return (
-                      <div key={message.id} className={`flex ${isFromMe ? "justify-end" : "justify-start"}`}>
-                        <div
-                          className={`max-w-xs lg:max-w-md px-4 py-3 rounded-lg ${
-                            isFromMe
-                              ? "bg-blue-500 text-white"
-                              : isUnread
-                                ? "bg-green-100 border border-green-300"
-                                : "bg-white border border-gray-200"
-                          }`}
-                        >
-                          <div className="flex items-center justify-between mb-1">
-                            <Badge
-                              variant="outline"
-                              className={`text-xs ${isFromMe ? "border-blue-200 text-blue-100" : ""}`}
-                            >
-                              {isFromMe ? "You" : sender ? getUserTypeLabel(sender.userType) : "Unknown User"}
-                            </Badge>
-                            <span className={`text-xs ${isFromMe ? "text-blue-100" : "text-gray-500"}`}>
-                              {formatMessageTime(message.createdAt)}
-                            </span>
+                  {publicMessages.length === 0 ? (
+                    <p className="text-center text-muted-foreground py-8">No public messages yet</p>
+                  ) : (
+                    publicMessages
+                      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                      .map((message) => (
+                        <div key={message.id} className="border rounded-lg p-4 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <Badge variant="outline">{getSenderName(message.senderId)}</Badge>
+                              <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                                <Clock className="h-3 w-3" />
+                                {formatMessageTime(message.createdAt)}
+                              </div>
+                            </div>
                           </div>
-                          <p className="text-sm whitespace-pre-wrap">{message.content}</p>
-                          {isUnread && (
-                            <Badge variant="destructive" className="text-xs mt-1">
-                              New
-                            </Badge>
-                          )}
+                          <p className="text-sm">{message.content}</p>
                         </div>
-                      </div>
-                    )
-                  })}
-                  {filterMessages(privateMessages).length === 0 && (
-                    <div className="text-center text-gray-500 py-8">
-                      {searchTerm || filterType !== "all"
-                        ? "No private messages found matching your criteria."
-                        : "No private messages yet."}
-                    </div>
+                      ))
                   )}
                 </div>
               </ScrollArea>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-              <div className="space-y-3">
+        <TabsContent value="private" className="space-y-4">
+          {/* Send Private Message */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Send Private Message</CardTitle>
+              <CardDescription>Send a message to a specific user</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <Label htmlFor="recipient">Recipient</Label>
                 <Select value={selectedRecipient} onValueChange={setSelectedRecipient}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select recipient for private message" />
+                    <SelectValue placeholder="Select a recipient" />
                   </SelectTrigger>
                   <SelectContent>
                     {users.map((recipient) => (
                       <SelectItem key={recipient.id} value={recipient.id}>
-                        <div className="flex items-center space-x-2">
-                          <Avatar className="h-6 w-6">
-                            <AvatarFallback className="text-xs">{getUserInitials(recipient.userType)}</AvatarFallback>
-                          </Avatar>
-                          <span>
-                            {getUserTypeLabel(recipient.userType)} - {recipient.username}
-                          </span>
-                        </div>
+                        {recipient.username} ({recipient.userType.replace("_", " ")})
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-
-                <div className="flex space-x-2">
-                  <Textarea
-                    value={newPrivateMessage}
-                    onChange={(e) => setNewPrivateMessage(e.target.value)}
-                    placeholder="Type your private message..."
-                    rows={3}
-                    className="flex-1"
-                  />
-                  <Button
-                    onClick={sendPrivateMessage}
-                    disabled={!newPrivateMessage.trim() || !selectedRecipient}
-                    className="self-end"
-                  >
-                    <Send className="h-4 w-4" />
-                  </Button>
-                </div>
               </div>
-            </TabsContent>
-          </Tabs>
-        </CardContent>
-      </Card>
+              <div>
+                <Label htmlFor="private-message">Message</Label>
+                <Textarea
+                  id="private-message"
+                  placeholder="Type your private message here..."
+                  value={messageContent}
+                  onChange={(e) => setMessageContent(e.target.value)}
+                  rows={3}
+                />
+              </div>
+              <Button onClick={() => handleSendMessage(false)} disabled={isLoading} className="gap-2">
+                <Send className="h-4 w-4" />
+                {isLoading ? "Sending..." : "Send Private Message"}
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Private Messages List */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <span>Private Messages</span>
+                <div className="flex items-center gap-2">
+                  <Search className="h-4 w-4" />
+                  <Input
+                    placeholder="Search messages..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-64"
+                  />
+                </div>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ScrollArea className="h-96">
+                <div className="space-y-4">
+                  {privateMessages.length === 0 ? (
+                    <p className="text-center text-muted-foreground py-8">No private messages yet</p>
+                  ) : (
+                    privateMessages
+                      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                      .map((message) => (
+                        <div key={message.id} className="border rounded-lg p-4 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <Badge variant={message.senderId === currentUser.id ? "default" : "secondary"}>
+                                {message.senderId === currentUser.id ? "You" : getSenderName(message.senderId)}
+                              </Badge>
+                              {message.senderId !== currentUser.id && (
+                                <Badge variant="outline">
+                                  To:{" "}
+                                  {message.receiverId === currentUser.id
+                                    ? "You"
+                                    : getSenderName(message.receiverId || "")}
+                                </Badge>
+                              )}
+                              <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                                <Clock className="h-3 w-3" />
+                                {formatMessageTime(message.createdAt)}
+                              </div>
+                              {message.readAt && (
+                                <div className="flex items-center gap-1 text-sm text-green-600">
+                                  <CheckCircle2 className="h-3 w-3" />
+                                  Read
+                                </div>
+                              )}
+                            </div>
+                            {message.receiverId === currentUser.id && !message.readAt && (
+                              <Button size="sm" variant="outline" onClick={() => handleMarkAsRead(message.id)}>
+                                Mark as Read
+                              </Button>
+                            )}
+                          </div>
+                          <p className="text-sm">{message.content}</p>
+                        </div>
+                      ))
+                  )}
+                </div>
+              </ScrollArea>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }
