@@ -1,25 +1,27 @@
-/**
- * ensure-env.ts
- * -------------
- * Runs on the **server only**.  If NEXTAUTH_URL is missing it synthesises a
- * safe absolute URL so `next-auth` will not crash when it constructs
- * `new URL(NEXTAUTH_URL)`.
- *
- *  • In Vercel Preview/Production → https://${VERCEL_URL}
- *  • In Local dev                 → http://localhost:${PORT || 3000}
- *
- * Important: import this **before** any call that might load `next-auth`
- * on the server (API routes, server components, server actions, etc.).
- */
+// Environment variable initialization for NextAuth
+// This must run before any NextAuth imports to prevent URL construction errors
 
 if (typeof window === "undefined") {
-  if (!process.env.NEXTAUTH_URL || process.env.NEXTAUTH_URL.trim() === "") {
-    const vercelUrl = process.env.VERCEL_URL
-    const port = process.env.PORT ?? "3000"
+  // Server-side only
+  if (!process.env.NEXTAUTH_URL) {
+    if (process.env.VERCEL_URL) {
+      // Vercel deployment
+      process.env.NEXTAUTH_URL = `https://${process.env.VERCEL_URL}`
+    } else if (process.env.NODE_ENV === "development") {
+      // Local development
+      const port = process.env.PORT || "3000"
+      process.env.NEXTAUTH_URL = `http://localhost:${port}`
+    } else {
+      // Production fallback
+      process.env.NEXTAUTH_URL = "https://umscc-permits.vercel.app"
+    }
 
-    process.env.NEXTAUTH_URL = vercelUrl ? `https://${vercelUrl}` : `http://localhost:${port}`
+    console.log(`[ensure-env] Set NEXTAUTH_URL to: ${process.env.NEXTAUTH_URL}`)
+  }
 
-    // Optional – comment out in production if you don't want the log noise
-    console.info(`[ensure-env] NEXTAUTH_URL was missing – set to ${process.env.NEXTAUTH_URL}`)
+  // Ensure NEXTAUTH_SECRET exists
+  if (!process.env.NEXTAUTH_SECRET) {
+    process.env.NEXTAUTH_SECRET = "umscc-permit-system-secret-key-2024"
+    console.log("[ensure-env] Set default NEXTAUTH_SECRET")
   }
 }
