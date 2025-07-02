@@ -1,190 +1,127 @@
-import "@/lib/ensure-env" // 🛡️ Must be first import to prevent Invalid URL errors
+import type { User, UserType } from "@/types"
 
-import { getServerSession } from "next-auth/next"
-import CredentialsProvider from "next-auth/providers/credentials"
-import type { NextAuthOptions, User } from "next-auth"
-import type { AuthUser } from "@/types"
+// Mock user data - in production this would come from a database
+const mockUsers: User[] = [
+  {
+    id: "1",
+    username: "admin",
+    userType: "permitting_officer",
+    password: "admin",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  },
+  {
+    id: "2",
+    username: "admin",
+    userType: "chairperson",
+    password: "admin",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  },
+  {
+    id: "3",
+    username: "admin",
+    userType: "catchment_manager",
+    password: "admin",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  },
+  {
+    id: "4",
+    username: "admin",
+    userType: "catchment_chairperson",
+    password: "admin",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  },
+  {
+    id: "5",
+    username: "admin",
+    userType: "permit_supervisor",
+    password: "admin",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  },
+  {
+    id: "6",
+    username: "umsccict2025",
+    userType: "ict",
+    password: "umsccict2025",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  },
+]
 
-// Import existing authentication functions
-import { authenticateUser } from "@/lib/auth-helpers"
+export async function authenticateUser(username: string, password: string, userType: UserType): Promise<User | null> {
+  // Mock authentication - in production this would verify against a database
+  const user = mockUsers.find((u) => u.username === username && u.userType === userType)
 
-// Extend NextAuth User type to include our custom fields
-declare module "next-auth" {
-  interface User {
-    id: string
-    username: string
-    userType: string
+  if (!user) return null
+
+  // Check password based on user type
+  if (userType === "ict" && password === "umsccict2025" && username === "umsccict2025") {
+    return user
+  } else if (userType !== "ict" && password === "admin" && username === "admin") {
+    return user
   }
 
-  interface Session {
-    user: {
-      id: string
-      username: string
-      userType: string
-    }
+  return null
+}
+
+export function getUserTypeLabel(userType: UserType): string {
+  const labels = {
+    permitting_officer: "Permitting Officer",
+    chairperson: "Upper Manyame Sub Catchment Council Chairperson",
+    catchment_manager: "Manyame Catchment Manager",
+    catchment_chairperson: "Manyame Catchment Chairperson",
+    permit_supervisor: "Permit Supervisor",
+    ict: "ICT Administrator",
   }
+  return labels[userType]
 }
 
-declare module "next-auth/jwt" {
-  interface JWT {
-    id: string
-    username: string
-    userType: string
-  }
+// ICT User Permissions Check
+export function hasICTPermissions(user: User): boolean {
+  return user.userType === "ict"
 }
 
-/**
- * Centralised NextAuth configuration
- */
-export const authOptions: NextAuthOptions = {
-  theme: { colorScheme: "light" },
-  providers: [
-    CredentialsProvider({
-      id: "credentials",
-      name: "UMSCC Permit System",
-      credentials: {
-        username: {
-          label: "Username",
-          type: "text",
-          placeholder: "Enter your username",
-        },
-        password: {
-          label: "Password",
-          type: "password",
-          placeholder: "Enter your password",
-        },
-        userType: {
-          label: "User Type",
-          type: "select",
-          placeholder: "Select your role",
-        },
-      },
-      async authorize(credentials): Promise<User | null> {
-        if (!credentials?.username || !credentials?.password || !credentials?.userType) {
-          return null
-        }
-
-        try {
-          // Use existing authentication system
-          const user = await authenticateUser(
-            credentials.username,
-            credentials.password,
-            credentials.userType as string,
-          )
-
-          if (!user) {
-            return null
-          }
-
-          // Return user data in NextAuth format
-          return {
-            id: user.id,
-            username: user.username,
-            userType: user.userType,
-          }
-        } catch (error) {
-          console.error("Authentication error:", error)
-          return null
-        }
-      },
-    }),
-  ],
-
-  session: {
-    strategy: "jwt",
-    maxAge: 8 * 60 * 60, // 8 hours
-  },
-
-  pages: {
-    signIn: "/",
-    error: "/",
-  },
-
-  callbacks: {
-    /**
-     * Place a minimal subset of the user in the JWT.
-     */
-    async jwt({ token, user }) {
-      if (user) {
-        token.id = (user as AuthUser).id
-        token.role = (user as AuthUser).userType
-        token.username = (user as AuthUser).username
-      }
-      return token
-    },
-    /**
-     * Expose that subset to the client session.
-     */
-    async session({ session, token }) {
-      if (token) {
-        session.user = {
-          id: token.id,
-          username: token.username,
-          userType: token.role,
-        }
-      }
-      return session
-    },
-  },
-
-  events: {
-    async signIn({ user, account, profile }) {
-      console.log(`User ${user.username} (${user.userType}) signed in`)
-    },
-    async signOut({ session, token }) {
-      console.log(`User signed out`)
-    },
-  },
-}
-
-// Helper function to get server session with proper typing
-export async function getAuthSession() {
-  return await getServerSession(authOptions)
-}
-
-// Helper function to get current user
-export async function getCurrentUser() {
-  const session = await getAuthSession()
-  return session?.user || null
-}
-
-// Helper function to check if user is authenticated
-export async function isAuthenticated() {
-  const session = await getAuthSession()
-  return !!session?.user
-}
-
-// Helper function to check user permissions
-export async function hasPermission(requiredUserType: string | string[]) {
-  const user = await getCurrentUser()
-  if (!user) return false
-
-  // ICT users have all permissions
+// Check if user can perform any action (ICT can do everything)
+export function canPerformAction(user: User, action: string): boolean {
   if (user.userType === "ict") return true
 
-  const allowedTypes = Array.isArray(requiredUserType) ? requiredUserType : [requiredUserType]
-  return allowedTypes.includes(user.userType)
-}
-
-// Helper function to require authentication (throws if not authenticated)
-export async function requireAuth() {
-  const user = await getCurrentUser()
-  if (!user) {
-    throw new Error("Authentication required")
-  }
-  return user
-}
-
-// Helper function to require specific user type
-export async function requireUserType(requiredUserType: string | string[]) {
-  const user = await requireAuth()
-  const hasAccess = await hasPermission(requiredUserType)
-
-  if (!hasAccess) {
-    throw new Error(
-      `Access denied. Required user type: ${Array.isArray(requiredUserType) ? requiredUserType.join(", ") : requiredUserType}`,
-    )
+  // Define specific permissions for other users
+  const permissions = {
+    permitting_officer: [
+      "create_application",
+      "edit_application",
+      "upload_documents",
+      "view_applications",
+      "print_permits",
+    ],
+    chairperson: ["review_applications", "add_comments", "view_applications"],
+    catchment_manager: ["review_applications", "add_comments", "view_applications"],
+    catchment_chairperson: ["review_applications", "add_comments", "view_applications"],
+    permit_supervisor: ["view_applications", "print_permits", "manage_user_credentials", "print_rejection_comments"],
   }
 
-  return user
+  return permissions[user.userType]?.includes(action) || false
+}
+
+// Add a specific function to check permit printing permissions
+export function canPrintPermits(user: User): boolean {
+  const allowedUserTypes = ["permitting_officer", "permit_supervisor", "ict"]
+  return allowedUserTypes.includes(user.userType)
+}
+
+// Add a function to check rejection comment printing permissions
+export function canPrintRejectionComments(user: User): boolean {
+  const allowedUserTypes = [
+    "permitting_officer",
+    "permit_supervisor",
+    "ict",
+    "chairperson",
+    "catchment_manager",
+    "catchment_chairperson",
+  ]
+  return allowedUserTypes.includes(user.userType)
 }
