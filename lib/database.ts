@@ -180,7 +180,7 @@ class MockDatabase {
         submittedAt: undefined,
       },
 
-      // SUBMITTED APPLICATIONS (Stage 2 - Chairman Review) - 2 applications
+      // SUBMITTED APPLICATIONS (Stage 2 - Chairman Review) - 4 applications for testing
       {
         id: "app_submitted_001",
         applicationId: "MC2024-0001",
@@ -230,6 +230,56 @@ class MockDatabase {
         createdAt: new Date("2024-03-02"),
         updatedAt: new Date("2024-03-02"),
         submittedAt: new Date("2024-03-02"),
+      },
+      {
+        id: "app_chairperson_review_001",
+        applicationId: "MC2024-0011",
+        applicantName: "Robert Chinyoka",
+        physicalAddress: "67 Borrowdale Road, Harare",
+        postalAddress: "P.O. Box 567, Harare",
+        customerAccountNumber: "ACC567",
+        cellularNumber: "+263771567890",
+        emailAddress: "robert.chinyoka@email.com",
+        permitType: "water_abstraction",
+        waterSource: "borehole",
+        intendedUse: "Commercial horticulture farming",
+        numberOfBoreholes: 2,
+        landSize: 45,
+        waterAllocation: 4500,
+        gpsLatitude: -17.7806,
+        gpsLongitude: 31.0472,
+        status: "submitted",
+        currentStage: 2,
+        workflowComments: [],
+        documents: [],
+        createdAt: new Date("2024-03-12"),
+        updatedAt: new Date("2024-03-13"),
+        submittedAt: new Date("2024-03-12"),
+      },
+      {
+        id: "app_chairperson_review_002",
+        applicationId: "MC2024-0012",
+        applicantName: "Elizabeth Mubvumbi",
+        physicalAddress: "89 Msasa Industrial Area, Harare",
+        postalAddress: "P.O. Box 889, Harare",
+        customerAccountNumber: "ACC889",
+        cellularNumber: "+263772889456",
+        emailAddress: "elizabeth.mubvumbi@email.com",
+        permitType: "industrial_use",
+        waterSource: "borehole",
+        intendedUse: "Food processing plant",
+        numberOfBoreholes: 3,
+        landSize: 25,
+        waterAllocation: 8500,
+        gpsLatitude: -17.8167,
+        gpsLongitude: 31.0833,
+        status: "submitted",
+        currentStage: 2,
+        workflowComments: [],
+        documents: [],
+        createdAt: new Date("2024-03-11"),
+        updatedAt: new Date("2024-03-13"),
+        submittedAt: new Date("2024-03-11"),
       },
 
       // UNDER REVIEW APPLICATIONS (Stage 3 - Catchment Manager Review) - 2 applications
@@ -441,56 +491,115 @@ class MockDatabase {
         updatedAt: new Date("2024-02-05"),
         submittedAt: new Date("2024-01-15"),
       },
-      // APPLICATIONS FOR CHAIRPERSON REVIEW (Stage 2 - Not Yet Reviewed) - 2 applications
+    ]
+
+    // Mock documents for applications
+    const mockDocuments: Document[] = [
+      // Documents for MC2024-0001 (John Mukamuri)
       {
-        id: "app_chairperson_review_001",
-        applicationId: "MC2024-0011",
-        applicantName: "Robert Chinyoka",
-        physicalAddress: "67 Borrowdale Road, Harare",
-        postalAddress: "P.O. Box 567, Harare",
-        customerAccountNumber: "ACC567",
-        cellularNumber: "+263771567890",
-        emailAddress: "robert.chinyoka@email.com",
-        permitType: "water_abstraction",
-        waterSource: "borehole",
-        intendedUse: "Commercial horticulture farming",
-        numberOfBoreholes: 2,
-        landSize: 45,
-        waterAllocation: 4500,
-        gpsLatitude: -17.7806,
-        gpsLongitude: 31.0472,
-        status: "submitted",
-        currentStage: 2,
-        workflowComments: [],
-        documents: [],
-        createdAt: new Date("2024-03-12"),
-        updatedAt: new Date("2024-03-13"),
-        submittedAt: new Date("2024-03-12"),
+        id: "doc_001",
+        applicationId: "app_submitted_001",
+        fileName: "Water_Permit_Application_Form.pdf",
+        fileType: "application/pdf",
+        fileSize: 245760,
+        uploadedAt: new Date("2024-03-01"),
+        fileUrl: "/placeholder.svg?height=400&width=600&text=Water+Permit+Application+Form",
       },
       {
-        id: "app_chairperson_review_002",
-        applicationId: "MC2024-0012",
-        applicantName: "Elizabeth Mubvumbi",
-        physicalAddress: "89 Msasa Industrial Area, Harare",
-        postalAddress: "P.O. Box 889, Harare",
-        customerAccountNumber: "ACC889",
-        cellularNumber: "+263772889456",
-        emailAddress: "elizabeth.mubvumbi@email.com",
-        permitType: "industrial_use",
-        waterSource: "borehole",
-        intendedUse: "Food processing plant",
-        numberOfBoreholes: 3,
-        landSize: 25,
-        waterAllocation: 8500,
-        gpsLatitude: -17.8167,
-        gpsLongitude: 31.0833,
-        status: "submitted",
-        currentStage: 2,
-        workflowComments: [],
-        documents: [],
-        createdAt: new Date("2024-03-11"),
-        updatedAt: new Date("2024-03-13"),
-        submittedAt: new Date("2024-03-11"),
+        id: "doc_002",
+        applicationId: "app_submitted_001",
+        fileName: "Site_Plan_Drawing.pdf",
+        fileType: "application/pdf",
+        fileSize: 512000,
+        uploadedAt: new Date("2024-03-01"),
+        fileUrl: "/placeholder.svg?height=400&width=600&text=Site+Plan+Drawing",
+      },
+      {
+        id: "doc_003",
+        applicationId: "app_submitted_001",
+        fileName: "Environmental_Impact_Assessment.pdf",
+        fileType: "application/pdf",
+        fileSize: 1024000,
+        uploadedAt: new Date("2024-03-01"),
+        fileUrl: "/placeholder.svg?height=400&width=600&text=Environmental+Impact+Assessment",
+      },
+
+      // Documents for MC2024-0002 (Mary Chikwanha)
+      {
+        id: "doc_004",
+        applicationId: "app_submitted_002",
+        fileName: "Application_Form_Domestic_Use.pdf",
+        fileType: "application/pdf",
+        fileSize: 180000,
+        uploadedAt: new Date("2024-03-02"),
+        fileUrl: "/placeholder.svg?height=400&width=600&text=Application+Form+Domestic+Use",
+      },
+      {
+        id: "doc_005",
+        applicationId: "app_submitted_002",
+        fileName: "Property_Title_Deed.pdf",
+        fileType: "application/pdf",
+        fileSize: 320000,
+        uploadedAt: new Date("2024-03-02"),
+        fileUrl: "/placeholder.svg?height=400&width=600&text=Property+Title+Deed",
+      },
+
+      // Documents for MC2024-0011 (Robert Chinyoka)
+      {
+        id: "doc_006",
+        applicationId: "app_chairperson_review_001",
+        fileName: "Commercial_Farming_License.pdf",
+        fileType: "application/pdf",
+        fileSize: 280000,
+        uploadedAt: new Date("2024-03-12"),
+        fileUrl: "/placeholder.svg?height=400&width=600&text=Commercial+Farming+License",
+      },
+      {
+        id: "doc_007",
+        applicationId: "app_chairperson_review_001",
+        fileName: "Water_Management_Plan.pdf",
+        fileType: "application/pdf",
+        fileSize: 450000,
+        uploadedAt: new Date("2024-03-12"),
+        fileUrl: "/placeholder.svg?height=400&width=600&text=Water+Management+Plan",
+      },
+      {
+        id: "doc_008",
+        applicationId: "app_chairperson_review_001",
+        fileName: "Borehole_Survey_Report.pdf",
+        fileType: "application/pdf",
+        fileSize: 680000,
+        uploadedAt: new Date("2024-03-12"),
+        fileUrl: "/placeholder.svg?height=400&width=600&text=Borehole+Survey+Report",
+      },
+
+      // Documents for MC2024-0012 (Elizabeth Mubvumbi)
+      {
+        id: "doc_009",
+        applicationId: "app_chairperson_review_002",
+        fileName: "Industrial_Operating_License.pdf",
+        fileType: "application/pdf",
+        fileSize: 350000,
+        uploadedAt: new Date("2024-03-11"),
+        fileUrl: "/placeholder.svg?height=400&width=600&text=Industrial+Operating+License",
+      },
+      {
+        id: "doc_010",
+        applicationId: "app_chairperson_review_002",
+        fileName: "Water_Treatment_System_Specs.pdf",
+        fileType: "application/pdf",
+        fileSize: 520000,
+        uploadedAt: new Date("2024-03-11"),
+        fileUrl: "/placeholder.svg?height=400&width=600&text=Water+Treatment+System+Specifications",
+      },
+      {
+        id: "doc_011",
+        applicationId: "app_chairperson_review_002",
+        fileName: "Environmental_Compliance_Certificate.pdf",
+        fileType: "application/pdf",
+        fileSize: 290000,
+        uploadedAt: new Date("2024-03-11"),
+        fileUrl: "/placeholder.svg?height=400&width=600&text=Environmental+Compliance+Certificate",
       },
     ]
 
@@ -517,6 +626,28 @@ class MockDatabase {
           "Domestic and livestock water application reviewed. Documentation complete. Ready for Chairman review.",
         stage: 1,
         createdAt: new Date("2024-03-02"),
+        isRejectionReason: false,
+      },
+      {
+        id: "comment_chairperson_review_001",
+        applicationId: "app_chairperson_review_001",
+        userId: "1",
+        userType: "permitting_officer",
+        comment:
+          "Commercial horticulture application reviewed and approved. All required documentation submitted including water management plan and environmental impact assessment. Water allocation of 4,500 m³/annum is reasonable for 45 hectares of horticultural production. Forwarding to chairperson for technical review and approval.",
+        stage: 1,
+        createdAt: new Date("2024-03-13"),
+        isRejectionReason: false,
+      },
+      {
+        id: "comment_chairperson_review_002",
+        applicationId: "app_chairperson_review_002",
+        userId: "1",
+        userType: "permitting_officer",
+        comment:
+          "Industrial food processing application thoroughly reviewed. All permits and licenses verified. Water treatment and discharge plans approved. High water allocation of 8,500 m³/annum justified for food processing operations. Environmental compliance certificates submitted. Ready for chairperson technical assessment.",
+        stage: 1,
+        createdAt: new Date("2024-03-13"),
         isRejectionReason: false,
       },
 
@@ -685,29 +816,6 @@ class MockDatabase {
         createdAt: new Date("2024-02-05"),
         isRejectionReason: true,
       },
-      // Comments for new chairperson review applications
-      {
-        id: "comment_chairperson_review_001",
-        applicationId: "app_chairperson_review_001",
-        userId: "1",
-        userType: "permitting_officer",
-        comment:
-          "Commercial horticulture application reviewed and approved. All required documentation submitted including water management plan and environmental impact assessment. Water allocation of 4,500 m³/annum is reasonable for 45 hectares of horticultural production. Forwarding to chairperson for technical review and approval.",
-        stage: 1,
-        createdAt: new Date("2024-03-13"),
-        isRejectionReason: false,
-      },
-      {
-        id: "comment_chairperson_review_002",
-        applicationId: "app_chairperson_review_002",
-        userId: "1",
-        userType: "permitting_officer",
-        comment:
-          "Industrial food processing application thoroughly reviewed. All permits and licenses verified. Water treatment and discharge plans approved. High water allocation of 8,500 m³/annum justified for food processing operations. Environmental compliance certificates submitted. Ready for chairperson technical assessment.",
-        stage: 1,
-        createdAt: new Date("2024-03-13"),
-        isRejectionReason: false,
-      },
     ]
 
     // Mock activity logs
@@ -782,11 +890,13 @@ class MockDatabase {
     this.applications.push(...mockApplications)
     this.comments.push(...mockComments)
     this.logs.push(...mockLogs)
+    this.documents.push(...mockDocuments)
     this.applicationCounter = 13 // Update counter to avoid conflicts
 
-    // Link comments to applications
+    // Link comments and documents to applications
     this.applications.forEach((app) => {
       app.workflowComments = this.comments.filter((comment) => comment.applicationId === app.id)
+      app.documents = this.documents.filter((doc) => doc.applicationId === app.id)
     })
   }
 
