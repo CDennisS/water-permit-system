@@ -1,30 +1,53 @@
 /**
- * Guarantee that NEXTAUTH_URL is always defined with an absolute URL
- * **before** any `next-auth` code is executed.  Import this module first in
- * every file (server or client) that touches `next-auth`.
+ * Guarantee NEXTAUTH_URL is a valid absolute URL on **all** environments
+ * (local dev, Vercel preview, CI, production).
  *
- * 1. If NEXTAUTH_URL is already set, we keep it.
- * 2. In Vercel (preview/production) we build it from VERCEL_URL.
- * 3. Locally we fall back to "http://localhost:3000".
+ * ‼️  Must be imported BEFORE anything from `next-auth`.
  */
-;(function ensureNextAuthUrl() {
-  // Only run in Node-like environments where `process` exists.
-  if (typeof process === "undefined" || !process.env) return
+declare global {
+  // helps us run the patch only once, even if the module is re-evaluated
+  // eslint-disable-next-line no-var
+  var __nextAuthUrlPatched: boolean | undefined
+}
 
-  const hasValidUrl = process.env.NEXTAUTH_URL && process.env.NEXTAUTH_URL.startsWith("http")
+if (!globalThis.__nextAuthUrlPatched) {
+  const ENV_KEY = "NEXTAUTH_URL"
+  const raw = process.env[ENV_KEY]
 
-  if (hasValidUrl) return
-
-  const { VERCEL_URL } = process.env
-
-  if (VERCEL_URL && VERCEL_URL.trim() !== "") {
-    // Prefix scheme if missing (Vercel gives bare host names).
-    const absolute = VERCEL_URL.startsWith("http") ? VERCEL_URL : `https://${VERCEL_URL}`
-    process.env.NEXTAUTH_URL = absolute
-  } else {
-    // Local fallback.
-    process.env.NEXTAUTH_URL = "http://localhost:3000"
+  // Helper that returns a safe fallback host (localhost or Vercel host)
+  const fallbackHost = () => {
+    if (process.env.VERCEL_URL) return process.env.VERCEL_URL
+    if (process.env.HOST) return process.env.HOST
+    const port = process.env.PORT ?? "3000"
+    return `localhost:${port}`
   }
-})()
 
-export {}
+  const makeAbsolute = (val: string) => (val.startsWith("http") ? val : `http://${val}`)
+
+  let finalUrl: string
+
+  if (!raw || raw.trim() === "") {
+    finalUrl = `http://${fallbackHost()}`
+  } else {
+    try {
+      // Will throw if `raw` is not a valid absolute URL
+      new URL(raw)
+      finalUrl = raw
+    } catch {
+      // Try to fix relative / malformed values
+      try {
+        const patched = makeAbsolute(raw)
+        new URL(patched) // validate
+        finalUrl = patched
+      } catch {
+        // Last-resort fallback
+        finalUrl = `http://${fallbackHost()}`
+      }
+    }
+  }
+
+  process.env[ENV_KEY] = finalUrl
+  globalThis.__nextAuthUrlPatched = true
+}
+
+export {} // makes this a module
