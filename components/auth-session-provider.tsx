@@ -10,5 +10,7 @@ interface Props {
 }
 
 export default function AuthSessionProvider({ children, session }: Props) {
+  // We intentionally do NOT pass `baseUrl`; next-auth will use
+  // process.env.NEXTAUTH_URL (now guaranteed) or window.location.origin.
   return <SessionProvider session={session}>{children}</SessionProvider>
 }
