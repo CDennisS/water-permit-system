@@ -1,48 +1,47 @@
 /**
- * Guarantee NEXTAUTH_URL is always set to a valid, absolute URL.
+ * ensure-env.ts
  *
- *  • In production (Vercel) we prefer VERCEL_URL → https://<VERCEL_URL>
- *  • In local dev we fall back to http://localhost:<PORT|3000>
- *
- * NextAuth needs this on both the server and the browser bundle,
- * so we also patch globalThis.process.env in the client.
+ * Guarantees `process.env.NEXTAUTH_URL` is ALWAYS a valid, absolute URL
+ * before any NextAuth code executes – on both the server and the browser.
  */
+
 const isServer = typeof window === "undefined"
 
-function assertValidUrl(url: string): string {
-  try {
-    // Will throw if invalid
-    return new URL(url).toString()
-  } catch {
-    throw new Error(`NEXTAUTH_URL is invalid (${url}). It must be an absolute URL, e.g. "https://example.com".`)
-  }
+function makeAbsolute(url: string): string {
+  return /^https?:\/\//i.test(url) ? url : `https://${url}`
 }
 
-export function ensureNextAuthUrl(): void {
-  let { NEXTAUTH_URL, VERCEL_URL, PORT } = process.env
+function deriveDefaultUrl(): string {
+  if (process.env.VERCEL_URL) return makeAbsolute(process.env.VERCEL_URL)
+  const port = process.env.PORT ?? "3000"
+  return `http://localhost:${port}`
+}
 
-  if (!NEXTAUTH_URL || NEXTAUTH_URL.trim() === "") {
-    if (VERCEL_URL && VERCEL_URL.trim() !== "") {
-      NEXTAUTH_URL = `https://${VERCEL_URL}`
-    } else {
-      NEXTAUTH_URL = `http://localhost:${PORT ?? "3000"}`
-    }
-    process.env.NEXTAUTH_URL = NEXTAUTH_URL
+function ensureNextAuthUrl(): void {
+  // 1️⃣  Pick the best candidate
+  const finalUrl = (process.env.NEXTAUTH_URL && process.env.NEXTAUTH_URL.trim()) || deriveDefaultUrl()
+
+  // 2️⃣  Validate – throws if malformed
+  try {
+    new URL(finalUrl)
+  } catch {
+    throw new Error(`ensure-env ▶ NEXTAUTH_URL could not be normalised. Got "${finalUrl}".`)
   }
 
-  // Throws if still malformed
-  assertValidUrl(process.env.NEXTAUTH_URL as string)
+  // 3️⃣  Persist to env
+  process.env.NEXTAUTH_URL = finalUrl
 
-  // ----  Client patch  -----------------------------------------------------
+  // 4️⃣  Patch client bundle so NextAuth sees it at runtime
   if (!isServer) {
     if (!("process" in globalThis)) {
-      // @ts-ignore – we’re polyfilling a Node-ish process env for NextAuth
+      // @ts-ignore create a minimal polyfill
       globalThis.process = { env: {} }
     }
     // @ts-ignore
-    globalThis.process.env.NEXTAUTH_URL = process.env.NEXTAUTH_URL
+    globalThis.process.env.NEXTAUTH_URL = finalUrl
   }
 }
 
-// Execute immediately on import.
+// Run immediately on import
 ensureNextAuthUrl()
+export {}
