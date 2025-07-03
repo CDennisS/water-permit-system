@@ -4,6 +4,7 @@ import CredentialsProvider from "next-auth/providers/credentials"
 
 // --- Auth configuration ----------------------------------------------------
 const authOptions = {
+  trustHost: true, // ← NEW
   providers: [
     CredentialsProvider({
       name: "Credentials",
