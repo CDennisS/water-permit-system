@@ -34,16 +34,77 @@ import {
   Target,
   MessageSquare,
   User,
+  Check,
 } from "lucide-react"
 import type { PermitApplication, Document, WorkflowComment } from "@/types"
 import { db } from "@/lib/database"
 import { StrictViewOnlyApplicationDetails } from "./strict-view-only-application-details"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { toast } from "@/components/ui/use-toast"
 
 interface ChairpersonDashboardProps {
   user: any
 }
+
+type Application = {
+  id: string
+  applicantName: string
+  submittedAt: string
+  status: "pending" | "reviewed"
+  documents: Document[]
+  officerComments: string
+  details: Record<string, string>
+}
+
+/* --------------------------------------------------------
+ * Dummy data – replace with a real fetch in production
+ * ----------------------------------------------------- */
+const mockApplications: Application[] = [
+  {
+    id: "APP-001",
+    applicantName: "Greenfields Mining Ltd.",
+    submittedAt: "2025-07-01",
+    status: "pending",
+    documents: [
+      {
+        id: "DOC-1",
+        name: "EIA Report.pdf",
+        url: "/placeholder.pdf",
+      },
+      {
+        id: "DOC-2",
+        name: "Site Plan.png",
+        url: "/placeholder.svg",
+      },
+    ],
+    officerComments: "All mandatory documents supplied. Recommend approval.",
+    details: {
+      "Permit Type": "Large-Scale Extraction",
+      Location: "Block C – Upper Manyame",
+      "Proposed Volume": "1 500 m3/day",
+    },
+  },
+  {
+    id: "APP-002",
+    applicantName: "Mountain Springs Pvt (Ltd)",
+    submittedAt: "2025-07-02",
+    status: "pending",
+    documents: [
+      {
+        id: "DOC-3",
+        name: "Permit Renewal Form.pdf",
+        url: "/placeholder.pdf",
+      },
+    ],
+    officerComments: "Previous permit expired last month. No outstanding fines.",
+    details: {
+      "Permit Type": "Renewal",
+      Location: "Section A – Upper Manyame",
+      "Previous Permit #": "PM-722",
+    },
+  },
+]
 
 export function ChairpersonDashboard({ user }: ChairpersonDashboardProps) {
   const [applications, setApplications] = useState<PermitApplication[]>([])
@@ -64,6 +125,22 @@ export function ChairpersonDashboard({ user }: ChairpersonDashboardProps) {
     reviewedThisMonth: 0,
     approvalRate: 0,
   })
+
+  const [chairpersonApplications, setChairpersonApplications] = useState<Application[]>(mockApplications)
+  const [selected, setSelected] = useState<Application | null>(null)
+  const [saving, setSaving] = useState(false)
+
+  const markReviewed = async (appId: string) => {
+    setSaving(true)
+    // 🔒 Hook up to real backend here
+    await new Promise((r) => setTimeout(r, 750))
+    setChairpersonApplications((apps) => apps.map((a) => (a.id === appId ? { ...a, status: "reviewed" } : a)))
+    setSaving(false)
+    toast({
+      title: "Application reviewed",
+      description: `${appId} has been marked as reviewed.`,
+    })
+  }
 
   useEffect(() => {
     loadDashboardData()
@@ -108,12 +185,12 @@ export function ChairpersonDashboard({ user }: ChairpersonDashboardProps) {
       // Load documents and comments for each application
       const documentsMap: { [key: string]: Document[] } = {}
       const commentsMap: { [key: string]: WorkflowComment[] } = {}
-      
+
       for (const app of relevantApplications) {
         try {
           const [docs, comments] = await Promise.all([
             db.getDocumentsByApplication(app.id),
-            db.getCommentsByApplication(app.id)
+            db.getCommentsByApplication(app.id),
           ])
           documentsMap[app.id] = docs
           commentsMap[app.id] = comments
@@ -123,7 +200,7 @@ export function ChairpersonDashboard({ user }: ChairpersonDashboardProps) {
           commentsMap[app.id] = []
         }
       }
-      
+
       setApplicationDocuments(documentsMap)
       setApplicationComments(commentsMap)
 
@@ -625,8 +702,8 @@ export function ChairpersonDashboard({ user }: ChairpersonDashboardProps) {
                               <div>
                                 <p className="font-medium">{document.fileName}</p>
                                 <p className="text-sm text-gray-500">
-                                  {document.fileType} • {formatFileSize(document.fileSize)} • 
-                                  Uploaded {document.uploadedAt.toLocaleDateString()}
+                                  {document.fileType} • {formatFileSize(document.fileSize)} • Uploaded{" "}
+                                  {document.uploadedAt.toLocaleDateString()}
                                 </p>
                               </div>
                             </div>
@@ -669,7 +746,10 @@ export function ChairpersonDashboard({ user }: ChairpersonDashboardProps) {
                       {permittingOfficerComments.length > 0 ? (
                         <div className="space-y-4">
                           {permittingOfficerComments.map((comment) => (
-                            <div key={comment.id} className="border-l-4 border-blue-500 pl-4 py-3 bg-blue-50 rounded-r-lg">
+                            <div
+                              key={comment.id}
+                              className="border-l-4 border-blue-500 pl-4 py-3 bg-blue-50 rounded-r-lg"
+                            >
                               <div className="flex items-center justify-between mb-2">
                                 <Badge variant="outline" className="text-blue-600 border-blue-600">
                                   Stage {comment.stage}
@@ -782,11 +862,14 @@ export function ChairpersonDashboard({ user }: ChairpersonDashboardProps) {
                           className="mt-1"
                         />
                         <div className="flex-1">
-                          <label htmlFor="application-reviewed" className="text-sm font-medium text-blue-800 cursor-pointer">
+                          <label
+                            htmlFor="application-reviewed"
+                            className="text-sm font-medium text-blue-800 cursor-pointer"
+                          >
                             I have reviewed this application and all supporting documents
                           </label>
                           <p className="text-xs text-gray-600 mt-1">
-                            By checking this box, you confirm that you have thoroughly reviewed the application details, 
+                            By checking this box, you confirm that you have thoroughly reviewed the application details,
                             uploaded documents, and any comments from the permitting officer.
                           </p>
                         </div>
@@ -1288,4 +1371,72 @@ export function ChairpersonDashboard({ user }: ChairpersonDashboardProps) {
                                           <Eye className="h-4 w-4 mr-2" />
                                           View Details
                                         </DropdownMenuItem>
-                                        {application.currentStage === 2
+                                        {application.currentStage === 2 && (
+                                          <DropdownMenuItem
+                                            onClick={() => {
+                                              handleApplicationReviewed(application.id, !isReviewed)
+                                            }}
+                                          >
+                                            {isReviewed ? (
+                                              <>
+                                                <X className="h-4 w-4 mr-2" />
+                                                Mark as Pending
+                                              </>
+                                            ) : (
+                                              <>
+                                                <Check className="h-4 w-4 mr-2" />
+                                                Mark as Reviewed
+                                              </>
+                                            )}
+                                          </DropdownMenuItem>
+                                        )}
+                                        <DropdownMenuItem>
+                                          <Download className="h-4 w-4 mr-2" />
+                                          Export Application
+                                        </DropdownMenuItem>
+                                      </DropdownMenuContent>
+                                    </DropdownMenu>
+                                  </TableCell>
+                                </TableRow>
+                              )
+                            })}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    ) : (
+                      <div className="text-center py-20">
+                        <FileText className="h-10 w-10 mx-auto text-gray-400 mb-4" />
+                        <p className="text-lg font-medium text-gray-600">No applications found</p>
+                        <p className="text-sm text-gray-500">
+                          Adjust your search or filter criteria to view applications
+                        </p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+          </TabsContent>
+
+          {/* Messages Tab */}
+          <TabsContent value="messages">
+            <div className="flex flex-col space-y-4">
+              <h2 className="text-2xl font-semibold">Messages</h2>
+              <p>This is where messages will be displayed.</p>
+            </div>
+          </TabsContent>
+
+          {/* Activity Tab */}
+          <TabsContent value="activity">
+            <div className="flex flex-col space-y-4">
+              <h2 className="text-2xl font-semibold">Activity Log</h2>
+              <p>This is where the activity log will be displayed.</p>
+            </div>
+          </TabsContent>
+        </Tabs>
+      </div>
+    </div>
+  )
+}
+
+export default ChairpersonDashboard
