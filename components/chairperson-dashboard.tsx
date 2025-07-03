@@ -19,7 +19,6 @@ import {
   AlertTriangle,
   Eye,
   Save,
-  ExternalLink,
   Search,
   MapPin,
   Droplets,
@@ -33,12 +32,12 @@ import {
   MoreHorizontal,
   Zap,
   Target,
+  MessageSquare,
+  User,
 } from "lucide-react"
-import type { PermitApplication, Document } from "@/types"
+import type { PermitApplication, Document, WorkflowComment } from "@/types"
 import { db } from "@/lib/database"
 import { StrictViewOnlyApplicationDetails } from "./strict-view-only-application-details"
-import { MessagingSystem } from "./messaging-system"
-import { ActivityLogs } from "./activity-logs"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 
@@ -56,6 +55,7 @@ export function ChairpersonDashboard({ user }: ChairpersonDashboardProps) {
   const [selectAllUnsubmitted, setSelectAllUnsubmitted] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [applicationDocuments, setApplicationDocuments] = useState<{ [key: string]: Document[] }>({})
+  const [applicationComments, setApplicationComments] = useState<{ [key: string]: WorkflowComment[] }>({})
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [stats, setStats] = useState({
@@ -105,17 +105,27 @@ export function ChairpersonDashboard({ user }: ChairpersonDashboardProps) {
 
       setApplications(relevantApplications)
 
+      // Load documents and comments for each application
       const documentsMap: { [key: string]: Document[] } = {}
+      const commentsMap: { [key: string]: WorkflowComment[] } = {}
+      
       for (const app of relevantApplications) {
         try {
-          const docs = await db.getDocumentsByApplication(app.id)
+          const [docs, comments] = await Promise.all([
+            db.getDocumentsByApplication(app.id),
+            db.getCommentsByApplication(app.id)
+          ])
           documentsMap[app.id] = docs
+          commentsMap[app.id] = comments
         } catch (error) {
-          console.error(`Failed to load documents for application ${app.id}:`, error)
+          console.error(`Failed to load data for application ${app.id}:`, error)
           documentsMap[app.id] = []
+          commentsMap[app.id] = []
         }
       }
+      
       setApplicationDocuments(documentsMap)
+      setApplicationComments(commentsMap)
 
       const pendingReview = relevantApplications.filter(
         (app) => app.currentStage === 2 && app.status === "submitted",
@@ -241,8 +251,27 @@ export function ChairpersonDashboard({ user }: ChairpersonDashboardProps) {
   }
 
   const handleViewDocument = (document: Document) => {
+    // Create a mock document URL for demonstration
     const documentUrl = `/placeholder-document.pdf?name=${encodeURIComponent(document.fileName)}`
     window.open(documentUrl, "_blank")
+  }
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes === 0) return "0 Bytes"
+    const k = 1024
+    const sizes = ["Bytes", "KB", "MB", "GB"]
+    const i = Math.floor(Math.log(bytes) / Math.log(k))
+    return Number.parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i]
+  }
+
+  const formatDate = (date: Date) => {
+    return new Intl.DateTimeFormat("en-ZA", {
+      year: "numeric",
+      month: "long",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    }).format(date)
   }
 
   const MetricCard = ({
@@ -373,7 +402,7 @@ export function ChairpersonDashboard({ user }: ChairpersonDashboardProps) {
               <DialogTrigger asChild>
                 <Button size="sm" className="h-7 px-3 text-xs bg-blue-600 hover:bg-blue-700">
                   <Eye className="h-3 w-3 mr-1" />
-                  Review
+                  View
                 </Button>
               </DialogTrigger>
               <ApplicationDetailDialog application={application} onClose={() => loadDashboardData()} />
@@ -391,6 +420,8 @@ export function ChairpersonDashboard({ user }: ChairpersonDashboardProps) {
     const [isReviewed, setIsReviewed] = useState(reviewedApplications.has(application.id))
     const [isSaving, setIsSaving] = useState(false)
     const documents = applicationDocuments[application.id] || []
+    const comments = applicationComments[application.id] || []
+    const permittingOfficerComments = comments.filter((comment) => comment.userType === "permitting_officer")
 
     const handleSave = async () => {
       setIsSaving(true)
@@ -427,87 +458,84 @@ export function ChairpersonDashboard({ user }: ChairpersonDashboardProps) {
 
         <ScrollArea className="flex-1">
           <div className="p-6">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Left Column - Application Details */}
-              <div className="lg:col-span-2 space-y-6">
-                {/* Quick Info Bar */}
-                <div className="grid grid-cols-4 gap-4">
-                  <Card className="p-4 text-center">
-                    <div className="text-2xl font-bold text-blue-600">{application.currentStage}</div>
-                    <div className="text-xs text-gray-500">Current Stage</div>
-                  </Card>
-                  <Card className="p-4 text-center">
-                    <div className="text-2xl font-bold text-green-600">{documents.length}</div>
-                    <div className="text-xs text-gray-500">Documents</div>
-                  </Card>
-                  <Card className="p-4 text-center">
-                    <div className="text-2xl font-bold text-purple-600">
-                      {application.waterAllocation.toLocaleString()}
-                    </div>
-                    <div className="text-xs text-gray-500">m³/annum</div>
-                  </Card>
-                  <Card className="p-4 text-center">
-                    <div className="text-2xl font-bold text-orange-600">{application.landSize}</div>
-                    <div className="text-xs text-gray-500">Hectares</div>
-                  </Card>
-                </div>
+            <Tabs defaultValue="details" className="w-full">
+              <TabsList className="grid w-full grid-cols-4">
+                <TabsTrigger value="details">Application Details</TabsTrigger>
+                <TabsTrigger value="documents">Documents ({documents.length})</TabsTrigger>
+                <TabsTrigger value="comments">Comments ({comments.length})</TabsTrigger>
+                <TabsTrigger value="review">Review & Actions</TabsTrigger>
+              </TabsList>
 
-                {/* Applicant Information */}
-                <Card>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-lg flex items-center">
-                      <Building className="h-5 w-5 mr-2 text-blue-600" />
-                      Applicant Information
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-3">
-                        <div>
-                          <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">
-                            Account Number
-                          </label>
-                          <p className="font-semibold">{application.customerAccountNumber}</p>
+              {/* Application Details Tab */}
+              <TabsContent value="details" className="space-y-6 mt-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Quick Info Bar */}
+                  <div className="lg:col-span-2">
+                    <div className="grid grid-cols-4 gap-4 mb-6">
+                      <Card className="p-4 text-center">
+                        <div className="text-2xl font-bold text-blue-600">{application.currentStage}</div>
+                        <div className="text-xs text-gray-500">Current Stage</div>
+                      </Card>
+                      <Card className="p-4 text-center">
+                        <div className="text-2xl font-bold text-green-600">{documents.length}</div>
+                        <div className="text-xs text-gray-500">Documents</div>
+                      </Card>
+                      <Card className="p-4 text-center">
+                        <div className="text-2xl font-bold text-purple-600">
+                          {application.waterAllocation.toLocaleString()}
                         </div>
-                        <div>
-                          <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Full Name</label>
-                          <p className="font-semibold">{application.applicantName}</p>
-                        </div>
-                        <div>
-                          <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">
-                            Physical Address
-                          </label>
-                          <p className="text-sm">{application.physicalAddress}</p>
-                        </div>
-                      </div>
-                      <div className="space-y-3">
-                        <div>
-                          <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">
-                            Postal Address
-                          </label>
-                          <p className="text-sm">{application.postalAddress}</p>
-                        </div>
-                        <div>
-                          <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">
-                            Contact Number
-                          </label>
-                          <p className="text-sm">{application.cellularNumber}</p>
-                        </div>
-                      </div>
+                        <div className="text-xs text-gray-500">m³/annum</div>
+                      </Card>
+                      <Card className="p-4 text-center">
+                        <div className="text-2xl font-bold text-orange-600">{application.landSize}</div>
+                        <div className="text-xs text-gray-500">Hectares</div>
+                      </Card>
                     </div>
-                  </CardContent>
-                </Card>
+                  </div>
 
-                {/* Permit Details */}
-                <Card>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-lg flex items-center">
-                      <Droplets className="h-5 w-5 mr-2 text-blue-600" />
-                      Permit Details
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-3 gap-4">
+                  {/* Applicant Information */}
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-lg flex items-center">
+                        <User className="h-5 w-5 mr-2 text-blue-600" />
+                        Applicant Information
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div>
+                        <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                          Account Number
+                        </label>
+                        <p className="font-semibold">{application.customerAccountNumber}</p>
+                      </div>
+                      <div>
+                        <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Full Name</label>
+                        <p className="font-semibold">{application.applicantName}</p>
+                      </div>
+                      <div>
+                        <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                          Physical Address
+                        </label>
+                        <p className="text-sm">{application.physicalAddress}</p>
+                      </div>
+                      <div>
+                        <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                          Contact Number
+                        </label>
+                        <p className="text-sm">{application.cellularNumber}</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Permit Details */}
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-lg flex items-center">
+                        <Droplets className="h-5 w-5 mr-2 text-blue-600" />
+                        Permit Details
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
                       <div>
                         <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Permit Type</label>
                         <p className="font-semibold capitalize">{application.permitType.replace("_", " ")}</p>
@@ -525,52 +553,54 @@ export function ChairpersonDashboard({ user }: ChairpersonDashboardProps) {
                         <p>{application.intendedUse}</p>
                       </div>
                       <div>
-                        <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Boreholes</label>
-                        <p>{application.numberOfBoreholes}</p>
-                      </div>
-                      <div>
-                        <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Land Size</label>
-                        <p>{application.landSize} hectares</p>
-                      </div>
-                      <div>
                         <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">
                           Water Allocation
                         </label>
                         <p className="font-semibold">{application.waterAllocation.toLocaleString()} m³/annum</p>
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
+                    </CardContent>
+                  </Card>
 
-                {/* GPS Coordinates */}
-                <Card>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-lg flex items-center">
-                      <MapPin className="h-5 w-5 mr-2 text-green-600" />
-                      GPS Coordinates
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Latitude</label>
-                        <p className="font-mono text-sm bg-gray-50 p-2 rounded">{application.gpsLatitude}</p>
+                  {/* GPS Coordinates */}
+                  <Card className="lg:col-span-2">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-lg flex items-center">
+                        <MapPin className="h-5 w-5 mr-2 text-green-600" />
+                        Property & Location Details
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-4 gap-4">
+                        <div>
+                          <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Land Size</label>
+                          <p className="font-semibold">{application.landSize} hectares</p>
+                        </div>
+                        <div>
+                          <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Boreholes</label>
+                          <p className="font-semibold">{application.numberOfBoreholes}</p>
+                        </div>
+                        <div>
+                          <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Latitude</label>
+                          <p className="font-mono text-sm bg-gray-50 p-2 rounded">{application.gpsLatitude}</p>
+                        </div>
+                        <div>
+                          <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Longitude</label>
+                          <p className="font-mono text-sm bg-gray-50 p-2 rounded">{application.gpsLongitude}</p>
+                        </div>
                       </div>
-                      <div>
-                        <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Longitude</label>
-                        <p className="font-mono text-sm bg-gray-50 p-2 rounded">{application.gpsLongitude}</p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
+                    </CardContent>
+                  </Card>
+                </div>
+              </TabsContent>
 
-                {/* Documents */}
+              {/* Documents Tab */}
+              <TabsContent value="documents" className="space-y-6 mt-6">
                 <Card>
                   <CardHeader className="pb-3">
                     <CardTitle className="text-lg flex items-center justify-between">
                       <div className="flex items-center">
                         <FileText className="h-5 w-5 mr-2 text-purple-600" />
-                        Documents ({documents.length})
+                        Uploaded Documents ({documents.length})
                       </div>
                       {documents.length > 0 && (
                         <Button size="sm" variant="outline">
@@ -582,142 +612,194 @@ export function ChairpersonDashboard({ user }: ChairpersonDashboardProps) {
                   </CardHeader>
                   <CardContent>
                     {documents.length > 0 ? (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div className="space-y-3">
                         {documents.map((document) => (
                           <div
                             key={document.id}
-                            className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                            className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors border"
                           >
-                            <div className="flex items-center space-x-3">
-                              <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
-                                <FileText className="h-4 w-4 text-blue-600" />
+                            <div className="flex items-center space-x-4">
+                              <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                                <FileText className="h-5 w-5 text-blue-600" />
                               </div>
                               <div>
-                                <p className="font-medium text-sm">{document.fileName}</p>
-                                <p className="text-xs text-gray-500">
-                                  {document.fileType} • {(document.fileSize / 1024).toFixed(1)} KB
+                                <p className="font-medium">{document.fileName}</p>
+                                <p className="text-sm text-gray-500">
+                                  {document.fileType} • {formatFileSize(document.fileSize)} • 
+                                  Uploaded {document.uploadedAt.toLocaleDateString()}
                                 </p>
                               </div>
                             </div>
-                            <Button size="sm" variant="ghost" onClick={() => handleViewDocument(document)}>
-                              <ExternalLink className="h-4 w-4" />
-                            </Button>
+                            <div className="flex items-center space-x-2">
+                              <Button size="sm" variant="outline" onClick={() => handleViewDocument(document)}>
+                                <Eye className="h-4 w-4 mr-1" />
+                                View
+                              </Button>
+                              <Button size="sm" variant="secondary">
+                                <Download className="h-4 w-4 mr-1" />
+                                Download
+                              </Button>
+                            </div>
                           </div>
                         ))}
                       </div>
                     ) : (
-                      <div className="text-center py-8 text-gray-500">
-                        <FileText className="h-12 w-12 mx-auto mb-2 text-gray-300" />
-                        <p>No documents uploaded</p>
+                      <div className="text-center py-12 text-gray-500">
+                        <FileText className="h-16 w-16 mx-auto mb-4 text-gray-300" />
+                        <p className="text-lg font-medium">No documents uploaded</p>
+                        <p className="text-sm">This application has no supporting documents</p>
                       </div>
                     )}
                   </CardContent>
                 </Card>
-              </div>
+              </TabsContent>
 
-              {/* Right Column - Status & Actions */}
-              <div className="space-y-6">
-                {/* Application Status */}
-                <Card>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-lg">Status Overview</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div>
-                      <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">
-                        Current Status
-                      </label>
-                      <Badge className="mt-1 bg-blue-100 text-blue-800 capitalize">
-                        {application.status.replace("_", " ")}
-                      </Badge>
-                    </div>
-                    <div>
-                      <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Progress</label>
-                      <div className="mt-2">
-                        <div className="flex justify-between text-sm mb-1">
-                          <span>Stage {application.currentStage} of 5</span>
-                          <span>{Math.round((application.currentStage / 5) * 100)}%</span>
-                        </div>
-                        <Progress value={(application.currentStage / 5) * 100} className="h-2" />
-                      </div>
-                    </div>
-                    <div>
-                      <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">
-                        Submitted Date
-                      </label>
-                      <p className="flex items-center gap-2 mt-1">
-                        <Calendar className="h-4 w-4 text-gray-400" />
-                        {application.submittedAt?.toLocaleDateString()}
-                      </p>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Review Section */}
-                <Card className="border-2 border-blue-200 bg-gradient-to-br from-blue-50 to-indigo-50">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-lg text-blue-800 flex items-center">
-                      <Target className="h-5 w-5 mr-2" />
-                      Chairperson Review
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="flex items-center space-x-3 p-3 bg-white rounded-lg">
-                      <Checkbox
-                        id="application-reviewed"
-                        checked={isReviewed}
-                        onCheckedChange={(checked) => setIsReviewed(checked as boolean)}
-                      />
-                      <label htmlFor="application-reviewed" className="text-sm font-medium text-blue-800 flex-1">
-                        I have reviewed this application and all supporting documents
-                      </label>
-                    </div>
-                    <Button onClick={handleSave} disabled={isSaving} className="w-full bg-blue-600 hover:bg-blue-700">
-                      <Save className="h-4 w-4 mr-2" />
-                      {isSaving ? "Saving..." : "Save Review Status"}
-                    </Button>
-                  </CardContent>
-                </Card>
-
-                {/* Workflow Comments */}
-                {application.workflowComments && application.workflowComments.length > 0 && (
+              {/* Comments Tab */}
+              <TabsContent value="comments" className="space-y-6 mt-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Permitting Officer Comments */}
                   <Card>
                     <CardHeader className="pb-3">
-                      <CardTitle className="text-lg">Workflow History</CardTitle>
+                      <CardTitle className="text-lg flex items-center text-blue-600">
+                        <MessageSquare className="h-5 w-5 mr-2" />
+                        Permitting Officer Comments ({permittingOfficerComments.length})
+                      </CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <ScrollArea className="h-60">
-                        <div className="space-y-3">
-                          {application.workflowComments.map((comment, index) => (
-                            <div key={comment.id} className="relative">
-                              {index !== application.workflowComments!.length - 1 && (
-                                <div className="absolute left-4 top-8 bottom-0 w-px bg-gray-200" />
-                              )}
-                              <div className="flex gap-3">
-                                <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
-                                  <div className="w-3 h-3 bg-blue-600 rounded-full" />
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-center justify-between mb-1">
-                                    <Badge variant="outline" className="text-xs">
-                                      {comment.userType.replace("_", " ").toUpperCase()}
-                                    </Badge>
-                                    <span className="text-xs text-gray-500">
-                                      {comment.createdAt.toLocaleDateString()}
-                                    </span>
-                                  </div>
-                                  <p className="text-sm text-gray-700">{comment.comment}</p>
-                                </div>
+                      {permittingOfficerComments.length > 0 ? (
+                        <div className="space-y-4">
+                          {permittingOfficerComments.map((comment) => (
+                            <div key={comment.id} className="border-l-4 border-blue-500 pl-4 py-3 bg-blue-50 rounded-r-lg">
+                              <div className="flex items-center justify-between mb-2">
+                                <Badge variant="outline" className="text-blue-600 border-blue-600">
+                                  Stage {comment.stage}
+                                </Badge>
+                                <span className="text-xs text-gray-500">{formatDate(comment.createdAt)}</span>
                               </div>
+                              <p className="text-sm text-gray-700">{comment.comment}</p>
                             </div>
                           ))}
                         </div>
-                      </ScrollArea>
+                      ) : (
+                        <div className="text-center py-8 text-gray-500">
+                          <MessageSquare className="h-12 w-12 mx-auto mb-2 text-gray-300" />
+                          <p>No permitting officer comments yet</p>
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
-                )}
-              </div>
-            </div>
+
+                  {/* All Comments */}
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-lg flex items-center">
+                        <MessageSquare className="h-5 w-5 mr-2" />
+                        All Workflow Comments ({comments.length})
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      {comments.length > 0 ? (
+                        <ScrollArea className="h-80">
+                          <div className="space-y-4">
+                            {comments.map((comment) => (
+                              <div key={comment.id} className="border rounded-lg p-3">
+                                <div className="flex items-center justify-between mb-2">
+                                  <div className="flex items-center space-x-2">
+                                    <Badge variant="outline">{comment.userType.replace("_", " ")}</Badge>
+                                    <Badge variant="secondary">Stage {comment.stage}</Badge>
+                                  </div>
+                                  <span className="text-xs text-gray-500">{formatDate(comment.createdAt)}</span>
+                                </div>
+                                <p className="text-sm text-gray-700">{comment.comment}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </ScrollArea>
+                      ) : (
+                        <div className="text-center py-8 text-gray-500">
+                          <MessageSquare className="h-12 w-12 mx-auto mb-2 text-gray-300" />
+                          <p>No workflow comments yet</p>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </div>
+              </TabsContent>
+
+              {/* Review & Actions Tab */}
+              <TabsContent value="review" className="space-y-6 mt-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Application Status */}
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-lg">Application Status</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div>
+                        <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                          Current Status
+                        </label>
+                        <Badge className="mt-1 bg-blue-100 text-blue-800 capitalize">
+                          {application.status.replace("_", " ")}
+                        </Badge>
+                      </div>
+                      <div>
+                        <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Progress</label>
+                        <div className="mt-2">
+                          <div className="flex justify-between text-sm mb-1">
+                            <span>Stage {application.currentStage} of 5</span>
+                            <span>{Math.round((application.currentStage / 5) * 100)}%</span>
+                          </div>
+                          <Progress value={(application.currentStage / 5) * 100} className="h-2" />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                          Submitted Date
+                        </label>
+                        <p className="flex items-center gap-2 mt-1">
+                          <Calendar className="h-4 w-4 text-gray-400" />
+                          {application.submittedAt?.toLocaleDateString()}
+                        </p>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Review Section */}
+                  <Card className="border-2 border-blue-200 bg-gradient-to-br from-blue-50 to-indigo-50">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-lg text-blue-800 flex items-center">
+                        <Target className="h-5 w-5 mr-2" />
+                        Chairperson Review
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="flex items-start space-x-3 p-4 bg-white rounded-lg border">
+                        <Checkbox
+                          id="application-reviewed"
+                          checked={isReviewed}
+                          onCheckedChange={(checked) => setIsReviewed(checked as boolean)}
+                          className="mt-1"
+                        />
+                        <div className="flex-1">
+                          <label htmlFor="application-reviewed" className="text-sm font-medium text-blue-800 cursor-pointer">
+                            I have reviewed this application and all supporting documents
+                          </label>
+                          <p className="text-xs text-gray-600 mt-1">
+                            By checking this box, you confirm that you have thoroughly reviewed the application details, 
+                            uploaded documents, and any comments from the permitting officer.
+                          </p>
+                        </div>
+                      </div>
+                      <Button onClick={handleSave} disabled={isSaving} className="w-full bg-blue-600 hover:bg-blue-700">
+                        <Save className="h-4 w-4 mr-2" />
+                        {isSaving ? "Saving..." : "Save Review Status"}
+                      </Button>
+                    </CardContent>
+                  </Card>
+                </div>
+              </TabsContent>
+            </Tabs>
           </div>
         </ScrollArea>
       </DialogContent>
@@ -833,7 +915,7 @@ export function ChairpersonDashboard({ user }: ChairpersonDashboardProps) {
               />
             </div>
 
-            {/* Applications Requiring Review */}
+            {/* Recent Applications Requiring Review */}
             <Card className="shadow-lg">
               <CardHeader className="pb-4">
                 <div className="flex items-center justify-between">
@@ -842,7 +924,7 @@ export function ChairpersonDashboard({ user }: ChairpersonDashboardProps) {
                       <AlertTriangle className="h-4 w-4 text-white" />
                     </div>
                     <div>
-                      <CardTitle className="text-xl">Applications Requiring Review</CardTitle>
+                      <CardTitle className="text-xl">Recent Applications Requiring Review</CardTitle>
                       <p className="text-sm text-gray-500">Review and approve applications for next stage</p>
                     </div>
                   </div>
@@ -1206,110 +1288,4 @@ export function ChairpersonDashboard({ user }: ChairpersonDashboardProps) {
                                           <Eye className="h-4 w-4 mr-2" />
                                           View Details
                                         </DropdownMenuItem>
-                                        {application.currentStage === 2 && (
-                                          <DropdownMenuItem>
-                                            <Target className="h-4 w-4 mr-2" />
-                                            Quick Review
-                                          </DropdownMenuItem>
-                                        )}
-                                        <DropdownMenuItem>
-                                          <Download className="h-4 w-4 mr-2" />
-                                          Export Data
-                                        </DropdownMenuItem>
-                                        {documents.length > 0 && (
-                                          <DropdownMenuItem>
-                                            <FileText className="h-4 w-4 mr-2" />
-                                            View Documents ({documents.length})
-                                          </DropdownMenuItem>
-                                        )}
-                                      </DropdownMenuContent>
-                                    </DropdownMenu>
-                                  </TableCell>
-                                </TableRow>
-                              )
-                            })}
-                          </TableBody>
-                        </Table>
-                      </div>
-                    ) : (
-                      <div className="text-center py-12">
-                        <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                          <Search className="h-8 w-8 text-gray-400" />
-                        </div>
-                        <h3 className="text-lg font-semibold text-gray-900 mb-2">No applications found</h3>
-                        <p className="text-gray-500 mb-4">
-                          {searchTerm || statusFilter !== "all"
-                            ? "Try adjusting your search criteria or filters"
-                            : "No applications are currently available for review"}
-                        </p>
-                        {(searchTerm || statusFilter !== "all") && (
-                          <Button
-                            variant="outline"
-                            onClick={() => {
-                              setSearchTerm("")
-                              setStatusFilter("all")
-                            }}
-                          >
-                            Clear all filters
-                          </Button>
-                        )}
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-
-                {/* Quick Actions Panel */}
-                {filteredApplications.some((app) => app.currentStage === 2) && (
-                  <Card className="bg-gradient-to-r from-orange-50 to-red-50 border-orange-200">
-                    <CardHeader className="pb-4">
-                      <CardTitle className="flex items-center gap-2 text-orange-800">
-                        <Zap className="h-5 w-5" />
-                        Quick Actions
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <Button
-                          className="bg-orange-600 hover:bg-orange-700 text-white"
-                          onClick={() => {
-                            const pendingApps = filteredApplications.filter((app) => app.currentStage === 2)
-                            // Auto-select all pending applications
-                            const newReviewed = new Set(reviewedApplications)
-                            pendingApps.forEach((app) => newReviewed.add(app.id))
-                            setReviewedApplications(newReviewed)
-                            setSelectAllUnsubmitted(true)
-                          }}
-                        >
-                          <CheckCircle className="h-4 w-4 mr-2" />
-                          Review All Pending ({filteredApplications.filter((app) => app.currentStage === 2).length})
-                        </Button>
-                        <Button variant="outline" className="border-orange-300 text-orange-700 bg-transparent">
-                          <Download className="h-4 w-4 mr-2" />
-                          Export Pending Applications
-                        </Button>
-                        <Button variant="outline" className="border-orange-300 text-orange-700 bg-transparent">
-                          <FileText className="h-4 w-4 mr-2" />
-                          Generate Report
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
-              </div>
-            )}
-          </TabsContent>
-
-          {/* Messages Tab */}
-          <TabsContent value="messages">
-            <MessagingSystem user={user} />
-          </TabsContent>
-
-          {/* Activity Tab */}
-          <TabsContent value="activity">
-            <ActivityLogs user={user} />
-          </TabsContent>
-        </Tabs>
-      </div>
-    </div>
-  )
-}
+                                        {application.currentStage === 2
