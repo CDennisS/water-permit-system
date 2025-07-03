@@ -1,7 +1,6 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useSession } from "next-auth/react"
 import { LoginForm } from "@/components/login-form"
 import { DashboardHeader } from "@/components/dashboard-header"
 import { ApplicationForm } from "@/components/application-form"
@@ -14,32 +13,34 @@ import { RecordsSection } from "@/components/records-section"
 import { ChairpersonDashboard } from "@/components/chairperson-dashboard"
 import { PermitSupervisorDashboard } from "@/components/permit-supervisor-dashboard"
 import { ICTDashboard } from "@/components/ict-dashboard"
+import { CatchmentManagerDashboard } from "@/components/catchment-manager-dashboard"
+import { CatchmentChairpersonDashboard } from "@/components/catchment-chairperson-dashboard"
 import { ComprehensiveApplicationDetails } from "@/components/comprehensive-application-details"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import type { User, PermitApplication } from "@/types"
 import { db } from "@/lib/database"
 
 export default function Home() {
-  const { data: session, status } = useSession()
-  const user = session?.user as User
+  /* ------------------------------ state ------------------------------ */
+  const [user, setUser] = useState<User | null>(null)
   const [currentView, setCurrentView] = useState("dashboard")
   const [selectedApplication, setSelectedApplication] = useState<PermitApplication | null>(null)
   const [isEditing, setIsEditing] = useState(false)
   const [unreadMessageCount, setUnreadMessageCount] = useState(0)
 
+  /* ------------------------- message polling ------------------------- */
   useEffect(() => {
+    if (!user) return
+
     const loadUnread = async () => {
-      if (user) {
-        const publicMsgs = await db.getMessages(user.id, /* public */ true)
-        const privateMsgs = await db.getMessages(user.id, /* public */ false)
+      const publicMsgs = await db.getMessages(user.id, /* public */ true)
+      const privateMsgs = await db.getMessages(user.id, /* public */ false)
 
-        const unreadPublic = publicMsgs.filter((m) => m.senderId !== user.id && !m.readAt).length
-        const unreadPrivate = privateMsgs.filter((m) => m.senderId !== user.id && !m.readAt).length
+      const unreadPublic = publicMsgs.filter((m) => m.senderId !== user.id && !m.readAt).length
+      const unreadPrivate = privateMsgs.filter((m) => m.senderId !== user.id && !m.readAt).length
 
-        setUnreadMessageCount(unreadPublic + unreadPrivate)
-      }
+      setUnreadMessageCount(unreadPublic + unreadPrivate)
     }
 
     loadUnread()
@@ -47,57 +48,52 @@ export default function Home() {
     return () => clearInterval(id)
   }, [user])
 
+  /* --------------------------- callbacks ----------------------------- */
+  const handleLogin = (u: User) => setUser(u)
   const handleLogout = () => {
-    // Assuming logout functionality is handled by next-auth
+    setUser(null)
+    setCurrentView("dashboard")
   }
-
   const handleNewApp = () => {
     setIsEditing(true)
     setSelectedApplication(null)
     setCurrentView("application-form")
   }
-
   const handleEditApp = (a: PermitApplication) => {
     setIsEditing(true)
     setSelectedApplication(a)
     setCurrentView("application-form")
   }
-
   const handleViewApp = (a: PermitApplication) => {
     setIsEditing(false)
     setSelectedApplication(a)
     setCurrentView("comprehensive-view")
   }
-
   const handleSaveApp = () => {
     setIsEditing(false)
     setSelectedApplication(null)
     setCurrentView("dashboard")
   }
-
   const handleCancelEdit = () => {
     setIsEditing(false)
     setSelectedApplication(null)
     setCurrentView("dashboard")
   }
-
   const handleUpdateApp = (a: PermitApplication) => setSelectedApplication(a)
-
   const handleTabChange = (v: string) => {
     setCurrentView(v)
     if (v === "messages") setUnreadMessageCount(0)
   }
-
   const handleMessagesClick = () => {
     setCurrentView("messages")
     setUnreadMessageCount(0)
   }
-
   const handleBackToApplications = () => {
     setSelectedApplication(null)
     setCurrentView("dashboard")
   }
 
+  /* ------------------------ tab configuration ------------------------ */
   const baseTabs = [
     { value: "dashboard", label: "Dashboard & Applications" },
     { value: "records", label: "Records" },
@@ -113,34 +109,8 @@ export default function Home() {
     )
   }
 
-  const userRole = user?.role
-
-  if (status === "loading") {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
-      </div>
-    )
-  }
-
-  if (!session) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <Card className="w-full max-w-md">
-          <CardHeader>
-            <CardTitle className="text-center">UMSCC Permit Management System</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <LoginForm />
-          </CardContent>
-        </Card>
-      </div>
-    )
-  }
-
-  if (userRole === "chairperson") {
-    return <ChairpersonDashboard user={user} />
-  }
+  /* ------------------------------ UI -------------------------------- */
+  if (!user) return <LoginForm onLogin={handleLogin} />
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -173,14 +143,21 @@ export default function Home() {
             </div>
           ) : (
             <>
-              {userRole === "permit_supervisor" ? (
+              {/* Specialized Dashboards */}
+              {user.userType === "chairperson" ? (
+                <ChairpersonDashboard user={user} />
+              ) : user.userType === "catchment_manager" ? (
+                <CatchmentManagerDashboard user={user} />
+              ) : user.userType === "catchment_chairperson" ? (
+                <CatchmentChairpersonDashboard user={user} />
+              ) : user.userType === "permit_supervisor" ? (
                 <PermitSupervisorDashboard
                   user={user}
                   onNewApplication={handleNewApp}
                   onEditApplication={handleEditApp}
                   onViewApplication={handleViewApp}
                 />
-              ) : userRole === "ict" ? (
+              ) : user.userType === "ict" ? (
                 <ICTDashboard
                   user={user}
                   onNewApplication={handleNewApp}
@@ -188,6 +165,7 @@ export default function Home() {
                   onViewApplication={handleViewApp}
                 />
               ) : (
+                /* Standard Dashboard for other users including permitting_officer */
                 <Tabs value={currentView} onValueChange={handleTabChange} className="w-full">
                   <TabsList className="grid w-full grid-cols-5">
                     {getUserTabs().map((tab) => (
@@ -207,7 +185,7 @@ export default function Home() {
 
                   <TabsContent value="dashboard" className="space-y-6">
                     <div className="mb-6">
-                      <h2 className="mb-2 text-2xl font-bold text-gray-900">Welcome back, {user.name}</h2>
+                      <h2 className="mb-2 text-2xl font-bold text-gray-900">Welcome back, {user.username}</h2>
                       <p className="text-gray-600">Manage your permit applications and track progress</p>
                     </div>
 

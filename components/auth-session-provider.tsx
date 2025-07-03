@@ -1,16 +1,19 @@
 "use client"
 
+import "@/lib/ensure-env" // ensure NEXTAUTH_URL exists in browser
 import { SessionProvider } from "next-auth/react"
 import type { Session } from "next-auth"
-import type { ReactNode } from "react"
+import type React from "react"
 
-interface Props {
-  children: ReactNode
+interface AuthSessionProviderProps {
+  children: React.ReactNode
   session?: Session | null
 }
 
-export default function AuthSessionProvider({ children, session }: Props) {
-  // We intentionally do NOT pass `baseUrl`; next-auth will use
-  // process.env.NEXTAUTH_URL (now guaranteed) or window.location.origin.
+/**
+ * Wraps the app with NextAuth’s SessionProvider so that
+ * `useSession` and other auth hooks work everywhere.
+ */
+export default function AuthSessionProvider({ children, session = null }: AuthSessionProviderProps) {
   return <SessionProvider session={session}>{children}</SessionProvider>
 }
