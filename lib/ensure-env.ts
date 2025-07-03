@@ -1,47 +1,34 @@
 /**
  * ensure-env.ts
  *
- * Guarantees `process.env.NEXTAUTH_URL` is ALWAYS a valid, absolute URL
- * before any NextAuth code executes – on both the server and the browser.
+ * Guarantees `process.env.NEXTAUTH_URL` is set to a valid, absolute URL
+ * on the server side only. Client-side NextAuth will use window.location.origin.
  */
 
 const isServer = typeof window === "undefined"
 
-function makeAbsolute(url: string): string {
-  return /^https?:\/\//i.test(url) ? url : `https://${url}`
-}
+if (isServer) {
+  function makeAbsolute(url: string): string {
+    return /^https?:\/\//i.test(url) ? url : `https://${url}`
+  }
 
-function deriveDefaultUrl(): string {
-  if (process.env.VERCEL_URL) return makeAbsolute(process.env.VERCEL_URL)
-  const port = process.env.PORT ?? "3000"
-  return `http://localhost:${port}`
-}
+  function deriveDefaultUrl(): string {
+    if (process.env.VERCEL_URL) return makeAbsolute(process.env.VERCEL_URL)
+    const port = process.env.PORT ?? "3000"
+    return `http://localhost:${port}`
+  }
 
-function ensureNextAuthUrl(): void {
-  // 1️⃣  Pick the best candidate
+  // Only run on server
   const finalUrl = (process.env.NEXTAUTH_URL && process.env.NEXTAUTH_URL.trim()) || deriveDefaultUrl()
 
-  // 2️⃣  Validate – throws if malformed
+  // Validate
   try {
     new URL(finalUrl)
+    process.env.NEXTAUTH_URL = finalUrl
   } catch {
-    throw new Error(`ensure-env ▶ NEXTAUTH_URL could not be normalised. Got "${finalUrl}".`)
-  }
-
-  // 3️⃣  Persist to env
-  process.env.NEXTAUTH_URL = finalUrl
-
-  // 4️⃣  Patch client bundle so NextAuth sees it at runtime
-  if (!isServer) {
-    if (!("process" in globalThis)) {
-      // @ts-ignore create a minimal polyfill
-      globalThis.process = { env: {} }
-    }
-    // @ts-ignore
-    globalThis.process.env.NEXTAUTH_URL = finalUrl
+    // Fallback to localhost if all else fails
+    process.env.NEXTAUTH_URL = "http://localhost:3000"
   }
 }
 
-// Run immediately on import
-ensureNextAuthUrl()
 export {}
