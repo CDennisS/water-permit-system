@@ -1,7 +1,8 @@
 import "@/lib/ensure-env"
+import "./globals.css"
+
 import type React from "react"
 import type { Metadata } from "next"
-import "./globals.css"
 import AuthSessionProvider from "@/components/auth-session-provider"
 
 export const metadata: Metadata = {
@@ -12,9 +13,9 @@ export const metadata: Metadata = {
 
 export default function RootLayout({
   children,
-}: Readonly<{
-  children: React.ReactNode
-}>) {
+}: {
+  readonly children: React.ReactNode
+}) {
   return (
     <html lang="en">
       <body>

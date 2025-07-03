@@ -1,5 +1,6 @@
 "use client"
 
+import "@/lib/ensure-env" // Ensures NEXTAUTH_URL is available on the client bundle.
 import { SessionProvider } from "next-auth/react"
 import type { Session } from "next-auth"
 import type { ReactNode } from "react"
@@ -10,16 +11,11 @@ interface AuthSessionProviderProps {
 }
 
 /**
- * Wraps the application with `next-auth`'s `SessionProvider`.
- * We do **not** pass `baseUrl` unless we're certain it’s valid.
- * This prevents “Invalid URL” runtime errors.
+ * Wraps children with NextAuth's SessionProvider.
+ * We intentionally DO NOT pass `baseUrl`; next-auth will use
+ * `process.env.NEXTAUTH_URL` (now guaranteed) or `window.location.origin`
+ * on the client, preventing “Invalid URL” errors.
  */
-export function AuthSessionProvider({ children, session }: AuthSessionProviderProps) {
-  return (
-    <SessionProvider session={session} refetchOnWindowFocus={false}>
-      {children}
-    </SessionProvider>
-  )
+export default function AuthSessionProvider({ children, session = null }: AuthSessionProviderProps) {
+  return <SessionProvider session={session}>{children}</SessionProvider>
 }
-
-export default AuthSessionProvider
