@@ -1,16 +1,14 @@
 "use client"
 
-import type React from "react"
-
-import "../lib/ensure-env"
 import { SessionProvider } from "next-auth/react"
 import type { Session } from "next-auth"
+import type { ReactNode } from "react"
 
-interface AuthSessionProviderProps {
-  children: React.ReactNode
+interface Props {
+  children: ReactNode
   session?: Session | null
 }
 
-export function AuthSessionProvider({ children, session }: AuthSessionProviderProps) {
+export default function AuthSessionProvider({ children, session }: Props) {
   return <SessionProvider session={session}>{children}</SessionProvider>
 }
