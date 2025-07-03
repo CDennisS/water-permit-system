@@ -9,8 +9,11 @@ interface AuthSessionProviderProps {
   session?: Session | null
 }
 
+/**
+ * Client-side SessionProvider.
+ * We supply baseUrl to avoid relying on browser-bundled env vars.
+ */
 export default function AuthSessionProvider({ children, session = null }: AuthSessionProviderProps) {
-  // On the browser we always have window.location.origin
   const baseUrl = typeof window !== "undefined" ? window.location.origin : undefined
 
   return (
