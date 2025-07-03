@@ -9,10 +9,13 @@ interface AuthSessionProviderProps {
   session?: Session | null
 }
 
-/**
- * Wraps the app with NextAuth's SessionProvider.
- * We don't pass baseUrl - NextAuth will use window.location.origin on client.
- */
 export default function AuthSessionProvider({ children, session = null }: AuthSessionProviderProps) {
-  return <SessionProvider session={session}>{children}</SessionProvider>
+  // On the browser we always have window.location.origin
+  const baseUrl = typeof window !== "undefined" ? window.location.origin : undefined
+
+  return (
+    <SessionProvider session={session} baseUrl={baseUrl}>
+      {children}
+    </SessionProvider>
+  )
 }
