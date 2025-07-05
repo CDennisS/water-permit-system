@@ -66,11 +66,17 @@ export interface WorkflowComment {
 
 export interface Document {
   id: string
-  applicationId: string
-  fileName: string
-  fileType: string
-  fileSize: number
-  uploadedAt: Date
+  name: string
+  url: string
+  uploadedAt: string
+}
+
+export interface Comment {
+  id: string
+  author: string
+  authorRole: string
+  text: string
+  createdAt: string
 }
 
 export interface ActivityLog {
@@ -132,4 +138,20 @@ export interface BoreholeDetail {
   intendedUse: string
   maxAbstractionRate: number
   waterSampleFrequency: string
+}
+
+export interface Application {
+  id: string
+  applicantName: string
+  permitType: string
+  dateSubmitted: string
+  status: "Pending Review" | "Reviewed" | "Approved" | "Rejected"
+  details: {
+    company: string
+    address: string
+    contact: string
+  }
+  documents: Document[]
+  comments: Comment[]
+  isReviewedByChairperson: boolean
 }

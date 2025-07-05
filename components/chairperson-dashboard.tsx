@@ -1,26 +1,25 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { useState } from "react"
+import { signOut, useSession } from "next-auth/react"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
 import { Badge } from "@/components/ui/badge"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { ApplicationDetails } from "./application-details"
+import type { Application } from "@/types"
+import { LogOut, Mail, Bell, FileStack, CheckCircle, Clock } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Progress } from "@/components/ui/progress"
 import {
   FileText,
-  Users,
-  CheckCircle,
-  Clock,
-  AlertTriangle,
   Eye,
   Save,
   ExternalLink,
-  Search,
   MapPin,
   Droplets,
   Building,
@@ -28,25 +27,85 @@ import {
   Download,
   Calendar,
   TrendingUp,
-  AlertCircle,
-  ChevronRight,
-  MoreHorizontal,
-  Zap,
   Target,
 } from "lucide-react"
 import type { PermitApplication, Document } from "@/types"
 import { db } from "@/lib/database"
-import { StrictViewOnlyApplicationDetails } from "./strict-view-only-application-details"
-import { MessagingSystem } from "./messaging-system"
-import { ActivityLogs } from "./activity-logs"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { useEffect } from "react"
+
+// Mock Data - Replace with API call
+const mockApplications: Application[] = [
+  {
+    id: "APP-001",
+    applicantName: "John Doe",
+    permitType: "Borehole Drilling Permit",
+    dateSubmitted: "2023-10-26",
+    status: "Pending Review",
+    details: { company: "Doe Farms", address: "123 Farm Lane, Harare", contact: "0777123456" },
+    documents: [
+      { id: "DOC-1", name: "Application Form.pdf", url: "#", uploadedAt: "2023-10-26" },
+      { id: "DOC-2", name: "Site Plan.pdf", url: "#", uploadedAt: "2023-10-26" },
+    ],
+    comments: [
+      {
+        id: "CMT-1",
+        author: "P. Moyo",
+        authorRole: "Permitting Officer",
+        text: "Application seems complete. Awaiting geological survey results.",
+        createdAt: "2023-10-27",
+      },
+    ],
+    isReviewedByChairperson: false,
+  },
+  {
+    id: "APP-002",
+    applicantName: "Jane Smith",
+    permitType: "Dam Construction Permit",
+    dateSubmitted: "2023-10-25",
+    status: "Pending Review",
+    details: { company: "Smith Holdings", address: "456 Industrial Rd, Bulawayo", contact: "0777654321" },
+    documents: [
+      { id: "DOC-3", name: "Application Form.pdf", url: "#", uploadedAt: "2023-10-25" },
+      { id: "DOC-4", name: "Environmental Impact Assessment.pdf", url: "#", uploadedAt: "2023-10-25" },
+    ],
+    comments: [
+      {
+        id: "CMT-2",
+        author: "P. Moyo",
+        authorRole: "Permitting Officer",
+        text: "EIA report needs clarification on section 3.2.",
+        createdAt: "2023-10-26",
+      },
+    ],
+    isReviewedByChairperson: false,
+  },
+  {
+    id: "APP-003",
+    applicantName: "Agricorp Inc.",
+    permitType: "Bulk Water Abstraction",
+    dateSubmitted: "2023-10-22",
+    status: "Reviewed",
+    details: { company: "Agricorp Inc.", address: "789 Agri Park, Gweru", contact: "0777112233" },
+    documents: [{ id: "DOC-5", name: "Abstraction Proposal.pdf", url: "#", uploadedAt: "2023-10-22" }],
+    comments: [
+      {
+        id: "CMT-3",
+        author: "P. Moyo",
+        authorRole: "Permitting Officer",
+        text: "All documents in order.",
+        createdAt: "2023-10-23",
+      },
+    ],
+    isReviewedByChairperson: true,
+  },
+]
 
 interface ChairpersonDashboardProps {
   user: any
 }
 
 export function ChairpersonDashboard({ user }: ChairpersonDashboardProps) {
+  const { data: session } = useSession()
   const [applications, setApplications] = useState<PermitApplication[]>([])
   const [filteredApplications, setFilteredApplications] = useState<PermitApplication[]>([])
   const [selectedApplication, setSelectedApplication] = useState<PermitApplication | null>(null)
@@ -64,6 +123,16 @@ export function ChairpersonDashboard({ user }: ChairpersonDashboardProps) {
     reviewedThisMonth: 0,
     approvalRate: 0,
   })
+  const [isSheetOpen, setIsSheetOpen] = useState(false)
+
+  const handleViewApplication = (app: PermitApplication) => {
+    setSelectedApplication(app)
+    setIsSheetOpen(true)
+  }
+
+  const pendingReviewCount = mockApplications.filter((a) => a.status === "Pending Review").length
+  const reviewedCount = mockApplications.filter((a) => a.status === "Reviewed").length
+  const totalApplications = mockApplications.length
 
   useEffect(() => {
     loadDashboardData()
@@ -730,586 +799,118 @@ export function ChairpersonDashboard({ user }: ChairpersonDashboardProps) {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-      {/* Premium Header */}
-      <div className="bg-white border-b border-gray-200 shadow-sm">
-        <div className="px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl flex items-center justify-center">
-                <Users className="h-6 w-6 text-white" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">Chairperson Dashboard</h1>
-                <p className="text-gray-600 text-sm">Upper Manyame Sub Catchment Council</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              {unreadMessageCount > 0 && (
-                <Button variant="outline" size="sm" onClick={handleViewMessages} className="relative bg-transparent">
-                  Messages
-                  <Badge className="ml-2 bg-red-500 text-white text-xs px-1.5 py-0.5">{unreadMessageCount}</Badge>
-                </Button>
-              )}
-              <Badge variant="secondary" className="px-3 py-2 bg-blue-100 text-blue-800">
-                <Zap className="h-4 w-4 mr-1" />
-                Chairperson Access
-              </Badge>
+      <header className="bg-white dark:bg-gray-800 border-b p-4 flex justify-between items-center">
+        <div className="flex items-center gap-4">
+          <h1 className="text-xl font-semibold">Chairperson's Dashboard</h1>
+        </div>
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" size="icon">
+            <Bell className="h-5 w-5" />
+          </Button>
+          <Button variant="ghost" size="icon">
+            <Mail className="h-5 w-5" />
+          </Button>
+          <div className="flex items-center gap-2">
+            <Avatar>
+              <AvatarImage src="/placeholder-user.jpg" />
+              <AvatarFallback>C</AvatarFallback>
+            </Avatar>
+            <div>
+              <p className="text-sm font-medium">{session?.user?.name}</p>
+              <p className="text-xs text-muted-foreground">Chairperson</p>
             </div>
           </div>
+          <Button variant="outline" size="sm" onClick={() => signOut()}>
+            <LogOut className="mr-2 h-4 w-4" />
+            Logout
+          </Button>
         </div>
-      </div>
+      </header>
 
-      <div className="p-6">
-        {/* Navigation Tabs */}
-        <Tabs value={activeView} onValueChange={setActiveView} className="w-full">
-          <TabsList className="grid w-full grid-cols-4 mb-6 bg-white shadow-sm">
-            <TabsTrigger value="overview" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white">
-              Overview
-            </TabsTrigger>
-            <TabsTrigger
-              value="applications"
-              className="data-[state=active]:bg-blue-600 data-[state=active]:text-white"
-            >
-              Applications
-            </TabsTrigger>
-            <TabsTrigger
-              value="messages"
-              className="relative data-[state=active]:bg-blue-600 data-[state=active]:text-white"
-            >
-              Messages
-              {unreadMessageCount > 0 && (
-                <Badge
-                  variant="destructive"
-                  className="ml-2 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs"
-                >
-                  {unreadMessageCount > 99 ? "99+" : unreadMessageCount}
-                </Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="activity" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white">
-              Activity
-            </TabsTrigger>
-          </TabsList>
+      <main className="p-8">
+        <div className="grid gap-6 md:grid-cols-3 mb-8">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Applications</CardTitle>
+              <FileStack className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{totalApplications}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Pending Review</CardTitle>
+              <Clock className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{pendingReviewCount}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Reviewed by You</CardTitle>
+              <CheckCircle className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{reviewedCount}</div>
+            </CardContent>
+          </Card>
+        </div>
 
-          {/* Overview Tab */}
-          <TabsContent value="overview" className="space-y-6">
-            {/* Enhanced Metrics */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <MetricCard
-                title="Total Applications"
-                value={stats.totalApplications}
-                icon={FileText}
-                color="blue"
-                trend="up"
-                trendValue="+12% this month"
-                progress={75}
-              />
-              <MetricCard
-                title="Pending Review"
-                value={stats.pendingReview}
-                icon={Clock}
-                color="orange"
-                trend="neutral"
-                trendValue="Requires attention"
-                progress={stats.pendingReview > 0 ? 100 : 0}
-              />
-              <MetricCard
-                title="Reviewed This Month"
-                value={stats.reviewedThisMonth}
-                icon={CheckCircle}
-                color="green"
-                trend="up"
-                trendValue="+8% vs last month"
-                progress={85}
-              />
-              <MetricCard
-                title="Approval Rate"
-                value={`${stats.approvalRate}%`}
-                icon={Target}
-                color="purple"
-                trend="up"
-                trendValue="Above target"
-                progress={stats.approvalRate}
-              />
-            </div>
-
-            {/* Applications Requiring Review */}
-            <Card className="shadow-lg">
-              <CardHeader className="pb-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-gradient-to-br from-orange-500 to-red-500 rounded-lg flex items-center justify-center">
-                      <AlertTriangle className="h-4 w-4 text-white" />
-                    </div>
-                    <div>
-                      <CardTitle className="text-xl">Applications Requiring Review</CardTitle>
-                      <p className="text-sm text-gray-500">Review and approve applications for next stage</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    {pendingApplications.length > 0 && (
-                      <>
-                        <div className="flex items-center space-x-2">
-                          <Checkbox
-                            id="select-all"
-                            checked={selectAllUnsubmitted}
-                            onCheckedChange={handleSelectAllUnsubmitted}
-                          />
-                          <label htmlFor="select-all" className="text-sm font-medium">
-                            Select All ({pendingApplications.length})
-                          </label>
-                        </div>
-                        {selectAllUnsubmitted && allPendingReviewed && (
-                          <Button
-                            onClick={handleSubmitPermits}
-                            disabled={isSubmitting}
-                            className="bg-green-600 hover:bg-green-700"
-                          >
-                            <ChevronRight className="h-4 w-4 mr-1" />
-                            {isSubmitting ? "Submitting..." : "Submit All"}
+        <Card>
+          <CardHeader>
+            <CardTitle>Recent Applications Requiring Review</CardTitle>
+            <CardDescription>Select an application to view details, documents, and comments.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Applicant</TableHead>
+                    <TableHead>Permit Type</TableHead>
+                    <TableHead>Date Submitted</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Action</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {mockApplications.map((app) => (
+                    <TableRow key={app.id}>
+                      <TableCell className="font-medium">{app.applicantName}</TableCell>
+                      <TableCell>{app.permitType}</TableCell>
+                      <TableCell>{app.dateSubmitted}</TableCell>
+                      <TableCell>
+                        <Badge variant={app.status === "Pending Review" ? "destructive" : "secondary"}>
+                          {app.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <SheetTrigger asChild>
+                          <Button variant="outline" size="sm" onClick={() => handleViewApplication(app)}>
+                            View
                           </Button>
-                        )}
-                      </>
-                    )}
-                  </div>
-                </div>
-                {selectAllUnsubmitted && !allPendingReviewed && (
-                  <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
-                    <div className="flex items-center gap-2">
-                      <AlertCircle className="h-4 w-4 text-amber-600" />
-                      <p className="text-sm text-amber-700">Please review all applications before submitting.</p>
-                    </div>
-                  </div>
+                        </SheetTrigger>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+              <SheetContent className="w-full sm:w-3/4 lg:w-1/2 p-0">
+                {selectedApplication && (
+                  <>
+                    <SheetHeader className="p-6">
+                      <SheetTitle>Application Details: {selectedApplication.id}</SheetTitle>
+                    </SheetHeader>
+                    <ApplicationDetails application={selectedApplication} onClose={() => setIsSheetOpen(false)} />
+                  </>
                 )}
-              </CardHeader>
-              <CardContent>
-                {pendingApplications.length > 0 ? (
-                  <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
-                    {pendingApplications.map((application) => (
-                      <CompactApplicationCard key={application.id} application={application} />
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-12 text-gray-500">
-                    <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <CheckCircle className="h-8 w-8 text-green-600" />
-                    </div>
-                    <p className="text-lg font-medium">All caught up!</p>
-                    <p className="text-sm">No applications pending review at this time</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Applications Tab */}
-          <TabsContent value="applications" className="space-y-6">
-            {selectedApplication ? (
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-xl font-semibold">Application Details</h2>
-                  <Button variant="outline" onClick={() => setSelectedApplication(null)}>
-                    ← Back to List
-                  </Button>
-                </div>
-                <StrictViewOnlyApplicationDetails user={user} application={selectedApplication} />
-              </div>
-            ) : (
-              <div className="space-y-6">
-                {/* Enhanced Header with Quick Stats */}
-                <Card className="bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-xl">
-                  <CardContent className="p-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h2 className="text-2xl font-bold mb-2">Applications Management</h2>
-                        <p className="text-blue-100">Comprehensive view of all permit applications</p>
-                      </div>
-                      <div className="grid grid-cols-3 gap-6 text-center">
-                        <div>
-                          <div className="text-3xl font-bold">{filteredApplications.length}</div>
-                          <div className="text-blue-200 text-sm">Total</div>
-                        </div>
-                        <div>
-                          <div className="text-3xl font-bold text-green-300">
-                            {filteredApplications.filter((app) => app.status === "approved").length}
-                          </div>
-                          <div className="text-blue-200 text-sm">Approved</div>
-                        </div>
-                        <div>
-                          <div className="text-3xl font-bold text-amber-300">
-                            {filteredApplications.filter((app) => app.currentStage === 2).length}
-                          </div>
-                          <div className="text-blue-200 text-sm">Pending</div>
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Advanced Filters and Search */}
-                <Card className="shadow-lg">
-                  <CardHeader className="pb-4">
-                    <div className="flex items-center justify-between">
-                      <CardTitle className="flex items-center gap-2">
-                        <Search className="h-5 w-5 text-blue-600" />
-                        Search & Filter Applications
-                      </CardTitle>
-                      <Button variant="outline" size="sm" className="gap-2 bg-transparent">
-                        <Download className="h-4 w-4" />
-                        Export ({filteredApplications.length})
-                      </Button>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                      <div className="relative">
-                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                        <Input
-                          placeholder="Search by name, ID, or account..."
-                          value={searchTerm}
-                          onChange={(e) => setSearchTerm(e.target.value)}
-                          className="pl-10"
-                        />
-                      </div>
-                      <Select value={statusFilter} onValueChange={setStatusFilter}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Filter by status" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">All Status</SelectItem>
-                          <SelectItem value="submitted">Submitted</SelectItem>
-                          <SelectItem value="under_review">Under Review</SelectItem>
-                          <SelectItem value="approved">Approved</SelectItem>
-                          <SelectItem value="rejected">Rejected</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <Select>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Permit type" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">All Types</SelectItem>
-                          <SelectItem value="urban">Urban</SelectItem>
-                          <SelectItem value="irrigation">Irrigation</SelectItem>
-                          <SelectItem value="industrial">Industrial</SelectItem>
-                          <SelectItem value="bulk_water">Bulk Water</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <Select>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Stage" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">All Stages</SelectItem>
-                          <SelectItem value="1">Stage 1</SelectItem>
-                          <SelectItem value="2">Stage 2</SelectItem>
-                          <SelectItem value="3">Stage 3</SelectItem>
-                          <SelectItem value="4">Stage 4</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    {(searchTerm || statusFilter !== "all") && (
-                      <div className="mt-4 flex items-center justify-between">
-                        <p className="text-sm text-gray-600">
-                          Showing {filteredApplications.length} of {applications.length} applications
-                        </p>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            setSearchTerm("")
-                            setStatusFilter("all")
-                          }}
-                        >
-                          Clear filters
-                        </Button>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-
-                {/* Applications Grid/Table View */}
-                <Card className="shadow-lg">
-                  <CardHeader className="pb-4">
-                    <div className="flex items-center justify-between">
-                      <CardTitle>Applications Overview</CardTitle>
-                      <div className="flex items-center gap-2">
-                        <Button variant="outline" size="sm">
-                          <Eye className="h-4 w-4 mr-1" />
-                          Grid View
-                        </Button>
-                        <Button variant="ghost" size="sm">
-                          <FileText className="h-4 w-4 mr-1" />
-                          Table View
-                        </Button>
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="p-0">
-                    {filteredApplications.length > 0 ? (
-                      <div className="overflow-x-auto">
-                        <Table>
-                          <TableHeader className="bg-gradient-to-r from-gray-50 to-gray-100">
-                            <TableRow>
-                              <TableHead className="w-[140px] font-semibold">Application ID</TableHead>
-                              <TableHead className="w-[120px] font-semibold">Account #</TableHead>
-                              <TableHead className="font-semibold">Applicant Details</TableHead>
-                              <TableHead className="w-[140px] font-semibold">Permit Info</TableHead>
-                              <TableHead className="w-[100px] font-semibold text-center">Status</TableHead>
-                              <TableHead className="w-[80px] font-semibold text-center">Stage</TableHead>
-                              <TableHead className="w-[120px] font-semibold">Timeline</TableHead>
-                              <TableHead className="w-[100px] font-semibold text-center">Actions</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {filteredApplications.map((application) => {
-                              const expiryDate = application.approvedAt
-                                ? new Date(application.approvedAt.getTime() + 5 * 365 * 24 * 60 * 60 * 1000)
-                                : new Date(Date.now() + 5 * 365 * 24 * 60 * 60 * 1000)
-
-                              const isReviewed = reviewedApplications.has(application.id)
-                              const documents = applicationDocuments[application.id] || []
-
-                              return (
-                                <TableRow key={application.id} className="hover:bg-blue-50/50 transition-colors">
-                                  <TableCell>
-                                    <div className="flex items-center gap-2">
-                                      <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
-                                        <FileText className="h-4 w-4 text-white" />
-                                      </div>
-                                      <div>
-                                        <div className="font-medium text-sm">{application.applicationId}</div>
-                                        <div className="text-xs text-gray-500">{documents.length} docs</div>
-                                      </div>
-                                    </div>
-                                  </TableCell>
-
-                                  <TableCell>
-                                    <div className="font-medium text-sm">{application.customerAccountNumber}</div>
-                                  </TableCell>
-
-                                  <TableCell>
-                                    <div className="space-y-1">
-                                      <div className="font-semibold text-sm">{application.applicantName}</div>
-                                      <div className="flex items-center gap-1 text-xs text-gray-600">
-                                        <MapPin className="h-3 w-3" />
-                                        <span className="truncate max-w-[200px]" title={application.physicalAddress}>
-                                          {application.physicalAddress}
-                                        </span>
-                                      </div>
-                                      <div className="flex items-center gap-1 text-xs text-gray-600">
-                                        <Building className="h-3 w-3" />
-                                        <span>{application.cellularNumber}</span>
-                                      </div>
-                                    </div>
-                                  </TableCell>
-
-                                  <TableCell>
-                                    <div className="space-y-1">
-                                      <Badge variant="outline" className="text-xs capitalize">
-                                        {application.permitType.replace("_", " ")}
-                                      </Badge>
-                                      <div className="flex items-center gap-1 text-xs text-gray-600">
-                                        <Droplets className="h-3 w-3" />
-                                        <span>{application.waterAllocation.toLocaleString()} m³</span>
-                                      </div>
-                                      <div className="text-xs text-gray-500">{application.landSize} hectares</div>
-                                    </div>
-                                  </TableCell>
-
-                                  <TableCell className="text-center">
-                                    <div className="space-y-1">
-                                      <Badge
-                                        className={
-                                          application.status === "approved"
-                                            ? "bg-green-100 text-green-800 border-green-200"
-                                            : application.status === "rejected"
-                                              ? "bg-red-100 text-red-800 border-red-200"
-                                              : application.status === "submitted"
-                                                ? "bg-blue-100 text-blue-800 border-blue-200"
-                                                : application.status === "under_review"
-                                                  ? "bg-amber-100 text-amber-800 border-amber-200"
-                                                  : "bg-gray-100 text-gray-800 border-gray-200"
-                                        }
-                                      >
-                                        {application.status.replace("_", " ").toUpperCase()}
-                                      </Badge>
-                                      {application.currentStage === 2 && (
-                                        <div className="text-xs">
-                                          {isReviewed ? (
-                                            <Badge className="bg-green-100 text-green-700 text-xs">
-                                              <CheckCircle className="h-3 w-3 mr-1" />
-                                              Reviewed
-                                            </Badge>
-                                          ) : (
-                                            <Badge className="bg-orange-100 text-orange-700 text-xs">
-                                              <AlertCircle className="h-3 w-3 mr-1" />
-                                              Pending
-                                            </Badge>
-                                          )}
-                                        </div>
-                                      )}
-                                    </div>
-                                  </TableCell>
-
-                                  <TableCell className="text-center">
-                                    <div className="space-y-1">
-                                      <Badge variant="secondary" className="text-xs font-medium">
-                                        Stage {application.currentStage}
-                                      </Badge>
-                                      <div className="w-full bg-gray-200 rounded-full h-1">
-                                        <div
-                                          className="bg-blue-600 h-1 rounded-full transition-all"
-                                          style={{ width: `${(application.currentStage / 5) * 100}%` }}
-                                        />
-                                      </div>
-                                    </div>
-                                  </TableCell>
-
-                                  <TableCell>
-                                    <div className="space-y-1 text-xs">
-                                      <div className="flex items-center gap-1 text-gray-600">
-                                        <Calendar className="h-3 w-3" />
-                                        <span>
-                                          {application.submittedAt
-                                            ? application.submittedAt.toLocaleDateString("en-ZA", {
-                                                month: "short",
-                                                day: "2-digit",
-                                              })
-                                            : "Not submitted"}
-                                        </span>
-                                      </div>
-                                      {application.status === "approved" && (
-                                        <div className="text-green-600 font-medium">
-                                          Expires:{" "}
-                                          {expiryDate.toLocaleDateString("en-ZA", {
-                                            year: "2-digit",
-                                            month: "short",
-                                          })}
-                                        </div>
-                                      )}
-                                      {application.currentStage === 2 && (
-                                        <div className="text-orange-600 font-medium">Awaiting Review</div>
-                                      )}
-                                    </div>
-                                  </TableCell>
-
-                                  <TableCell className="text-center">
-                                    <DropdownMenu>
-                                      <DropdownMenuTrigger asChild>
-                                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                                          <MoreHorizontal className="h-4 w-4" />
-                                        </Button>
-                                      </DropdownMenuTrigger>
-                                      <DropdownMenuContent align="end" className="w-48">
-                                        <DropdownMenuItem onClick={() => setSelectedApplication(application)}>
-                                          <Eye className="h-4 w-4 mr-2" />
-                                          View Details
-                                        </DropdownMenuItem>
-                                        {application.currentStage === 2 && (
-                                          <DropdownMenuItem>
-                                            <Target className="h-4 w-4 mr-2" />
-                                            Quick Review
-                                          </DropdownMenuItem>
-                                        )}
-                                        <DropdownMenuItem>
-                                          <Download className="h-4 w-4 mr-2" />
-                                          Export Data
-                                        </DropdownMenuItem>
-                                        {documents.length > 0 && (
-                                          <DropdownMenuItem>
-                                            <FileText className="h-4 w-4 mr-2" />
-                                            View Documents ({documents.length})
-                                          </DropdownMenuItem>
-                                        )}
-                                      </DropdownMenuContent>
-                                    </DropdownMenu>
-                                  </TableCell>
-                                </TableRow>
-                              )
-                            })}
-                          </TableBody>
-                        </Table>
-                      </div>
-                    ) : (
-                      <div className="text-center py-12">
-                        <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                          <Search className="h-8 w-8 text-gray-400" />
-                        </div>
-                        <h3 className="text-lg font-semibold text-gray-900 mb-2">No applications found</h3>
-                        <p className="text-gray-500 mb-4">
-                          {searchTerm || statusFilter !== "all"
-                            ? "Try adjusting your search criteria or filters"
-                            : "No applications are currently available for review"}
-                        </p>
-                        {(searchTerm || statusFilter !== "all") && (
-                          <Button
-                            variant="outline"
-                            onClick={() => {
-                              setSearchTerm("")
-                              setStatusFilter("all")
-                            }}
-                          >
-                            Clear all filters
-                          </Button>
-                        )}
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-
-                {/* Quick Actions Panel */}
-                {filteredApplications.some((app) => app.currentStage === 2) && (
-                  <Card className="bg-gradient-to-r from-orange-50 to-red-50 border-orange-200">
-                    <CardHeader className="pb-4">
-                      <CardTitle className="flex items-center gap-2 text-orange-800">
-                        <Zap className="h-5 w-5" />
-                        Quick Actions
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <Button
-                          className="bg-orange-600 hover:bg-orange-700 text-white"
-                          onClick={() => {
-                            const pendingApps = filteredApplications.filter((app) => app.currentStage === 2)
-                            // Auto-select all pending applications
-                            const newReviewed = new Set(reviewedApplications)
-                            pendingApps.forEach((app) => newReviewed.add(app.id))
-                            setReviewedApplications(newReviewed)
-                            setSelectAllUnsubmitted(true)
-                          }}
-                        >
-                          <CheckCircle className="h-4 w-4 mr-2" />
-                          Review All Pending ({filteredApplications.filter((app) => app.currentStage === 2).length})
-                        </Button>
-                        <Button variant="outline" className="border-orange-300 text-orange-700 bg-transparent">
-                          <Download className="h-4 w-4 mr-2" />
-                          Export Pending Applications
-                        </Button>
-                        <Button variant="outline" className="border-orange-300 text-orange-700 bg-transparent">
-                          <FileText className="h-4 w-4 mr-2" />
-                          Generate Report
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
-              </div>
-            )}
-          </TabsContent>
-
-          {/* Messages Tab */}
-          <TabsContent value="messages">
-            <MessagingSystem user={user} />
-          </TabsContent>
-
-          {/* Activity Tab */}
-          <TabsContent value="activity">
-            <ActivityLogs user={user} />
-          </TabsContent>
-        </Tabs>
-      </div>
+              </SheetContent>
+            </Sheet>
+          </CardContent>
+        </Card>
+      </main>
     </div>
   )
 }

@@ -1,4 +1,6 @@
 import type { User, UserType } from "@/types"
+import type { NextAuthOptions } from "next-auth"
+import CredentialsProvider from "next-auth/providers/credentials"
 
 // Mock user data - in production this would come from a database
 const mockUsers: User[] = [
@@ -124,4 +126,60 @@ export function canPrintRejectionComments(user: User): boolean {
     "catchment_chairperson",
   ]
   return allowedUserTypes.includes(user.userType)
+}
+
+export const authOptions: NextAuthOptions = {
+  providers: [
+    CredentialsProvider({
+      name: "Credentials",
+      credentials: {
+        username: { label: "Username", type: "text", placeholder: "chairperson" },
+        password: { label: "Password", type: "password" },
+      },
+      async authorize(credentials) {
+        // This is a mock authentication.
+        // In a real application, you'd validate against a database.
+        if (credentials?.username === "chairperson" && credentials?.password === "password") {
+          return {
+            id: "1",
+            name: "UMSCC Chairperson",
+            email: "chairperson@umscc.gov.zw",
+            role: "chairperson",
+          }
+        }
+        // Add other roles like 'manager', 'officer' here
+        if (credentials?.username === "manager" && credentials?.password === "password") {
+          return {
+            id: "2",
+            name: "Catchment Manager",
+            email: "manager@umscc.gov.zw",
+            role: "manager",
+          }
+        }
+        return null
+      },
+    }),
+  ],
+  session: {
+    strategy: "jwt",
+  },
+  callbacks: {
+    async jwt({ token, user }) {
+      if (user) {
+        token.role = (user as any).role
+      }
+      return token
+    },
+    async session({ session, token }) {
+      if (session.user) {
+        ;(session.user as any).role = token.role
+      }
+      return session
+    },
+  },
+  pages: {
+    signIn: "/",
+  },
+  // Using `trustHost` is recommended for Vercel deployments
+  trustHost: true,
 }
